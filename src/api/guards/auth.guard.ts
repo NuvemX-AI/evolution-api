@@ -1,53 +1,54 @@
-import { InstanceDto } from '@api/dto/instance.dto';
-import { prismaRepository } from '@api/server.module';
-import { Auth, configService, Database } from '@config/env.config';
-import { Logger } from '@config/logger.config';
-import { ForbiddenException, UnauthorizedException } from '@exceptions';
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { PrismaRepository } from '../repository/repository.service';
+import { HttpStatus } from '../constants/http-status';
 
-const logger = new Logger('GUARD');
+export async function validarInstancia(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
 
-async function apikey(req: Request, _: Response, next: NextFunction) {
-  const env = configService.get<Auth>('AUTHENTICATION').API_KEY;
-  const key = req.get('apikey');
-  const db = configService.get<Database>('DATABASE');
-
-  if (!key) {
-    throw new UnauthorizedException();
+  if (!token) {
+    return res.status(HttpStatus.UNAUTHORIZED).json({
+      status: HttpStatus.UNAUTHORIZED,
+      error: 'Unauthorized',
+      response: {
+        message: ['Token de autenticação ausente.'],
+      },
+    });
   }
-
-  if (env.KEY === key) {
-    return next();
-  }
-
-  if ((req.originalUrl.includes('/instance/create') || req.originalUrl.includes('/instance/fetchInstances')) && !key) {
-    throw new ForbiddenException('Missing global api key', 'The global api key must be set');
-  }
-  const param = req.params as unknown as InstanceDto;
 
   try {
-    if (param?.instanceName) {
-      const instance = await prismaRepository.instance.findUnique({
-        where: { name: param.instanceName },
-      });
-      if (instance.token === key) {
-        return next();
-      }
-    } else {
-      if (req.originalUrl.includes('/instance/fetchInstances') && db.SAVE_DATA.INSTANCE) {
-        const instanceByKey = await prismaRepository.instance.findFirst({
-          where: { token: key },
-        });
-        if (instanceByKey) {
-          return next();
-        }
-      }
-    }
-  } catch (error) {
-    logger.error(error);
-  }
+    const prismaRepository = req.app.get('prismaRepository') as PrismaRepository;
 
-  throw new UnauthorizedException();
+    const instance = await prismaRepository.instance.findFirst({
+      where: { token },
+    });
+
+    if (!instance) {
+      return res.status(HttpStatus.UNAUTHORIZED).json({
+        status: HttpStatus.UNAUTHORIZED,
+        error: 'Unauthorized',
+        response: {
+          message: ['Token inválido ou instância não encontrada.'],
+        },
+      });
+    }
+
+    req['instance'] = instance;
+    next();
+  } catch (error) {
+    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      error: 'Erro interno no servidor',
+      response: {
+        message: ['Erro ao validar token.'],
+        detail: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
 }
 
-export const authGuard = { apikey };
+export const authGuard = validarInstancia;

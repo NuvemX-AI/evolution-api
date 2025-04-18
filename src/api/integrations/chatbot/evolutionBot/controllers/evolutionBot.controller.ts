@@ -1,10 +1,10 @@
-import { IgnoreJidDto } from '@api/dto/chatbot.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { PrismaRepository } from '../../../../repository/repository.service';
+import { WAMonitoringService } from '../../../../services/monitor.service';
 import { Logger } from '@config/logger.config';
 import { EvolutionBot } from '@prisma/client';
-import { getConversationMessage } from '@utils/getConversationMessage';
+import { getConversationMessage } from '../../../../utils/getConversationMessage';
 
 import { ChatbotController, ChatbotControllerInterface, EmitData } from '../../chatbot.controller';
 import { EvolutionBotDto } from '../dto/evolutionBot.dto';

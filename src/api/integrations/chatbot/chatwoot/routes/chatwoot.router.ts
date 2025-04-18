@@ -1,4 +1,4 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
+import { RouterBroker } from '../../../../abstract/abstract.router';
 import { InstanceDto } from '@api/dto/instance.dto';
 import { ChatwootDto } from '@api/integrations/chatbot/chatwoot/dto/chatwoot.dto';
 import { HttpStatus } from '@api/routes/index.router';

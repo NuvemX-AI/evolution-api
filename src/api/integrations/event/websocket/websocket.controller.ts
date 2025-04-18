@@ -1,5 +1,5 @@
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
+import { PrismaRepository } from '../../../repository/repository.service';
+import { WAMonitoringService } from '../../../services/monitor.service';
 import { configService, Cors, Log, Websocket } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { Server } from 'http';

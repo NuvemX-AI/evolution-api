@@ -1,7 +1,7 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { SettingsDto } from '@api/dto/settings.dto';
-import { settingsController } from '@api/server.module';
+import { RouterBroker } from '../abstract/abstract.router';
+import { InstanceDto } from '../dto/instance.dto';
+import { SettingsDto } from '../dto/settings.dto';
+import { settingsController } from '../server.module';
 import { settingsSchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';
 

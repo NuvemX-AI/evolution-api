@@ -1,4 +1,4 @@
-import { Constructor } from '@api/integrations/integration.dto';
+import { Constructor } from '../integration.dto';
 import { JsonValue } from '@prisma/client/runtime/library';
 
 export class EventDto {
@@ -72,5 +72,9 @@ export function EventInstanceMixin<TBase extends Constructor>(Base: TBase) {
       useTLS?: boolean;
       events?: string[];
     };
+
+    constructor(...args: any[]) {
+      super(...args);
+    }
   };
 }

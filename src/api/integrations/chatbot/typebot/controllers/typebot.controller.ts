@@ -1,15 +1,15 @@
-import { IgnoreJidDto } from '@api/dto/chatbot.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { TypebotDto } from '@api/integrations/chatbot/typebot/dto/typebot.dto';
-import { TypebotService } from '@api/integrations/chatbot/typebot/services/typebot.service';
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
-import { Events } from '@api/types/wa.types';
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { TypebotDto } from '../dto/typebot.dto';
+import { TypebotService } from '../services/typebot.service';
+import { PrismaRepository } from '../../../../repository/repository.service';
+import { WAMonitoringService } from '../../../../services/monitor.service';
+import { Events } from '../../../../types/wa.types';
 import { configService, Typebot } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { BadRequestException } from '@exceptions';
 import { Typebot as TypebotModel } from '@prisma/client';
-import { getConversationMessage } from '@utils/getConversationMessage';
+import { getConversationMessage } from '../../../../utils/getConversationMessage';
 import axios from 'axios';
 
 import { ChatbotController, ChatbotControllerInterface } from '../../chatbot.controller';

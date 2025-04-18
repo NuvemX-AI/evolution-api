@@ -13,7 +13,7 @@ import { Auth, Chatwoot, ConfigService, HttpServer } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { NotFoundException } from '@exceptions';
 import { Contact, Message, Prisma } from '@prisma/client';
-import { createJid } from '@utils/createJid';
+import { createJid } from '../utils/createJid';
 import { WASocket } from 'baileys';
 import { isArray } from 'class-validator';
 import EventEmitter2 from 'eventemitter2';

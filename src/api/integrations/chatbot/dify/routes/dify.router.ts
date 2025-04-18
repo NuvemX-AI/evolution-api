@@ -1,9 +1,9 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { IgnoreJidDto } from '@api/dto/chatbot.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { DifyDto, DifySettingDto } from '@api/integrations/chatbot/dify/dto/dify.dto';
-import { HttpStatus } from '@api/routes/index.router';
-import { difyController } from '@api/server.module';
+import { RouterBroker } from '../../../../abstract/abstract.router';
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { DifyDto, DifySettingDto } from '../dto/dify.dto';
+import { HttpStatus } from '../../../../routes/index.router';
+import { difyController } from '../../../../server.module';
 import {
   difyIgnoreJidSchema,
   difySchema,

@@ -1,4 +1,4 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
+import { RouterBroker } from '../abstract/abstract.router';
 import {
   ArchiveChatDto,
   BlockUserDto,

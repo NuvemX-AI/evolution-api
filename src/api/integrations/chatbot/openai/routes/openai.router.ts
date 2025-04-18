@@ -1,9 +1,9 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { IgnoreJidDto } from '@api/dto/chatbot.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { OpenaiCredsDto, OpenaiDto, OpenaiSettingDto } from '@api/integrations/chatbot/openai/dto/openai.dto';
-import { HttpStatus } from '@api/routes/index.router';
-import { openaiController } from '@api/server.module';
+import { RouterBroker } from '../../../../abstract/abstract.router';
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { OpenaiCredsDto, OpenaiDto, OpenaiSettingDto } from '../dto/openai.dto';
+import { HttpStatus } from '../../../../routes/index.router';
+import { openaiController } from '../../../../server.module';
 import {
   instanceSchema,
   openaiCredsSchema,

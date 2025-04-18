@@ -1,9 +1,10 @@
+console.log('========== LOADING FILE: abstract.router.ts ==========');
 import 'express-async-errors';
 
-import { GetParticipant, GroupInvite } from '@api/dto/group.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
+import { GetParticipant, GroupInvite } from '../dto/group.dto';
+import { InstanceDto } from '../dto/instance.dto';
 import { Logger } from '@config/logger.config';
-import { BadRequestException } from '@exceptions';
+import { BadRequestException } from '../../common/exceptions';
 import { Request } from 'express';
 import { JSONSchema7 } from 'json-schema';
 import { validate } from 'jsonschema';
@@ -19,42 +20,53 @@ const logger = new Logger('Validate');
 
 export abstract class RouterBroker {
   constructor() {}
+
   public routerPath(path: string, param = true) {
     let route = '/' + path;
     param ? (route += '/:instanceName') : null;
-
     return route;
   }
 
+  // === MÉTODO CORRIGIDO COM DEBUG ABSOLUTO ===
   public async dataValidate<T>(args: DataValidate<T>) {
     const { request, schema, ClassRef, execute } = args;
 
-    const ref = new ClassRef();
-    const body = request.body;
-    const instance = request.params as unknown as InstanceDto;
+    // DEBUG de execução
+    console.log('### DEBUG VERSÃO CORRETA CARREGADA - dataValidate');
+    console.log('BODY:', request.body);
+    console.log('QUERY:', request.query);
+    console.log('PARAMS:', request.params);
 
-    if (request?.query && Object.keys(request.query).length > 0) {
-      Object.assign(instance, request.query);
-    }
+    // Merge definitivo de todos os campos
+    const merged = {
+      ...request.body,
+      ...request.query,
+      ...request.params,
+    };
+    console.log('MERGED:', merged);
 
-    if (request.originalUrl.includes('/instance/create')) {
-      Object.assign(instance, body);
-    }
+    // Garante passagem de dados para validação
+    const ref = new ClassRef(merged);
+    console.log('REF VALIDADO:', ref);
 
-    Object.assign(ref, body);
+    // Instancia para controller, se necessário
+    const instance = new InstanceDto(merged);
 
+    // Mostra o schema no console
+    console.log('SCHEMA:', schema);
+
+    // Validação
     const v = schema ? validate(ref, schema) : { valid: true, errors: [] };
 
     if (!v.valid) {
-      const message: any[] = v.errors.map(({ stack, schema }) => {
-        let message: string;
+      const messageArr: string[] = v.errors.map(({ stack, schema }) => {
         if (schema['description']) {
-          message = schema['description'];
-        } else {
-          message = stack.replace('instance.', '');
+          return schema['description'];
         }
-        return message;
+        return stack.replace('instance.', '');
       });
+      const message = messageArr.join('\n');
+      console.log('### ERRO DE VALIDAÇÃO:', message);
       logger.error(message);
       throw new BadRequestException(message);
     }
@@ -66,7 +78,6 @@ export abstract class RouterBroker {
     const { request, ClassRef, schema, execute } = args;
 
     const instance = request.params as unknown as InstanceDto;
-
     const ref = new ClassRef();
 
     Object.assign(ref, request.body);
@@ -74,20 +85,15 @@ export abstract class RouterBroker {
     const v = validate(ref, schema);
 
     if (!v.valid) {
-      const message: any[] = v.errors.map(({ property, stack, schema }) => {
-        let message: string;
+      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
         if (schema['description']) {
-          message = schema['description'];
-        } else {
-          message = stack.replace('instance.', '');
+          return schema['description'];
         }
-        return {
-          property: property.replace('instance.', ''),
-          message,
-        };
+        return stack.replace('instance.', '');
       });
-      logger.error([...message]);
-      throw new BadRequestException(...message);
+      const message = messageArr.join('\n');
+      logger.error(message);
+      throw new BadRequestException(message);
     }
 
     return await execute(instance, ref);
@@ -99,13 +105,15 @@ export abstract class RouterBroker {
     const instance = request.params as unknown as InstanceDto;
     const body = request.body;
 
-    let groupJid = body?.groupJid;
+    let groupJid: string = body?.groupJid;
 
     if (!groupJid) {
-      if (request.query?.groupJid) {
+      if (typeof request.query?.groupJid === 'string') {
         groupJid = request.query.groupJid;
       } else {
-        throw new BadRequestException('The group id needs to be informed in the query', 'ex: "groupJid=120362@g.us"');
+        throw new BadRequestException(
+          'The group id needs to be informed in the query.\nex: "groupJid=120362@g.us"'
+        );
       }
     }
 
@@ -124,20 +132,15 @@ export abstract class RouterBroker {
     const v = validate(ref, schema);
 
     if (!v.valid) {
-      const message: any[] = v.errors.map(({ property, stack, schema }) => {
-        let message: string;
+      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
         if (schema['description']) {
-          message = schema['description'];
-        } else {
-          message = stack.replace('instance.', '');
+          return schema['description'];
         }
-        return {
-          property: property.replace('instance.', ''),
-          message,
-        };
+        return stack.replace('instance.', '');
       });
-      logger.error([...message]);
-      throw new BadRequestException(...message);
+      const message = messageArr.join('\n');
+      logger.error(message);
+      throw new BadRequestException(message);
     }
 
     return await execute(instance, ref);
@@ -150,8 +153,7 @@ export abstract class RouterBroker {
 
     if (!inviteCode?.inviteCode) {
       throw new BadRequestException(
-        'The group invite code id needs to be informed in the query',
-        'ex: "inviteCode=F1EX5QZxO181L3TMVP31gY" (Obtained from group join link)',
+        'The group invite code id needs to be informed in the query.\nex: "inviteCode=F1EX5QZxO181L3TMVP31gY" (Obtained from group join link)'
       );
     }
 
@@ -166,20 +168,15 @@ export abstract class RouterBroker {
     const v = validate(ref, schema);
 
     if (!v.valid) {
-      const message: any[] = v.errors.map(({ property, stack, schema }) => {
-        let message: string;
+      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
         if (schema['description']) {
-          message = schema['description'];
-        } else {
-          message = stack.replace('instance.', '');
+          return schema['description'];
         }
-        return {
-          property: property.replace('instance.', ''),
-          message,
-        };
+        return stack.replace('instance.', '');
       });
-      logger.error([...message]);
-      throw new BadRequestException(...message);
+      const message = messageArr.join('\n');
+      logger.error(message);
+      throw new BadRequestException(message);
     }
 
     return await execute(instance, ref);
@@ -205,20 +202,15 @@ export abstract class RouterBroker {
     const v = validate(ref, schema);
 
     if (!v.valid) {
-      const message: any[] = v.errors.map(({ property, stack, schema }) => {
-        let message: string;
+      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
         if (schema['description']) {
-          message = schema['description'];
-        } else {
-          message = stack.replace('instance.', '');
+          return schema['description'];
         }
-        return {
-          property: property.replace('instance.', ''),
-          message,
-        };
+        return stack.replace('instance.', '');
       });
-      logger.error([...message]);
-      throw new BadRequestException(...message);
+      const message = messageArr.join('\n');
+      logger.error(message);
+      throw new BadRequestException(message);
     }
 
     return await execute(instance, ref);

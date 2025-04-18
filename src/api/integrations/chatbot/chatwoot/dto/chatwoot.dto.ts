@@ -21,6 +21,7 @@ export class ChatwootDto {
   ignoreJids?: string[];
 }
 
+// Mixin usado para adicionar propriedades relacionadas ao Chatwoot
 export function ChatwootInstanceMixin<TBase extends Constructor>(Base: TBase) {
   return class extends Base {
     chatwootAccountId?: string;
@@ -37,5 +38,9 @@ export function ChatwootInstanceMixin<TBase extends Constructor>(Base: TBase) {
     chatwootOrganization?: string;
     chatwootLogo?: string;
     chatwootAutoCreate?: boolean;
+
+    constructor(...args: any[]) {
+      super(...args);
+    }
   };
 }

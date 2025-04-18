@@ -1,128 +1,96 @@
-import { CacheEngine } from '@cache/cacheengine';
-import { Chatwoot, configService, ProviderSession } from '@config/env.config';
-import { eventEmitter } from '@config/event.config';
-import { Logger } from '@config/logger.config';
+// src/api/server.module.ts
 
-import { CallController } from './controllers/call.controller';
-import { ChatController } from './controllers/chat.controller';
-import { GroupController } from './controllers/group.controller';
-import { InstanceController } from './controllers/instance.controller';
-import { LabelController } from './controllers/label.controller';
-import { ProxyController } from './controllers/proxy.controller';
-import { SendMessageController } from './controllers/sendMessage.controller';
-import { SettingsController } from './controllers/settings.controller';
-import { TemplateController } from './controllers/template.controller';
-import { ChannelController } from './integrations/channel/channel.controller';
-import { EvolutionController } from './integrations/channel/evolution/evolution.controller';
-import { MetaController } from './integrations/channel/meta/meta.controller';
-import { BaileysController } from './integrations/channel/whatsapp/baileys.controller';
-import { ChatbotController } from './integrations/chatbot/chatbot.controller';
-import { ChatwootController } from './integrations/chatbot/chatwoot/controllers/chatwoot.controller';
-import { ChatwootService } from './integrations/chatbot/chatwoot/services/chatwoot.service';
-import { DifyController } from './integrations/chatbot/dify/controllers/dify.controller';
-import { DifyService } from './integrations/chatbot/dify/services/dify.service';
-import { EvolutionBotController } from './integrations/chatbot/evolutionBot/controllers/evolutionBot.controller';
-import { EvolutionBotService } from './integrations/chatbot/evolutionBot/services/evolutionBot.service';
-import { FlowiseController } from './integrations/chatbot/flowise/controllers/flowise.controller';
-import { FlowiseService } from './integrations/chatbot/flowise/services/flowise.service';
-import { OpenaiController } from './integrations/chatbot/openai/controllers/openai.controller';
-import { OpenaiService } from './integrations/chatbot/openai/services/openai.service';
-import { TypebotController } from './integrations/chatbot/typebot/controllers/typebot.controller';
-import { TypebotService } from './integrations/chatbot/typebot/services/typebot.service';
-import { EventManager } from './integrations/event/event.manager';
-import { S3Controller } from './integrations/storage/s3/controllers/s3.controller';
-import { S3Service } from './integrations/storage/s3/services/s3.service';
-import { ProviderFiles } from './provider/sessions';
+// import { authGuard } from './guards/auth.guard'; // Desativado temporariamente
+import { instanceExistsGuard, instanceLoggedGuard } from './guards/instance.guard';
+import Telemetry from './guards/telemetry.guard';
+import { ChannelRouter } from './integrations/channel/channel.router';
+
+import { configService, ConfigService } from '../config/env.config';
 import { PrismaRepository } from './repository/repository.service';
+import { WAMonitoringService } from './services/wa-monitoring.service';
 import { CacheService } from './services/cache.service';
-import { WAMonitoringService } from './services/monitor.service';
-import { ProxyService } from './services/proxy.service';
-import { SettingsService } from './services/settings.service';
-import { TemplateService } from './services/template.service';
+import { CacheEngine } from '../cache/cacheengine';
+import { ProviderFiles } from './provider/sessions';
+import { ChatwootService } from './integrations/chatbot/chatwoot';
 
-const logger = new Logger('WA MODULE');
+import { Router } from 'express';
+import fs from 'fs';
+import mimeTypes from 'mime-types';
+import path from 'path';
 
-let chatwootCache: CacheService = null;
-if (configService.get<Chatwoot>('CHATWOOT').ENABLED) {
-  chatwootCache = new CacheService(new CacheEngine(configService, ChatwootService.name).getEngine());
+import { InstanceRouter } from './routes/instance.router';
+import { MessageRouter } from './routes/sendMessage.router';
+
+enum HttpStatus {
+  OK = 200,
+  CREATED = 201,
+  NOT_FOUND = 404,
+  FORBIDDEN = 403,
+  BAD_REQUEST = 400,
+  UNAUTHORIZED = 401,
+  INTERNAL_SERVER_ERROR = 500,
 }
 
-export const cache = new CacheService(new CacheEngine(configService, 'instance').getEngine());
-const baileysCache = new CacheService(new CacheEngine(configService, 'baileys').getEngine());
+// ====== MOVA A INICIALIZAÇÃO AQUI PARA FICAR ANTES DAS ROTAS ======
+const cacheEngine: any = new CacheEngine(configService, 'evolution');
+const cacheInstance = new CacheService(cacheEngine);
 
-let providerFiles: ProviderFiles = null;
-if (configService.get<ProviderSession>('PROVIDER').ENABLED) {
-  providerFiles = new ProviderFiles(configService);
-}
+const prismaRepository = new PrismaRepository(configService);
 
-export const prismaRepository = new PrismaRepository(configService);
-
-export const waMonitor = new WAMonitoringService(
-  eventEmitter,
+const waMonitor = new WAMonitoringService({
+  eventEmitter: null,
   configService,
   prismaRepository,
-  providerFiles,
-  cache,
-  chatwootCache,
-  baileysCache,
-);
+  providerFiles: new ProviderFiles(configService),
+  chatwootService: new ChatwootService(),
+  settingsService: null,
+  proxyService: null,
+  cacheService: cacheInstance,
+});
 
-const s3Service = new S3Service(prismaRepository);
-export const s3Controller = new S3Controller(s3Service);
+// ====== ROTAS E USO DO waMonitor ======
+const router: Router = Router();
+const serverConfig = configService.get('SERVER');
+const guards = [instanceExistsGuard, instanceLoggedGuard];
+const telemetry = new Telemetry();
+const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
 
-const templateService = new TemplateService(waMonitor, prismaRepository, configService);
-export const templateController = new TemplateController(templateService);
+// rota de assets frontend manager
+router.get('/assets/*', (req, res) => {
+  const fileName = req.params[0];
+  const basePath = path.join(process.cwd(), 'manager', 'dist');
+  const filePath = path.join(basePath, 'assets/', fileName);
 
-const proxyService = new ProxyService(waMonitor);
-export const proxyController = new ProxyController(proxyService, waMonitor);
+  if (fs.existsSync(filePath)) {
+    res.set('Content-Type', mimeTypes.lookup(filePath) || 'text/css');
+    res.send(fs.readFileSync(filePath));
+  } else {
+    res.status(404).send('File not found');
+  }
+});
 
-const chatwootService = new ChatwootService(waMonitor, configService, prismaRepository, chatwootCache);
-export const chatwootController = new ChatwootController(chatwootService, configService, prismaRepository);
+router
+  .use((req, res, next) => telemetry.collectTelemetry(req, res, next))
+  .get('/', (req, res) => {
+    res.status(HttpStatus.OK).json({
+      status: HttpStatus.OK,
+      message: 'Welcome to the Evolution API, it is working!',
+      version: packageJson.version,
+      clientName: process.env.DATABASE_CONNECTION_CLIENT_NAME,
+      documentation: `https://doc.evolution-api.com`,
+    });
+  })
+  .post('/verify-creds', async (req, res) => {
+    return res.status(HttpStatus.OK).json({
+      status: HttpStatus.OK,
+      message: 'Credentials are valid (authGuard desativado temporariamente)',
+      facebookAppId: process.env.FACEBOOK_APP_ID,
+      facebookConfigId: process.env.FACEBOOK_CONFIG_ID,
+      facebookUserToken: process.env.FACEBOOK_USER_TOKEN,
+    });
+  })
+  .use('/instance', new InstanceRouter(configService, ...guards).router)
+  .use('/message', new MessageRouter(waMonitor, ...guards).router) // <-- waMonitor AGORA EXISTE aqui!
+  .use('', new ChannelRouter(configService, ...guards).router);
 
-const settingsService = new SettingsService(waMonitor);
-export const settingsController = new SettingsController(settingsService);
-
-export const instanceController = new InstanceController(
-  waMonitor,
-  configService,
-  prismaRepository,
-  eventEmitter,
-  chatwootService,
-  settingsService,
-  proxyController,
-  cache,
-  chatwootCache,
-  baileysCache,
-  providerFiles,
-);
-export const sendMessageController = new SendMessageController(waMonitor);
-export const callController = new CallController(waMonitor);
-export const chatController = new ChatController(waMonitor);
-export const groupController = new GroupController(waMonitor);
-export const labelController = new LabelController(waMonitor);
-
-export const eventManager = new EventManager(prismaRepository, waMonitor);
-export const chatbotController = new ChatbotController(prismaRepository, waMonitor);
-export const channelController = new ChannelController(prismaRepository, waMonitor);
-
-// channels
-export const evolutionController = new EvolutionController(prismaRepository, waMonitor);
-export const metaController = new MetaController(prismaRepository, waMonitor);
-export const baileysController = new BaileysController(waMonitor);
-// chatbots
-const typebotService = new TypebotService(waMonitor, configService, prismaRepository);
-export const typebotController = new TypebotController(typebotService, prismaRepository, waMonitor);
-
-const openaiService = new OpenaiService(waMonitor, configService, prismaRepository);
-export const openaiController = new OpenaiController(openaiService, prismaRepository, waMonitor);
-
-const difyService = new DifyService(waMonitor, configService, prismaRepository);
-export const difyController = new DifyController(difyService, prismaRepository, waMonitor);
-
-const evolutionBotService = new EvolutionBotService(waMonitor, configService, prismaRepository);
-export const evolutionBotController = new EvolutionBotController(evolutionBotService, prismaRepository, waMonitor);
-
-const flowiseService = new FlowiseService(waMonitor, configService, prismaRepository);
-export const flowiseController = new FlowiseController(flowiseService, prismaRepository, waMonitor);
-
-logger.info('Module - ON');
+export { HttpStatus, router, waMonitor, prismaRepository };

@@ -16,22 +16,20 @@ export class ChatwootController {
     private readonly prismaRepository: PrismaRepository,
   ) {}
 
-  public async createChatwoot(instance: InstanceDto, data: ChatwootDto) {
-    if (!this.configService.get<Chatwoot>('CHATWOOT').ENABLED) throw new BadRequestException('Chatwoot is disabled');
+  public async createChatwoot(instance: InstanceDto, data: ChatwootDto): Promise<any> {
+    if (!this.configService.get<Chatwoot>('CHATWOOT').ENABLED)
+      throw new BadRequestException('Chatwoot is disabled');
 
     if (data?.enabled) {
       if (!isURL(data.url, { require_tld: false })) {
         throw new BadRequestException('url is not valid');
       }
-
       if (!data.accountId) {
         throw new BadRequestException('accountId is required');
       }
-
       if (!data.token) {
         throw new BadRequestException('token is required');
       }
-
       if (data.signMsg !== true && data.signMsg !== false) {
         throw new BadRequestException('signMsg is required');
       }
@@ -55,7 +53,8 @@ export class ChatwootController {
   }
 
   public async findChatwoot(instance: InstanceDto): Promise<ChatwootDto & { webhook_url: string }> {
-    if (!this.configService.get<Chatwoot>('CHATWOOT').ENABLED) throw new BadRequestException('Chatwoot is disabled');
+    if (!this.configService.get<Chatwoot>('CHATWOOT').ENABLED)
+      throw new BadRequestException('Chatwoot is disabled');
 
     const result = await this.chatwootService.find(instance);
 
@@ -81,8 +80,9 @@ export class ChatwootController {
     return response;
   }
 
-  public async receiveWebhook(instance: InstanceDto, data: any) {
-    if (!this.configService.get<Chatwoot>('CHATWOOT').ENABLED) throw new BadRequestException('Chatwoot is disabled');
+  public async receiveWebhook(instance: InstanceDto, data: any): Promise<any> {
+    if (!this.configService.get<Chatwoot>('CHATWOOT').ENABLED)
+      throw new BadRequestException('Chatwoot is disabled');
 
     const chatwootCache = new CacheService(new CacheEngine(this.configService, ChatwootService.name).getEngine());
     const chatwootService = new ChatwootService(waMonitor, this.configService, this.prismaRepository, chatwootCache);

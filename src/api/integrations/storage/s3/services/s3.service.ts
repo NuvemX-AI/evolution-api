@@ -1,7 +1,7 @@
-import { InstanceDto } from '@api/dto/instance.dto';
-import { MediaDto } from '@api/integrations/storage/s3/dto/media.dto';
-import { getObjectUrl } from '@api/integrations/storage/s3/libs/minio.server';
-import { PrismaRepository } from '@api/repository/repository.service';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { MediaDto } from '../dto/media.dto';
+import { getObjectUrl } from '../libs/minio.server';
+import { PrismaRepository } from '../../../../repository/repository.service';
 import { Logger } from '@config/logger.config';
 import { BadRequestException } from '@exceptions';
 

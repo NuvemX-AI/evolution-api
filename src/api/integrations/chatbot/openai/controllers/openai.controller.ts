@@ -1,14 +1,14 @@
-import { IgnoreJidDto } from '@api/dto/chatbot.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { OpenaiCredsDto, OpenaiDto } from '@api/integrations/chatbot/openai/dto/openai.dto';
-import { OpenaiService } from '@api/integrations/chatbot/openai/services/openai.service';
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { OpenaiCredsDto, OpenaiDto } from '../dto/openai.dto';
+import { OpenaiService } from '../services/openai.service';
+import { PrismaRepository } from '../../../../repository/repository.service';
+import { WAMonitoringService } from '../../../../services/monitor.service';
 import { configService, Openai } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { BadRequestException } from '@exceptions';
 import { OpenaiBot } from '@prisma/client';
-import { getConversationMessage } from '@utils/getConversationMessage';
+import { getConversationMessage } from '../../../../utils/getConversationMessage';
 import OpenAI from 'openai';
 
 import { ChatbotController, ChatbotControllerInterface, EmitData } from '../../chatbot.controller';

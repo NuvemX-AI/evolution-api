@@ -1,6 +1,6 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { HandleLabelDto, LabelDto } from '@api/dto/label.dto';
-import { labelController } from '@api/server.module';
+import { RouterBroker } from '../abstract/abstract.router';
+import { HandleLabelDto, LabelDto } from '../dto/label.dto';
+import { labelController } from '../server.module';
 import { handleLabelSchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';
 

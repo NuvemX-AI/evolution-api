@@ -1,4 +1,4 @@
-import { S3Router } from '@api/integrations/storage/s3/routes/s3.router';
+import { S3Router } from './s3/routes/s3.router';
 import { Router } from 'express';
 
 export class StorageRouter {

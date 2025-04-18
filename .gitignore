@@ -46,3 +46,7 @@ lerna-debug.log*
 .tool-versions
 
 /prisma/migrations/*
+.env*
+node_modules/
+dist/
+

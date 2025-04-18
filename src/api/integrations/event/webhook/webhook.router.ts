@@ -1,8 +1,8 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { EventDto } from '@api/integrations/event/event.dto';
-import { HttpStatus } from '@api/routes/index.router';
-import { eventManager } from '@api/server.module';
+import { RouterBroker } from '../../../abstract/abstract.router';
+import { InstanceDto } from '../../../dto/instance.dto';
+import { EventDto } from '../event.dto';
+import { HttpStatus } from '../../../routes/index.router';
+import { eventManager } from '../../../server.module';
 import { ConfigService } from '@config/env.config';
 import { instanceSchema, webhookSchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';

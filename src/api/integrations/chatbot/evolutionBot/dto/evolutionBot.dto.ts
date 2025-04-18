@@ -1,6 +1,6 @@
 import { TriggerOperator, TriggerType } from '@prisma/client';
 
-export class EvolutionBotDto {
+export interface EvolutionBotDto {
   enabled?: boolean;
   description?: string;
   apiUrl?: string;
@@ -16,12 +16,12 @@ export class EvolutionBotDto {
   triggerType?: TriggerType;
   triggerOperator?: TriggerOperator;
   triggerValue?: string;
-  ignoreJids?: any;
+  ignoreJids?: string[]; // tipando corretamente como array de strings
   splitMessages?: boolean;
   timePerChar?: number;
 }
 
-export class EvolutionBotSettingDto {
+export interface EvolutionBotSettingDto {
   expire?: number;
   keywordFinish?: string;
   delayMessage?: number;
@@ -31,7 +31,7 @@ export class EvolutionBotSettingDto {
   keepOpen?: boolean;
   debounceTime?: number;
   botIdFallback?: string;
-  ignoreJids?: any;
+  ignoreJids?: string[];
   splitMessages?: boolean;
   timePerChar?: number;
 }

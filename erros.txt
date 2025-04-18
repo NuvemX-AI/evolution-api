@@ -1,0 +1,613 @@
+src/api/controllers/chat.controller.ts(18,10): error TS2305: Module '"@api/repository/repository.service"' has no exported member 'Query'.
+src/api/controllers/chat.controller.ts(20,28): error TS2305: Module '"@prisma/client"' has no exported member 'MessageUpdate'.
+src/api/controllers/instance.controller.ts(39,42): error TS2339: Property 'init' does not exist on type 'ChannelController'.
+src/api/controllers/instance.controller.ts(88,26): error TS2339: Property 'setInstance' does not exist on type 'EventManager'.
+src/api/guards/instance.guard.ts(19,41): error TS2339: Property 'engine' does not exist on type 'CacheService'.
+src/api/guards/instance.guard.ts(23,47): error TS2339: Property 'instance' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(153,69): error TS2339: Property 'openaiSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(180,33): error TS2339: Property 'emit' does not exist on type 'ChatbotController'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(226,9): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(234,11): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(260,45): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatWhereInput'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(272,18): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatWhereInput'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(272,34): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(447,13): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(452,62): error TS2339: Property 'message' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/evolution/evolution.channel.service.ts(514,33): error TS2339: Property 'emit' does not exist on type 'ChatbotController'.
+src/api/integrations/channel/evolution/evolution.router.ts(11,50): error TS2339: Property 'receiveWebhook' does not exist on type 'EvolutionController'.
+src/api/integrations/channel/meta/meta.controller.ts(20,54): error TS2339: Property 'template' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/meta/meta.router.ts(17,47): error TS2339: Property 'receiveWebhook' does not exist on type 'MetaController'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(367,43): error TS2339: Property 'media' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(459,69): error TS2339: Property 'openaiSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(493,33): error TS2339: Property 'emit' does not exist on type 'ChatbotController'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(521,49): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(554,22): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(554,41): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(580,17): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(604,43): error TS2339: Property 'messageUpdate' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(631,41): error TS2339: Property 'messageUpdate' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(635,29): error TS2339: Property 'webhookUrl' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(636,44): error TS2339: Property 'webhookUrl' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/meta/whatsapp.business.service.ts(940,33): error TS2339: Property 'emit' does not exist on type 'ChatbotController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(17,52): error TS2339: Property 'onWhatsapp' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(27,52): error TS2339: Property 'profilePictureUrl' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(37,52): error TS2339: Property 'assertSessions' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(47,52): error TS2339: Property 'createParticipantNodes' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(57,52): error TS2339: Property 'getUSyncDevices' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(67,52): error TS2339: Property 'generateMessageTag' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(77,52): error TS2339: Property 'sendNode' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(87,52): error TS2339: Property 'signalRepositoryDecryptMessage' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/baileys.router.ts(97,52): error TS2339: Property 'getAuthState' does not exist on type 'BaileysController'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(251,9): error TS2322: Type '{ sessionId: string; }' is not assignable to type 'SessionWhereUniqueInput'.
+  Type '{ sessionId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: SessionWhereInput | SessionWhereInput[]; OR?: SessionWhereInput[]; NOT?: SessionWhereInput | SessionWhereInput[]; sessionId?: string | StringFilter<...>; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRela...'.
+    Property 'id' is missing in type '{ sessionId: string; }' but required in type '{ id: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(262,9): error TS2322: Type '{ sessionId: string; }' is not assignable to type 'SessionWhereUniqueInput'.
+  Type '{ sessionId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: SessionWhereInput | SessionWhereInput[]; OR?: SessionWhereInput[]; NOT?: SessionWhereInput | SessionWhereInput[]; sessionId?: string | StringFilter<...>; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRela...'.
+    Property 'id' is missing in type '{ sessionId: string; }' but required in type '{ id: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(266,54): error TS2339: Property 'creds' does not exist on type '{ id: string; instanceId: string; sessionId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(419,13): error TS2353: Object literal may only specify known properties, and 'disconnectionAt' does not exist in type '(Without<InstanceUpdateInput, InstanceUncheckedUpdateInput> & InstanceUncheckedUpdateInput) | (Without<...> & InstanceUpdateInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(514,11): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(753,19): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatSelect<DefaultArgs>'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(756,76): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(797,13): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(800,19): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type '(Without<ChatUpdateManyMutationInput, ChatUncheckedUpdateManyInput> & ChatUncheckedUpdateManyInput) | (Without<...> & ChatUpdateManyMutationInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(809,51): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(877,26): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(879,19): error TS2353: Object literal may only specify known properties, and 'profilePicUrl' does not exist in type '(Without<ContactUpdateManyMutationInput, ContactUncheckedUpdateManyInput> & ContactUncheckedUpdateManyInput) | (Without<...> & ContactUpdateManyMutationInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(931,20): error TS2353: Object literal may only specify known properties, and 'remoteJid_instanceId' does not exist in type 'ContactWhereUniqueInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(936,35): error TS2339: Property '$transaction' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(994,32): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1024,27): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageSelect<DefaultArgs>'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1028,35): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1181,51): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1182,33): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type 'ChatSelect<DefaultArgs>'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1188,26): error TS2339: Property 'name' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1196,27): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type '(Without<ChatUpdateInput, ChatUncheckedUpdateInput> & ChatUncheckedUpdateInput) | (Without<...> & ChatUpdateInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1242,71): error TS2339: Property 'openaiSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1266,23): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1270,30): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1271,91): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1273,88): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1277,89): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1279,86): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1300,47): error TS2339: Property 'media' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1349,35): error TS2339: Property 'emit' does not exist on type 'ChatbotController'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1357,22): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1384,26): error TS2353: Object literal may only specify known properties, and 'remoteJid_instanceId' does not exist in type 'ContactWhereUniqueInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1397,17): error TS2353: Object literal may only specify known properties, and 'remoteJid_instanceId' does not exist in type 'ContactWhereUniqueInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1452,15): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1477,43): error TS2339: Property 'messageUpdate' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1490,91): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1495,82): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1496,81): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1502,23): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<MessageUpdateInput, MessageUncheckedUpdateInput> & MessageUncheckedUpdateInput) | (Without<...> & MessageUpdateInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1520,41): error TS2339: Property 'messageUpdate' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1525,51): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1591,57): error TS2339: Property 'labelId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1594,20): error TS2353: Object literal may only specify known properties, and 'labelId_instanceId' does not exist in type 'LabelWhereUniqueInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1601,37): error TS2339: Property 'color' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1601,78): error TS2339: Property 'name' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(1612,15): error TS2353: Object literal may only specify known properties, and 'labelId_instanceId' does not exist in type 'LabelWhereUniqueInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(2023,13): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(2031,53): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(2226,67): error TS2339: Property 'openaiSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(2275,41): error TS2339: Property 'media' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(2324,33): error TS2339: Property 'emit' does not exist on type 'ChatbotController'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(2468,67): error TS2339: Property 'pushName' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(2468,102): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3337,9): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3454,9): error TS2353: Object literal may only specify known properties, and 'messageTimestamp' does not exist in type 'MessageOrderByWithRelationInput | MessageOrderByWithRelationInput[]'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3466,19): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3466,51): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3557,15): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3565,49): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3565,77): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3565,100): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3569,17): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type '(Without<MessageUpdateInput, MessageUncheckedUpdateInput> & MessageUncheckedUpdateInput) | (Without<...> & MessageUpdateInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3586,26): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3587,34): error TS2339: Property 'messageType' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3589,29): error TS2339: Property 'source' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3590,39): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3591,31): error TS2339: Property 'pushName' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3592,34): error TS2339: Property 'participant' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3593,30): error TS2339: Property 'message' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3920,20): error TS2339: Property 'color' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3921,19): error TS2339: Property 'name' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3922,17): error TS2339: Property 'labelId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(3923,27): error TS2339: Property 'predefinedId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4225,11): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ContactWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4231,48): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4234,46): error TS2339: Property 'pushName' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4235,50): error TS2339: Property 'profilePicUrl' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4363,13): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4364,13): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4365,13): error TS2353: Object literal may only specify known properties, and 'messageTimestamp' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4367,20): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4367,38): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4371,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<MessageUpdateManyMutationInput, MessageUncheckedUpdateManyInput> & MessageUncheckedUpdateManyInput) | (Without<...> & MessageUpdateManyMutationInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4387,55): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'ChatWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4391,15): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4392,15): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4393,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type 'MessageWhereInput'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4399,22): error TS2339: Property 'unreadMessages' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4402,17): error TS2353: Object literal may only specify known properties, and 'unreadMessages' does not exist in type '(Without<ChatUpdateInput, ChatUncheckedUpdateInput> & ChatUncheckedUpdateInput) | (Without<...> & ChatUpdateInput)'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4412,33): error TS2339: Property '$executeRawUnsafe' does not exist on type 'PrismaRepository'.
+src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts(4436,33): error TS2339: Property '$executeRawUnsafe' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/chatbot.controller.ts(92,34): error TS2339: Property 'emit' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/chatbot.controller.ts(94,29): error TS2339: Property 'emit' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/chatbot.controller.ts(96,28): error TS2339: Property 'emit' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/chatbot.controller.ts(98,26): error TS2339: Property 'emit' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/chatbot.controller.ts(100,29): error TS2339: Property 'emit' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/chatbot.controller.ts(167,9): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/chatbot.controller.ts(170,18): error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type 'IntegrationSessionOrderByWithRelationInput | IntegrationSessionOrderByWithRelationInput[]'.
+src/api/integrations/chatbot/chatbot.controller.ts(174,19): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatbot.controller.ts(174,51): error TS2339: Property 'botId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatbot.controller.ts(177,27): error TS2339: Property 'botId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatbot.controller.ts(202,23): error TS2339: Property 'botId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/routes/chatwoot.router.ts(18,59): error TS2339: Property 'createChatwoot' does not exist on type 'ChatwootController'.
+src/api/integrations/chatbot/chatwoot/routes/chatwoot.router.ts(28,53): error TS2339: Property 'findChatwoot' does not exist on type 'ChatwootController'.
+src/api/integrations/chatbot/chatwoot/routes/chatwoot.router.ts(38,59): error TS2339: Property 'receiveWebhook' does not exist on type 'ChatwootController'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(816,38): error TS2339: Property 'chatwootMessageId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(952,38): error TS2339: Property 'chatwootMessageId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1223,13): error TS2353: Object literal may only specify known properties, and 'chatwootMessageId' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1229,31): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1241,15): error TS2353: Object literal may only specify known properties, and 'chatwootMessageId' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1424,15): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1431,43): error TS2339: Property 'chatwootIsRead' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1432,37): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1449,46): error TS2339: Property 'chatwootMessageId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1450,51): error TS2339: Property 'chatwootConversationId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1451,44): error TS2339: Property 'chatwootInboxId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1452,57): error TS2339: Property 'chatwootContactInboxSourceId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1459,17): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1495,25): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1508,9): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1515,9): error TS2353: Object literal may only specify known properties, and 'chatwootMessageId' does not exist in type '(Without<MessageUpdateManyMutationInput, MessageUncheckedUpdateManyInput> & MessageUncheckedUpdateManyInput) | (Without<...> & MessageUpdateManyMutationInput)'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1531,9): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1553,22): error TS2339: Property 'chatwootMessageId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1554,31): error TS2339: Property 'chatwootMessageId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1569,11): error TS2353: Object literal may only specify known properties, and 'chatwootMessageId' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1574,28): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1583,24): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1584,28): error TS2339: Property 'message' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(1912,15): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2182,24): error TS2339: Property 'chatwootMessageId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2182,54): error TS2339: Property 'chatwootConversationId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2185,17): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2195,39): error TS2339: Property 'chatwootConversationId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2196,34): error TS2339: Property 'chatwootMessageId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2207,29): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2216,32): error TS2339: Property 'chatwootConversationId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2219,21): error TS2339: Property 'chatwootConversationId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2245,41): error TS2339: Property 'chatwootConversationId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2246,47): error TS2339: Property 'chatwootContactInboxSourceId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2438,13): error TS2353: Object literal may only specify known properties, and 'profilePicUrl' does not exist in type 'ContactWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2491,11): error TS2322: Type '{ key: { path: string[]; not: string; }; }[]' is not assignable to type 'MessageWhereInput | MessageWhereInput[]'.
+  Type '{ key: { path: string[]; not: string; }; }[]' is not assignable to type 'MessageWhereInput[]'.
+    Type '{ key: { path: string[]; not: string; }; }' has no properties in common with type 'MessageWhereInput'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2500,16): error TS2339: Property 'message' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2500,30): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2500,40): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2504,28): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2505,13): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts(2505,34): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(115,35): error TS2339: Property 'pushName' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(118,39): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(121,35): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(151,90): error TS2339: Property 'remoteJid' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(218,24): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(222,24): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(226,37): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(227,37): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(237,31): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(238,48): error TS2339: Property 'messageTimestamp' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(263,43): error TS2339: Property 'accountId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(322,44): error TS2339: Property 'ignoreJids' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(322,67): error TS2339: Property 'ignoreJids' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(344,34): error TS2339: Property 'accountId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(436,55): error TS2339: Property 'token' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(444,28): error TS2339: Property 'key' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts(477,51): error TS2339: Property 'accountId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/controllers/dify.controller.ts(10,10): error TS2305: Module '"@prisma/client"' has no exported member 'Dify'.
+src/api/integrations/chatbot/dify/controllers/dify.controller.ts(23,48): error TS2339: Property 'dify' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/dify/controllers/dify.controller.ts(24,53): error TS2339: Property 'difySetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/dify/controllers/dify.controller.ts(407,11): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/dify/controllers/dify.controller.ts(818,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/controllers/dify.controller.ts(828,31): error TS2339: Property 'awaitUser' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/dto/dify.dto.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member '$Enums'.
+src/api/integrations/chatbot/dify/dto/dify.dto.ts(1,18): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerOperator'.
+src/api/integrations/chatbot/dify/dto/dify.dto.ts(1,35): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerType'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(25,55): error TS2339: Property 'createBot' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(35,49): error TS2339: Property 'findBot' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(45,49): error TS2339: Property 'fetchBot' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(55,55): error TS2339: Property 'updateBot' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(65,49): error TS2339: Property 'deleteBot' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(75,55): error TS2339: Property 'settings' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(85,49): error TS2339: Property 'fetchSettings' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(95,55): error TS2339: Property 'changeStatus' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(105,49): error TS2339: Property 'fetchSessions' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/routes/dify.router.ts(115,55): error TS2339: Property 'ignoreJid' does not exist on type 'DifyController'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(8,10): error TS2305: Module '"@prisma/client"' has no exported member 'Dify'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(8,16): error TS2305: Module '"@prisma/client"' has no exported member 'DifySetting'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(26,11): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type '(Without<IntegrationSessionCreateInput, IntegrationSessionUncheckedCreateInput> & IntegrationSessionUncheckedCreateInput) | (Without<...> & IntegrationSessionCreateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(81,36): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(81,82): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(122,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(124,32): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(124,83): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(141,36): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(141,82): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(182,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(184,32): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(184,83): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(201,36): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(201,82): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(260,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(320,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(534,28): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(541,49): error TS2339: Property 'updatedAt' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(554,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(560,15): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(581,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(609,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/dify/services/dify.service.ts(615,13): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/evolutionBot/controllers/evolutionBot.controller.ts(6,10): error TS2305: Module '"@prisma/client"' has no exported member 'EvolutionBot'.
+src/api/integrations/chatbot/evolutionBot/controllers/evolutionBot.controller.ts(21,48): error TS2339: Property 'evolutionBot' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/evolutionBot/controllers/evolutionBot.controller.ts(22,53): error TS2339: Property 'evolutionBotSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/evolutionBot/controllers/evolutionBot.controller.ts(391,11): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/evolutionBot/controllers/evolutionBot.controller.ts(790,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/evolutionBot/controllers/evolutionBot.controller.ts(800,31): error TS2339: Property 'awaitUser' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/evolutionBot/dto/evolutionBot.dto.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerOperator'.
+src/api/integrations/chatbot/evolutionBot/dto/evolutionBot.dto.ts(1,27): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerType'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(26,63): error TS2339: Property 'createBot' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(36,57): error TS2339: Property 'findBot' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(46,57): error TS2339: Property 'fetchBot' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(56,63): error TS2339: Property 'updateBot' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(66,57): error TS2339: Property 'deleteBot' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(76,63): error TS2339: Property 'settings' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(86,57): error TS2339: Property 'fetchSettings' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(96,63): error TS2339: Property 'changeStatus' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(106,57): error TS2339: Property 'fetchSessions' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts(116,63): error TS2339: Property 'ignoreJid' does not exist on type 'EvolutionBotController'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(8,10): error TS2305: Module '"@prisma/client"' has no exported member 'EvolutionBot'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(8,24): error TS2305: Module '"@prisma/client"' has no exported member 'EvolutionBotSetting'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(25,11): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type '(Without<IntegrationSessionCreateInput, IntegrationSessionUncheckedCreateInput> & IntegrationSessionUncheckedCreateInput) | (Without<...> & IntegrationSessionCreateInput)'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(65,32): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(65,78): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(288,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(331,28): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(338,49): error TS2339: Property 'updatedAt' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(351,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(357,15): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(378,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(406,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/evolutionBot/services/evolutionBot.service.ts(412,13): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/flowise/controllers/flowise.controller.ts(6,10): error TS2305: Module '"@prisma/client"' has no exported member 'Flowise'.
+src/api/integrations/chatbot/flowise/controllers/flowise.controller.ts(21,48): error TS2339: Property 'flowise' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/flowise/controllers/flowise.controller.ts(22,53): error TS2339: Property 'flowiseSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/flowise/controllers/flowise.controller.ts(391,11): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/flowise/controllers/flowise.controller.ts(790,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/flowise/controllers/flowise.controller.ts(800,31): error TS2339: Property 'awaitUser' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/flowise/dto/flowise.dto.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerOperator'.
+src/api/integrations/chatbot/flowise/dto/flowise.dto.ts(1,27): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerType'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(26,58): error TS2339: Property 'createBot' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(36,52): error TS2339: Property 'findBot' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(46,52): error TS2339: Property 'fetchBot' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(56,58): error TS2339: Property 'updateBot' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(66,52): error TS2339: Property 'deleteBot' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(76,58): error TS2339: Property 'settings' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(86,52): error TS2339: Property 'fetchSettings' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(96,58): error TS2339: Property 'changeStatus' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(106,52): error TS2339: Property 'fetchSessions' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/routes/flowise.router.ts(116,58): error TS2339: Property 'ignoreJid' does not exist on type 'FlowiseController'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(8,10): error TS2305: Module '"@prisma/client"' has no exported member 'Flowise'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(8,19): error TS2305: Module '"@prisma/client"' has no exported member 'FlowiseSetting'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(25,11): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type '(Without<IntegrationSessionCreateInput, IntegrationSessionUncheckedCreateInput> & IntegrationSessionUncheckedCreateInput) | (Without<...> & IntegrationSessionCreateInput)'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(287,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(330,28): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(337,49): error TS2339: Property 'updatedAt' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(350,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(356,15): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(377,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(405,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/flowise/services/flowise.service.ts(411,13): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/openai/controllers/openai.controller.ts(10,10): error TS2305: Module '"@prisma/client"' has no exported member 'OpenaiBot'.
+src/api/integrations/chatbot/openai/controllers/openai.controller.ts(24,48): error TS2339: Property 'openaiBot' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/openai/controllers/openai.controller.ts(25,53): error TS2339: Property 'openaiSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/openai/controllers/openai.controller.ts(27,50): error TS2339: Property 'openaiCreds' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/openai/controllers/openai.controller.ts(1036,31): error TS2339: Property 'awaitUser' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/dto/openai.dto.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerOperator'.
+src/api/integrations/chatbot/openai/dto/openai.dto.ts(1,27): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerType'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(26,57): error TS2339: Property 'createOpenaiCreds' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(36,51): error TS2339: Property 'findOpenaiCreds' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(46,51): error TS2339: Property 'deleteCreds' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(56,57): error TS2339: Property 'createBot' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(66,51): error TS2339: Property 'findBot' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(76,51): error TS2339: Property 'fetchBot' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(86,57): error TS2339: Property 'updateBot' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(96,51): error TS2339: Property 'deleteBot' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(106,57): error TS2339: Property 'settings' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(116,51): error TS2339: Property 'fetchSettings' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(126,57): error TS2339: Property 'changeStatus' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(136,51): error TS2339: Property 'fetchSessions' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(146,57): error TS2339: Property 'ignoreJid' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/routes/openai.router.ts(156,51): error TS2339: Property 'getModels' does not exist on type 'OpenaiController'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(8,30): error TS2305: Module '"@prisma/client"' has no exported member 'OpenaiBot'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(8,41): error TS2305: Module '"@prisma/client"' has no exported member 'OpenaiCreds'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(8,54): error TS2305: Module '"@prisma/client"' has no exported member 'OpenaiSetting'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(332,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(341,47): error TS2339: Property 'openaiCreds' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(360,13): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type '(Without<IntegrationSessionCreateInput, IntegrationSessionUncheckedCreateInput> & IntegrationSessionUncheckedCreateInput) | (Without<...> & IntegrationSessionCreateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(406,15): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(507,28): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(514,49): error TS2339: Property 'updatedAt' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(527,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(533,15): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(558,17): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(564,11): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(592,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(598,13): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(606,47): error TS2339: Property 'openaiCreds' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(618,30): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(640,47): error TS2339: Property 'openaiCreds' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(651,11): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type '(Without<IntegrationSessionCreateInput, IntegrationSessionUncheckedCreateInput> & IntegrationSessionUncheckedCreateInput) | (Without<...> & IntegrationSessionCreateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(709,28): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(716,49): error TS2339: Property 'updatedAt' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(729,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(735,15): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(756,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(784,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(790,13): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/openai/services/openai.service.ts(798,47): error TS2339: Property 'openaiCreds' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(26,53): error TS2339: Property 'typebotSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(390,11): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(658,11): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(968,52): error TS2339: Property 'typebotSetting' does not exist on type 'PrismaRepository'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(974,28): error TS2339: Property 'url' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(975,32): error TS2339: Property 'typebot' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(976,29): error TS2339: Property 'expire' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(977,36): error TS2339: Property 'keywordFinish' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(978,35): error TS2339: Property 'delayMessage' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(979,37): error TS2339: Property 'unknownMessage' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(980,38): error TS2339: Property 'listeningFromMe' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(981,36): error TS2339: Property 'stopBotFromMe' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(982,31): error TS2339: Property 'keepOpen' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(983,35): error TS2339: Property 'debounceTime' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(984,33): error TS2339: Property 'ignoreJids' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(1021,31): error TS2339: Property 'awaitUser' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/controllers/typebot.controller.ts(1065,31): error TS2339: Property 'awaitUser' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/dto/typebot.dto.ts(1,10): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerOperator'.
+src/api/integrations/chatbot/typebot/dto/typebot.dto.ts(1,27): error TS2305: Module '"@prisma/client"' has no exported member 'TriggerType'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(26,58): error TS2339: Property 'createBot' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(36,52): error TS2339: Property 'findBot' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(46,52): error TS2339: Property 'fetchBot' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(56,58): error TS2339: Property 'updateBot' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(66,52): error TS2339: Property 'deleteBot' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(76,58): error TS2339: Property 'settings' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(86,52): error TS2339: Property 'fetchSettings' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(96,58): error TS2339: Property 'startBot' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(106,58): error TS2339: Property 'changeStatus' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(116,52): error TS2339: Property 'fetchSessions' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/routes/typebot.router.ts(126,58): error TS2339: Property 'ignoreJid' does not exist on type 'TypebotController'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(65,13): error TS2353: Object literal may only specify known properties, and 'remoteJid' does not exist in type '(Without<IntegrationSessionCreateInput, IntegrationSessionUncheckedCreateInput> & IntegrationSessionUncheckedCreateInput) | (Without<...> & IntegrationSessionCreateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(551,13): error TS2353: Object literal may only specify known properties, and 'awaitUser' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(567,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(596,49): error TS2339: Property 'updatedAt' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(609,15): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(615,15): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(622,33): error TS2339: Property 'enabled' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(631,25): error TS2339: Property 'pushName' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(641,54): error TS2339: Property 'message' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(666,19): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(672,19): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(744,28): error TS2339: Property 'status' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(750,31): error TS2339: Property 'enabled' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(759,24): error TS2339: Property 'pushName' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(810,17): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(816,17): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(874,9): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(902,13): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '(Without<IntegrationSessionUpdateInput, IntegrationSessionUncheckedUpdateInput> & IntegrationSessionUncheckedUpdateInput) | (Without<...> & IntegrationSessionUpdateInput)'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(908,13): error TS2353: Object literal may only specify known properties, and 'botId' does not exist in type 'IntegrationSessionWhereInput'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(920,54): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/chatbot/typebot/services/typebot.service.ts(928,28): error TS2339: Property 'sessionId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(38,9): error TS2353: Object literal may only specify known properties, and 'Pusher' does not exist in type 'InstanceWhereInput'.
+src/api/integrations/event/pusher/pusher.controller.ts(43,9): error TS2353: Object literal may only specify known properties, and 'Pusher' does not exist in type 'InstanceInclude<DefaultArgs>'.
+src/api/integrations/event/pusher/pusher.controller.ts(48,18): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(49,18): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(50,18): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(51,18): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(52,18): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(55,27): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(56,25): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(57,28): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(58,29): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(59,28): error TS2339: Property 'Pusher' does not exist on type '{ number: string; name: string; id: string; token: string; clientName: string; connectionStatus: string; profileName: string; profilePicUrl: string; integration: string; ownerJid: string; businessId: string; createdAt: Date; }'.
+src/api/integrations/event/pusher/pusher.controller.ts(74,40): error TS2339: Property 'pusher' does not exist on type 'PrismaRepository'.
+src/api/integrations/event/pusher/pusher.router.ts(17,53): error TS2339: Property 'pusher' does not exist on type 'EventManager'.
+src/api/integrations/event/pusher/pusher.router.ts(26,47): error TS2339: Property 'pusher' does not exist on type 'EventManager'.
+src/api/integrations/event/rabbitmq/rabbitmq.router.ts(18,53): error TS2339: Property 'rabbitmq' does not exist on type 'EventManager'.
+src/api/integrations/event/rabbitmq/rabbitmq.router.ts(28,47): error TS2339: Property 'rabbitmq' does not exist on type 'EventManager'.
+src/api/integrations/event/sqs/sqs.router.ts(18,53): error TS2339: Property 'sqs' does not exist on type 'EventManager'.
+src/api/integrations/event/sqs/sqs.router.ts(28,47): error TS2339: Property 'sqs' does not exist on type 'EventManager'.
+src/api/integrations/event/webhook/webhook.controller.ts(33,5): error TS2559: Type '{ id: string; instanceId: string; }' has no properties in common with type 'LocalWebHook'.
+src/api/integrations/event/webhook/webhook.controller.ts(34,7): error TS2322: Type '{ instanceId: any; }' is not assignable to type 'WebhookWhereUniqueInput'.
+  Type '{ instanceId: any; }' is not assignable to type '{ id: string; } & { id?: string; AND?: WebhookWhereInput | WebhookWhereInput[]; OR?: WebhookWhereInput[]; NOT?: WebhookWhereInput | WebhookWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: any; }' but required in type '{ id: string; }'.
+src/api/integrations/event/webhook/webhook.controller.ts(38,9): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type '(Without<WebhookUpdateInput, WebhookUncheckedUpdateInput> & WebhookUncheckedUpdateInput) | (Without<...> & WebhookUpdateInput)'.
+src/api/integrations/event/webhook/webhook.controller.ts(46,9): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type '(Without<WebhookCreateInput, WebhookUncheckedCreateInput> & WebhookUncheckedCreateInput) | (Without<...> & WebhookCreateInput)'.
+src/api/integrations/event/webhook/webhook.router.ts(22,53): error TS2339: Property 'webhook' does not exist on type 'EventManager'.
+src/api/integrations/event/webhook/webhook.router.ts(32,47): error TS2339: Property 'webhook' does not exist on type 'EventManager'.
+src/api/integrations/event/websocket/websocket.router.ts(18,53): error TS2339: Property 'websocket' does not exist on type 'EventManager'.
+src/api/integrations/event/websocket/websocket.router.ts(28,47): error TS2339: Property 'websocket' does not exist on type 'EventManager'.
+src/api/integrations/storage/s3/routes/s3.router.ts(17,53): error TS2339: Property 'getMedia' does not exist on type 'S3Controller'.
+src/api/integrations/storage/s3/routes/s3.router.ts(27,53): error TS2339: Property 'getMediaUrl' does not exist on type 'S3Controller'.
+src/api/integrations/storage/s3/services/s3.service.ts(20,49): error TS2339: Property 'media' does not exist on type 'PrismaRepository'.
+src/api/routes.ts(2,10): error TS2305: Module '"./controllers/UserController"' has no exported member 'createUser'.
+src/api/routes/chat.router.ts(19,10): error TS2305: Module '"@api/repository/repository.service"' has no exported member 'Query'.
+src/api/routes/chat.router.ts(21,28): error TS2305: Module '"@prisma/client"' has no exported member 'MessageUpdate'.
+src/api/routes/instance.router.ts(117,53): error TS2554: Expected 2 arguments, but got 1.
+src/api/routes/src/routes/index.router.ts(3,32): error TS2307: Cannot find module './instance.router' or its corresponding type declarations.
+src/api/server.module.ts(35,37): error TS2307: Cannot find module '@services/wa-monitoring.service' or its corresponding type declarations.
+src/api/server.module.ts(43,39): error TS2554: Expected 0 arguments, but got 1.
+src/api/server.module.ts(44,46): error TS2554: Expected 0 arguments, but got 1.
+src/api/server.module.ts(48,36): error TS2554: Expected 0 arguments, but got 1.
+src/api/server.module.ts(60,45): error TS2554: Expected 0 arguments, but got 3.
+src/api/server.module.ts(61,58): error TS2345: Argument of type 'import("/root/evolution-api/src/services/template.service").TemplateService' is not assignable to parameter of type 'import("/root/evolution-api/src/api/services/template.service").TemplateService'.
+  Type 'TemplateService' is missing the following properties from type 'TemplateService': waMonitor, prismaRepository, configService, logger, and 5 more.
+src/api/server.module.ts(63,39): error TS2554: Expected 0 arguments, but got 1.
+src/api/server.module.ts(64,52): error TS2345: Argument of type 'import("/root/evolution-api/src/services/proxy.service").ProxyService' is not assignable to parameter of type 'import("/root/evolution-api/src/api/services/proxy.service").ProxyService'.
+  Type 'ProxyService' is missing the following properties from type 'ProxyService': waMonitor, logger, create, find
+src/api/server.module.ts(69,45): error TS2554: Expected 0 arguments, but got 1.
+src/api/server.module.ts(70,58): error TS2345: Argument of type 'import("/root/evolution-api/src/services/settings.service").SettingsService' is not assignable to parameter of type 'import("/root/evolution-api/src/api/services/settings.service").SettingsService'.
+  Type 'SettingsService' is missing the following properties from type 'SettingsService': waMonitor, logger, create, find
+src/api/server.module.ts(75,3): error TS2345: Argument of type 'import("/root/evolution-api/src/repository/repository.service").PrismaRepository' is not assignable to parameter of type 'import("/root/evolution-api/src/api/repository/repository.service").PrismaRepository'.
+  Type 'PrismaRepository' is missing the following properties from type 'PrismaRepository': prisma, logger, client, instance, and 16 more.
+src/api/server.module.ts(93,56): error TS2554: Expected 0 arguments, but got 2.
+src/api/server.module.ts(94,56): error TS2554: Expected 0 arguments, but got 2.
+src/api/server.module.ts(95,60): error TS2554: Expected 0 arguments, but got 2.
+src/api/server.module.ts(96,50): error TS2554: Expected 0 arguments, but got 2.
+src/api/server.module.ts(97,56): error TS2554: Expected 0 arguments, but got 1.
+src/api/server.module.ts(99,43): error TS2554: Expected 0 arguments, but got 3.
+src/api/server.module.ts(100,72): error TS2554: Expected 1 arguments, but got 3.
+src/api/server.module.ts(102,41): error TS2554: Expected 0 arguments, but got 3.
+src/api/server.module.ts(103,69): error TS2554: Expected 1 arguments, but got 3.
+src/api/server.module.ts(105,37): error TS2554: Expected 0 arguments, but got 3.
+src/api/server.module.ts(106,63): error TS2554: Expected 1 arguments, but got 3.
+src/api/server.module.ts(108,53): error TS2554: Expected 0 arguments, but got 3.
+src/api/server.module.ts(109,87): error TS2554: Expected 1 arguments, but got 3.
+src/api/server.module.ts(111,43): error TS2554: Expected 0 arguments, but got 3.
+src/api/server.module.ts(112,72): error TS2554: Expected 1 arguments, but got 3.
+src/api/server/services/wa-monitoring.service.ts(1,26): error TS2307: Cannot find module '@wppconnect-team/wppconnect' or its corresponding type declarations.
+src/api/services/channel.service.ts(9,28): error TS2305: Module '"@api/repository/repository.service"' has no exported member 'Query'.
+src/api/services/channel.service.ts(132,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'WebhookWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: WebhookWhereInput | WebhookWhereInput[]; OR?: WebhookWhereInput[]; NOT?: WebhookWhereInput | WebhookWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(137,39): error TS2339: Property 'enabled' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(138,45): error TS2339: Property 'webhookBase64' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(143,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'SettingWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: SettingWhereInput | SettingWhereInput[]; OR?: SettingWhereInput[]; NOT?: SettingWhereInput | SettingWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(148,43): error TS2339: Property 'rejectCall' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(149,40): error TS2339: Property 'msgCall' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(150,45): error TS2339: Property 'groupsIgnore' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(151,45): error TS2339: Property 'alwaysOnline' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(152,45): error TS2339: Property 'readMessages' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(153,43): error TS2339: Property 'readStatus' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(154,48): error TS2339: Property 'syncFullHistory' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(155,44): error TS2339: Property 'wavoipToken' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(160,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'SettingWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: SettingWhereInput | SettingWhereInput[]; OR?: SettingWhereInput[]; NOT?: SettingWhereInput | SettingWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(164,9): error TS2353: Object literal may only specify known properties, and 'rejectCall' does not exist in type '(Without<SettingUpdateInput, SettingUncheckedUpdateInput> & SettingUncheckedUpdateInput) | (Without<...> & SettingUpdateInput)'.
+src/api/services/channel.service.ts(174,9): error TS2353: Object literal may only specify known properties, and 'rejectCall' does not exist in type '(Without<SettingCreateInput, SettingUncheckedCreateInput> & SettingUncheckedCreateInput) | (Without<...> & SettingCreateInput)'.
+src/api/services/channel.service.ts(203,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'SettingWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: SettingWhereInput | SettingWhereInput[]; OR?: SettingWhereInput[]; NOT?: SettingWhereInput | SettingWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(213,24): error TS2339: Property 'rejectCall' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(214,21): error TS2339: Property 'msgCall' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(215,26): error TS2339: Property 'groupsIgnore' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(216,26): error TS2339: Property 'alwaysOnline' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(217,26): error TS2339: Property 'readMessages' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(218,24): error TS2339: Property 'readStatus' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(219,29): error TS2339: Property 'syncFullHistory' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(220,25): error TS2339: Property 'wavoipToken' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(230,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'ChatwootWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: ChatwootWhereInput | ChatwootWhereInput[]; OR?: ChatwootWhereInput[]; NOT?: ChatwootWhereInput | ChatwootWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(235,40): error TS2339: Property 'enabled' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(236,42): error TS2339: Property 'accountId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(237,38): error TS2339: Property 'token' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(238,36): error TS2339: Property 'url' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(239,42): error TS2339: Property 'nameInbox' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(240,40): error TS2339: Property 'signMsg' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(241,46): error TS2339: Property 'signDelimiter' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(242,39): error TS2339: Property 'number' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(243,51): error TS2339: Property 'reopenConversation' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(244,52): error TS2339: Property 'conversationPending' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(245,52): error TS2339: Property 'mergeBrazilContacts' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(246,47): error TS2339: Property 'importContacts' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(247,47): error TS2339: Property 'importMessages' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(248,56): error TS2339: Property 'daysLimitImportMessages' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(257,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'ChatwootWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: ChatwootWhereInput | ChatwootWhereInput[]; OR?: ChatwootWhereInput[]; NOT?: ChatwootWhereInput | ChatwootWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(264,9): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'ChatwootWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: ChatwootWhereInput | ChatwootWhereInput[]; OR?: ChatwootWhereInput[]; NOT?: ChatwootWhereInput | ChatwootWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(268,11): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type '(Without<ChatwootUpdateInput, ChatwootUncheckedUpdateInput> & ChatwootUncheckedUpdateInput) | (Without<...> & ChatwootUpdateInput)'.
+src/api/services/channel.service.ts(296,9): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type '(Without<ChatwootCreateInput, ChatwootUncheckedCreateInput> & ChatwootUncheckedCreateInput) | (Without<...> & ChatwootCreateInput)'.
+src/api/services/channel.service.ts(327,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'ChatwootWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: ChatwootWhereInput | ChatwootWhereInput[]; OR?: ChatwootWhereInput[]; NOT?: ChatwootWhereInput | ChatwootWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(336,48): error TS2339: Property 'ignoreJids' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(336,67): error TS2339: Property 'ignoreJids' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(339,22): error TS2339: Property 'enabled' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(340,23): error TS2339: Property 'accountId' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(341,19): error TS2339: Property 'token' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(342,17): error TS2339: Property 'url' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(343,23): error TS2339: Property 'nameInbox' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(344,21): error TS2339: Property 'signMsg' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(345,27): error TS2339: Property 'signDelimiter' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(346,32): error TS2339: Property 'reopenConversation' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(347,33): error TS2339: Property 'conversationPending' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(348,33): error TS2339: Property 'mergeBrazilContacts' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(349,28): error TS2339: Property 'importContacts' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(350,28): error TS2339: Property 'importMessages' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(351,37): error TS2339: Property 'daysLimitImportMessages' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(352,26): error TS2339: Property 'organization' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(353,18): error TS2339: Property 'logo' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(377,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'ProxyWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: ProxyWhereInput | ProxyWhereInput[]; OR?: ProxyWhereInput[]; NOT?: ProxyWhereInput | ProxyWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(382,15): error TS2339: Property 'enabled' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(384,36): error TS2339: Property 'host' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(385,36): error TS2339: Property 'port' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(386,40): error TS2339: Property 'protocol' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(387,40): error TS2339: Property 'username' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(388,40): error TS2339: Property 'password' does not exist on type '{ id: string; instanceId: string; }'.
+src/api/services/channel.service.ts(394,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'ProxyWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: ProxyWhereInput | ProxyWhereInput[]; OR?: ProxyWhereInput[]; NOT?: ProxyWhereInput | ProxyWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(398,9): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type '(Without<ProxyUpdateInput, ProxyUncheckedUpdateInput> & ProxyUncheckedUpdateInput) | (Without<...> & ProxyUpdateInput)'.
+src/api/services/channel.service.ts(406,9): error TS2353: Object literal may only specify known properties, and 'enabled' does not exist in type '(Without<ProxyCreateInput, ProxyUncheckedCreateInput> & ProxyUncheckedCreateInput) | (Without<...> & ProxyCreateInput)'.
+src/api/services/channel.service.ts(421,7): error TS2322: Type '{ instanceId: string; }' is not assignable to type 'ProxyWhereUniqueInput'.
+  Type '{ instanceId: string; }' is not assignable to type '{ id: string; } & { id?: string; AND?: ProxyWhereInput | ProxyWhereInput[]; OR?: ProxyWhereInput[]; NOT?: ProxyWhereInput | ProxyWhereInput[]; instanceId?: string | StringFilter<...>; instance?: (Without<...> & InstanceWhereInput) | (Without<...> & InstanceScalarRelationFilter); }'.
+    Property 'id' is missing in type '{ instanceId: string; }' but required in type '{ id: string; }'.
+src/api/services/channel.service.ts(443,24): error TS2339: Property 'emit' does not exist on type 'EventManager'.
+src/api/services/channel.service.ts(595,30): error TS2322: Type '{ key: { path: string[]; equals: string; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(596,34): error TS2322: Type '{ key: { path: string[]; equals: true; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(597,37): error TS2322: Type '{ key: { path: string[]; equals: string; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(598,40): error TS2322: Type '{ key: { path: string[]; equals: string; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(619,30): error TS2322: Type '{ key: { path: string[]; equals: string; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(620,34): error TS2322: Type '{ key: { path: string[]; equals: true; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(621,37): error TS2322: Type '{ key: { path: string[]; equals: string; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(622,40): error TS2322: Type '{ key: { path: string[]; equals: string; }; } | {}' is not assignable to type 'MessageWhereInput'.
+  Object literal may only specify known properties, and 'key' does not exist in type 'MessageWhereInput'.
+src/api/services/channel.service.ts(626,9): error TS2353: Object literal may only specify known properties, and 'messageTimestamp' does not exist in type 'MessageOrderByWithRelationInput | MessageOrderByWithRelationInput[]'.
+src/api/services/channel.service.ts(632,9): error TS2353: Object literal may only specify known properties, and 'key' does not exist in type 'MessageSelect<DefaultArgs>'.
+src/api/services/channel.service.ts(659,40): error TS2339: Property 'messageUpdate' does not exist on type 'PrismaRepository'.
+src/api/services/channel.service.ts(692,49): error TS2339: Property '$queryRaw' does not exist on type 'PrismaRepository'.
+src/api/services/monitor.service.ts(83,29): error TS2561: Object literal may only specify known properties, but 'Message' does not exist in type 'InstanceCountOutputTypeSelect<DefaultArgs>'. Did you mean to write 'message'?
+src/api/services/monitor.service.ts(145,33): error TS2339: Property 'messageUpdate' does not exist on type 'PrismaRepository'.
+src/api/services/monitor.service.ts(206,40): error TS2339: Property 'init' does not exist on type 'ChannelController'.
+src/api/services/template.service.ts(66,52): error TS2339: Property 'template' does not exist on type 'PrismaRepository'.
+src/utils/onWhatsappCache.ts(62,31): error TS2339: Property 'isOnWhatsapp' does not exist on type 'PrismaRepository'.
+src/utils/onWhatsappCache.ts(69,28): error TS2339: Property '$transaction' does not exist on type 'PrismaRepository'.
+src/utils/onWhatsappCache.ts(83,52): error TS2339: Property 'isOnWhatsapp' does not exist on type 'PrismaRepository'.
+src/utils/use-multi-file-auth-state-prisma.ts(19,40): error TS2339: Property 'session' does not exist on type 'PrismaRepository'.
+src/utils/use-multi-file-auth-state-prisma.ts(30,37): error TS2339: Property 'session' does not exist on type 'PrismaRepository'.
+src/utils/use-multi-file-auth-state-prisma.ts(36,28): error TS2339: Property 'session' does not exist on type 'PrismaRepository'.
+src/utils/use-multi-file-auth-state-prisma.ts(49,41): error TS2339: Property 'session' does not exist on type 'PrismaRepository'.
+src/utils/use-multi-file-auth-state-prisma.ts(60,28): error TS2339: Property 'session' does not exist on type 'PrismaRepository'.
+src/utils/use-multi-file-auth-state-provider-files.ts(50,11): error TS2488: Type 'ResponseSuccess | { error: any; }' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/utils/use-multi-file-auth-state-provider-files.ts(50,48): error TS2554: Expected 2 arguments, but got 1.
+src/utils/use-multi-file-auth-state-provider-files.ts(58,58): error TS2339: Property 'write' does not exist on type 'ProviderFiles'.
+src/utils/use-multi-file-auth-state-provider-files.ts(69,58): error TS2339: Property 'read' does not exist on type 'ProviderFiles'.
+src/utils/use-multi-file-auth-state-provider-files.ts(80,58): error TS2339: Property 'delete' does not exist on type 'ProviderFiles'.

@@ -1,4 +1,4 @@
-import { HttpStatus } from '@api/routes/index.router';
+import { HttpStatus } from '../api/constants/http-status';
 
 export class BadRequestException {
   constructor(...objectError: any[]) {

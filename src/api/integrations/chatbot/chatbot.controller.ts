@@ -10,61 +10,35 @@ import {
 import { WAMonitoringService } from '@api/services/monitor.service';
 import { Logger } from '@config/logger.config';
 import { IntegrationSession } from '@prisma/client';
-import { findBotByTrigger } from '@utils/findBotByTrigger';
+import { findBotByTrigger } from '../../../utils/findBotByTrigger';
 
 export type EmitData = {
   instance: InstanceDto;
   remoteJid: string;
   msg: any;
   pushName?: string;
+  isIntegration?: boolean;
 };
-
-export interface ChatbotControllerInterface {
-  integrationEnabled: boolean;
-  botRepository: any;
-  settingsRepository: any;
-  sessionRepository: any;
-  userMessageDebounce: { [key: string]: { message: string; timeoutId: NodeJS.Timeout } };
-
-  createBot(instance: InstanceDto, data: any): Promise<any>;
-  findBot(instance: InstanceDto): Promise<any>;
-  fetchBot(instance: InstanceDto, botId: string): Promise<any>;
-  updateBot(instance: InstanceDto, botId: string, data: any): Promise<any>;
-  deleteBot(instance: InstanceDto, botId: string): Promise<any>;
-
-  settings(instance: InstanceDto, data: any): Promise<any>;
-  fetchSettings(instance: InstanceDto): Promise<any>;
-
-  changeStatus(instance: InstanceDto, botId: string, status: string): Promise<any>;
-  fetchSessions(instance: InstanceDto, botId: string, remoteJid?: string): Promise<any>;
-  ignoreJid(instance: InstanceDto, data: any): Promise<any>;
-
-  emit(data: EmitData): Promise<void>;
-}
 
 export class ChatbotController {
   public prismaRepository: PrismaRepository;
   public waMonitor: WAMonitoringService;
-
   public readonly logger = new Logger('ChatbotController');
 
   constructor(prismaRepository: PrismaRepository, waMonitor: WAMonitoringService) {
-    this.prisma = prismaRepository;
-    this.monitor = waMonitor;
+    this.prismaRepository = prismaRepository;
+    this.waMonitor = waMonitor;
   }
 
   public set prisma(prisma: PrismaRepository) {
     this.prismaRepository = prisma;
   }
-
   public get prisma() {
     return this.prismaRepository;
   }
-
   public set monitor(waMonitor: WAMonitoringService) {
     this.waMonitor = waMonitor;
   }
-
   public get monitor() {
     return this.waMonitor;
   }
@@ -75,13 +49,7 @@ export class ChatbotController {
     msg,
     pushName,
     isIntegration = false,
-  }: {
-    instance: InstanceDto;
-    remoteJid: string;
-    msg: any;
-    pushName?: string;
-    isIntegration?: boolean;
-  }): Promise<void> {
+  }: EmitData): Promise<void> {
     const emitData = {
       instance,
       remoteJid,
@@ -90,23 +58,19 @@ export class ChatbotController {
       isIntegration,
     };
     await evolutionBotController.emit(emitData);
-
     await typebotController.emit(emitData);
-
     await openaiController.emit(emitData);
-
     await difyController.emit(emitData);
-
     await flowiseController.emit(emitData);
   }
 
   public processDebounce(
-    userMessageDebounce: any,
+    userMessageDebounce: { [key: string]: { message: string; timeoutId: NodeJS.Timeout } },
     content: string,
     remoteJid: string,
     debounceTime: number,
-    callback: any,
-  ) {
+    callback: (msg: string) => void,
+  ): void {
     if (userMessageDebounce[remoteJid]) {
       userMessageDebounce[remoteJid].message += `\n${content}`;
       this.logger.log('message debounced: ' + userMessageDebounce[remoteJid].message);
@@ -114,7 +78,7 @@ export class ChatbotController {
     } else {
       userMessageDebounce[remoteJid] = {
         message: content,
-        timeoutId: null,
+        timeoutId: null as any,
       };
     }
 
@@ -127,7 +91,7 @@ export class ChatbotController {
     }, debounceTime * 1000);
   }
 
-  public checkIgnoreJids(ignoreJids: any, remoteJid: string) {
+  public checkIgnoreJids(ignoreJids: string[], remoteJid: string): boolean {
     if (ignoreJids && ignoreJids.length > 0) {
       let ignoreGroups = false;
       let ignoreContacts = false;
@@ -135,33 +99,27 @@ export class ChatbotController {
       if (ignoreJids.includes('@g.us')) {
         ignoreGroups = true;
       }
-
       if (ignoreJids.includes('@s.whatsapp.net')) {
         ignoreContacts = true;
       }
-
       if (ignoreGroups && remoteJid.endsWith('@g.us')) {
         this.logger.warn('Ignoring message from group: ' + remoteJid);
         return true;
       }
-
       if (ignoreContacts && remoteJid.endsWith('@s.whatsapp.net')) {
         this.logger.warn('Ignoring message from contact: ' + remoteJid);
         return true;
       }
-
       if (ignoreJids.includes(remoteJid)) {
         this.logger.warn('Ignoring message from jid: ' + remoteJid);
         return true;
       }
-
       return false;
     }
-
     return false;
   }
 
-  public async getSession(remoteJid: string, instance: InstanceDto) {
+  public async getSession(remoteJid: string, instance: InstanceDto): Promise<IntegrationSession | null | undefined> {
     let session = await this.prismaRepository.integrationSession.findFirst({
       where: {
         remoteJid: remoteJid,
@@ -187,12 +145,11 @@ export class ChatbotController {
     content: string,
     instance: InstanceDto,
     session?: IntegrationSession,
-  ) {
-    let findBot: null;
+  ): Promise<any> {
+    let findBot = null;
 
     if (!session) {
       findBot = await findBotByTrigger(botRepository, content, instance.instanceId);
-
       if (!findBot) {
         return;
       }

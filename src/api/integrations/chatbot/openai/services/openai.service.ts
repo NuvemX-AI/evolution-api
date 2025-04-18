@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { InstanceDto } from '@api/dto/instance.dto';
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
-import { Integration } from '@api/types/wa.types';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { PrismaRepository } from '../../../../repository/repository.service';
+import { WAMonitoringService } from '../../../../services/monitor.service';
+import { Integration } from '../../../../types/wa.types';
 import { ConfigService, Language } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { IntegrationSession, OpenaiBot, OpenaiCreds, OpenaiSetting } from '@prisma/client';
-import { sendTelemetry } from '@utils/sendTelemetry';
+import { sendTelemetry } from '../../../../utils/sendTelemetry';
 import axios from 'axios';
 import { downloadMediaMessage } from 'baileys';
 import FormData from 'form-data';

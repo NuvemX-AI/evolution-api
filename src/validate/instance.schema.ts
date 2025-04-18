@@ -143,6 +143,11 @@ export const instanceSchema: JSONSchema7 = {
           'CONTACTS_SET',
           'CONTACTS_UPSERT',
           'CONTACTS_UPDATE',
+          'MESSAGES_DELETE',
+          'SEND_MESSAGE',
+          'CONTACTS_SET',
+          'CONTACTS_UPSERT',
+          'CONTACTS_UPDATE',
           'PRESENCE_UPDATE',
           'CHATS_SET',
           'CHATS_UPSERT',
@@ -176,6 +181,7 @@ export const instanceSchema: JSONSchema7 = {
   ...isNotEmpty('instanceName'),
 };
 
+// --------- CORRIGIDO PARA ACEITAR instanceName ---------
 export const presenceOnlySchema: JSONSchema7 = {
   $id: v4(),
   type: 'object',
@@ -184,6 +190,7 @@ export const presenceOnlySchema: JSONSchema7 = {
       type: 'string',
       enum: ['unavailable', 'available', 'composing', 'recording', 'paused'],
     },
+    instanceName: { type: 'string' } // <-- Adiciona aceitação de instanceName
   },
-  required: ['presence'],
+  required: ['presence', 'instanceName'], // <-- Ambos obrigatórios para garantir robustez
 };

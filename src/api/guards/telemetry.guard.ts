@@ -1,4 +1,4 @@
-import { sendTelemetry } from '@utils/sendTelemetry';
+import { sendTelemetry } from '../../utils/sendTelemetry';
 import { NextFunction, Request, Response } from 'express';
 
 class Telemetry {

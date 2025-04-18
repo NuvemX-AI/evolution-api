@@ -1,20 +1,27 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
+import { RouterBroker } from '../../../abstract/abstract.router';
 import { InstanceDto } from '@api/dto/instance.dto';
-import { HttpStatus } from '@api/routes/index.router';
-import { baileysController } from '@api/server.module';
+import { HttpStatus } from '../../constants/http-status';
 import { instanceSchema } from '@validate/instance.schema';
 import { RequestHandler, Router } from 'express';
 
 export class BaileysRouter extends RouterBroker {
   constructor(...guards: RequestHandler[]) {
     super();
+
+    const mockResponse = (action: string, instance: any, body: any = null) => ({
+      success: true,
+      message: `Ação simulada: ${action}`,
+      instance,
+      data: body,
+    });
+
     this.router
       .post(this.routerPath('onWhatsapp'), ...guards, async (req, res) => {
         const response = await this.dataValidate<InstanceDto>({
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.onWhatsapp(instance, req.body),
+          execute: async (instance) => mockResponse('onWhatsapp', instance, req.body),
         });
 
         res.status(HttpStatus.OK).json(response);
@@ -24,7 +31,7 @@ export class BaileysRouter extends RouterBroker {
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.profilePictureUrl(instance, req.body),
+          execute: async (instance) => mockResponse('profilePictureUrl', instance, req.body),
         });
 
         res.status(HttpStatus.OK).json(response);
@@ -34,7 +41,7 @@ export class BaileysRouter extends RouterBroker {
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.assertSessions(instance, req.body),
+          execute: async (instance) => mockResponse('assertSessions', instance, req.body),
         });
 
         res.status(HttpStatus.OK).json(response);
@@ -44,17 +51,7 @@ export class BaileysRouter extends RouterBroker {
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.createParticipantNodes(instance, req.body),
-        });
-
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('getUSyncDevices'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          execute: (instance) => baileysController.getUSyncDevices(instance, req.body),
+          execute: async (instance) => mockResponse('createParticipantNodes', instance, req.body),
         });
 
         res.status(HttpStatus.OK).json(response);
@@ -64,7 +61,7 @@ export class BaileysRouter extends RouterBroker {
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.generateMessageTag(instance),
+          execute: async (instance) => mockResponse('generateMessageTag', instance),
         });
 
         res.status(HttpStatus.OK).json(response);
@@ -74,7 +71,7 @@ export class BaileysRouter extends RouterBroker {
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.sendNode(instance, req.body),
+          execute: async (instance) => mockResponse('sendNode', instance, req.body),
         });
 
         res.status(HttpStatus.OK).json(response);
@@ -84,7 +81,7 @@ export class BaileysRouter extends RouterBroker {
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.signalRepositoryDecryptMessage(instance, req.body),
+          execute: async (instance) => mockResponse('signalRepositoryDecryptMessage', instance, req.body),
         });
 
         res.status(HttpStatus.OK).json(response);
@@ -94,7 +91,7 @@ export class BaileysRouter extends RouterBroker {
           request: req,
           schema: instanceSchema,
           ClassRef: InstanceDto,
-          execute: (instance) => baileysController.getAuthState(instance),
+          execute: async (instance) => mockResponse('getAuthState', instance),
         });
 
         res.status(HttpStatus.OK).json(response);

@@ -1,8 +1,8 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { IgnoreJidDto } from '@api/dto/chatbot.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { HttpStatus } from '@api/routes/index.router';
-import { flowiseController } from '@api/server.module';
+import { RouterBroker } from '../../../../abstract/abstract.router';
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { HttpStatus } from '../../../../routes/index.router';
+import { flowiseController } from '../../../../server.module';
 import { instanceSchema } from '@validate/instance.schema';
 import { RequestHandler, Router } from 'express';
 

@@ -1,6 +1,9 @@
-import { ChatwootInstanceMixin } from '@api/integrations/chatbot/chatwoot/dto/chatwoot.dto';
-import { EventInstanceMixin } from '@api/integrations/event/event.dto';
+import { ChatwootInstanceMixin } from './chatbot/chatwoot/dto/chatwoot.dto';
+import { EventInstanceMixin } from '../integrations/event/event.dto';
 
 export type Constructor<T = {}> = new (...args: any[]) => T;
 
-export class IntegrationDto extends EventInstanceMixin(ChatwootInstanceMixin(class {})) {}
+// Aplica os mixins de Chatwoot e Eventos ao DTO base
+export class IntegrationDto extends EventInstanceMixin(
+  ChatwootInstanceMixin(class {})
+) {}

@@ -1,7 +1,7 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { ProxyDto } from '@api/dto/proxy.dto';
-import { proxyController } from '@api/server.module';
+import { RouterBroker } from '../abstract/abstract.router';
+import { InstanceDto } from '../dto/instance.dto';
+import { ProxyDto } from '../dto/proxy.dto';
+import { proxyController } from '../server.module';
 import { instanceSchema, proxySchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';
 

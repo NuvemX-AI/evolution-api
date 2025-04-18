@@ -15,7 +15,7 @@ import { ChannelStartupService } from '@api/services/channel.service';
 import { Events, wa } from '@api/types/wa.types';
 import { Chatwoot, ConfigService, Openai, S3 } from '@config/env.config';
 import { BadRequestException, InternalServerErrorException } from '@exceptions';
-import { createJid } from '@utils/createJid';
+import { createJid } from '../../../utils/createJid';
 import axios from 'axios';
 import { isBase64, isURL } from 'class-validator';
 import EventEmitter2 from 'eventemitter2';
@@ -25,6 +25,19 @@ import { join } from 'path';
 import { v4 } from 'uuid';
 
 export class EvolutionStartupService extends ChannelStartupService {
+  public client: any = null;
+  public stateConnection: wa.StateConnection = { state: 'open' };
+  public phoneNumber: string = '';
+  public mobile: boolean = false;
+  protected instance: any = {};
+  protected instanceId: string = '';
+
+  // Adicione essas tipagens se existirem as implementações corretas
+  protected logger: any;
+  protected openaiService: any;
+  protected chatwootService: any;
+  protected localChatwoot?: { enabled: boolean };
+
   constructor(
     public readonly configService: ConfigService,
     public readonly eventEmitter: EventEmitter2,
@@ -33,22 +46,14 @@ export class EvolutionStartupService extends ChannelStartupService {
     public readonly chatwootCache: CacheService,
   ) {
     super(configService, eventEmitter, prismaRepository, chatwootCache);
-
     this.client = null;
   }
 
-  public client: any;
-
-  public stateConnection: wa.StateConnection = { state: 'open' };
-
-  public phoneNumber: string;
-  public mobile: boolean;
-
-  public get connectionStatus() {
+  public get connectionStatus(): wa.StateConnection {
     return this.stateConnection;
   }
 
-  public async closeClient() {
+  public async closeClient(): Promise<void> {
     this.stateConnection = { state: 'close' };
   }
 
@@ -61,12 +66,12 @@ export class EvolutionStartupService extends ChannelStartupService {
     };
   }
 
-  public async logoutInstance() {
+  public async logoutInstance(): Promise<void> {
     await this.closeClient();
   }
 
-  public setInstance(instance: InstanceDto) {
-    this.logger.setInstance(instance.instanceId);
+  public setInstance(instance: InstanceDto): void {
+    this.logger?.setInstance?.(instance.instanceId);
 
     this.instance.name = instance.instanceName;
     this.instance.id = instance.instanceId;
@@ -74,9 +79,10 @@ export class EvolutionStartupService extends ChannelStartupService {
     this.instance.number = instance.number;
     this.instance.token = instance.token;
     this.instance.businessId = instance.businessId;
+    this.instanceId = instance.instanceId;
 
     if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
-      this.chatwootService.eventWhatsapp(
+      this.chatwootService?.eventWhatsapp?.(
         Events.STATUS_INSTANCE,
         {
           instanceName: this.instance.name,
@@ -91,7 +97,7 @@ export class EvolutionStartupService extends ChannelStartupService {
     }
   }
 
-  public async profilePicture(number: string) {
+  public async profilePicture(number: string): Promise<{ wuid: string; profilePictureUrl: null }> {
     const jid = createJid(number);
 
     return {
@@ -100,33 +106,33 @@ export class EvolutionStartupService extends ChannelStartupService {
     };
   }
 
-  public async getProfileName() {
+  public async getProfileName(): Promise<null> {
     return null;
   }
 
-  public async profilePictureUrl() {
+  public async profilePictureUrl(): Promise<null> {
     return null;
   }
 
-  public async getProfileStatus() {
+  public async getProfileStatus(): Promise<null> {
     return null;
   }
 
   public async connectToWhatsapp(data?: any): Promise<any> {
     if (!data) {
-      this.loadChatwoot();
+      this.loadChatwoot?.();
       return;
     }
 
     try {
-      this.eventHandler(data);
-    } catch (error) {
-      this.logger.error(error);
+      await this.eventHandler(data);
+    } catch (error: any) {
+      this.logger?.error?.(error);
       throw new InternalServerErrorException(error?.toString());
     }
   }
 
-  protected async eventHandler(received: any) {
+  protected async eventHandler(received: any): Promise<void> {
     try {
       let messageRaw: any;
 
@@ -168,12 +174,12 @@ export class EvolutionStartupService extends ChannelStartupService {
             messageRaw.message.speechToText = await this.openaiService.speechToText(
               openAiDefaultSettings.OpenaiCreds,
               received,
-              this.client.updateMediaMessage,
+              this.client?.updateMediaMessage,
             );
           }
         }
 
-        this.logger.log(messageRaw);
+        this.logger?.log?.(messageRaw);
 
         this.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw);
 
@@ -185,7 +191,7 @@ export class EvolutionStartupService extends ChannelStartupService {
         });
 
         if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
-          const chatwootSentMessage = await this.chatwootService.eventWhatsapp(
+          const chatwootSentMessage = await this.chatwootService?.eventWhatsapp?.(
             Events.MESSAGES_UPSERT,
             { instanceName: this.instance.name, instanceId: this.instanceId },
             messageRaw,
@@ -208,12 +214,14 @@ export class EvolutionStartupService extends ChannelStartupService {
           profilePicUrl: received.profilePicUrl,
         });
       }
-    } catch (error) {
-      this.logger.error(error);
+    } catch (error: any) {
+      this.logger?.error?.(error);
     }
   }
 
-  private async updateContact(data: { remoteJid: string; pushName?: string; profilePicUrl?: string }) {
+  private async updateContact(
+    data: { remoteJid: string; pushName?: string; profilePicUrl?: string }
+  ): Promise<void> {
     const contactRaw: any = {
       remoteJid: data.remoteJid,
       pushName: data?.pushName,
@@ -245,7 +253,7 @@ export class EvolutionStartupService extends ChannelStartupService {
     this.sendDataWebhook(Events.CONTACTS_UPSERT, contactRaw);
 
     if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled) {
-      await this.chatwootService.eventWhatsapp(
+      await this.chatwootService?.eventWhatsapp?.(
         Events.CONTACTS_UPDATE,
         {
           instanceName: this.instance.name,
@@ -292,35 +300,23 @@ export class EvolutionStartupService extends ChannelStartupService {
     options?: Options,
     file?: any,
     isIntegration = false,
-  ) {
+  ): Promise<any> {
     try {
       let quoted: any;
       let webhookUrl: any;
 
       if (options?.quoted) {
         const m = options?.quoted;
-
         const msg = m?.key;
-
-        if (!msg) {
-          throw 'Message not found';
-        }
-
+        if (!msg) throw new Error('Message not found');
         quoted = msg;
       }
 
-      if (options.delay) {
-        await new Promise((resolve) => setTimeout(resolve, options.delay));
-      }
-
-      if (options?.webhookUrl) {
-        webhookUrl = options.webhookUrl;
-      }
+      if (options?.delay) await new Promise(resolve => setTimeout(resolve, options.delay));
+      if (options?.webhookUrl) webhookUrl = options.webhookUrl;
 
       let audioFile;
-
       const messageId = v4();
-
       let messageRaw: any;
 
       if (message?.mediaType === 'image') {
@@ -463,7 +459,7 @@ export class EvolutionStartupService extends ChannelStartupService {
             const buffer = base64 ? Buffer.from(base64, 'base64') : fileBuffer;
 
             let mediaType: string;
-            let mimetype = audioFile?.mimetype || file.mimetype;
+            let mimetype = audioFile?.mimetype || (file && file.mimetype);
 
             if (messageRaw.messageType === 'documentMessage') {
               mediaType = 'document';
@@ -479,38 +475,48 @@ export class EvolutionStartupService extends ChannelStartupService {
               mimetype = !mimetype ? 'video/mp4' : mimetype;
             }
 
-            const fileName = `${messageRaw.key.id}.${mimetype.split('/')[1]}`;
-
+            const fileName = `${messageRaw.key.id}.${(mimetype || '').split('/')[1]}`;
             const size = buffer.byteLength;
-
-            const fullName = join(`${this.instance.id}`, messageRaw.key.remoteJid, mediaType, fileName);
+            const fullName = join(
+              `${this.instance.id}`,
+              messageRaw.key.remoteJid,
+              mediaType,
+              fileName,
+            );
 
             await s3Service.uploadFile(fullName, buffer, size, {
               'Content-Type': mimetype,
             });
 
             const mediaUrl = await s3Service.getObjectUrl(fullName);
-
             messageRaw.message.mediaUrl = mediaUrl;
-          } catch (error) {
-            this.logger.error(['Error on upload file to minio', error?.message, error?.stack]);
+          } catch (error: any) {
+            this.logger?.error?.(['Error on upload file to minio', error?.message, error?.stack]);
           }
         }
       }
 
-      this.logger.log(messageRaw);
+      this.logger?.log?.(messageRaw);
 
       this.sendDataWebhook(Events.SEND_MESSAGE, messageRaw);
 
-      if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled && !isIntegration) {
-        this.chatwootService.eventWhatsapp(
+      if (
+        this.configService.get<Chatwoot>('CHATWOOT').ENABLED &&
+        this.localChatwoot?.enabled &&
+        !isIntegration
+      ) {
+        this.chatwootService?.eventWhatsapp?.(
           Events.SEND_MESSAGE,
           { instanceName: this.instance.name, instanceId: this.instanceId },
           messageRaw,
         );
       }
 
-      if (this.configService.get<Chatwoot>('CHATWOOT').ENABLED && this.localChatwoot?.enabled && isIntegration)
+      if (
+        this.configService.get<Chatwoot>('CHATWOOT').ENABLED &&
+        this.localChatwoot?.enabled &&
+        isIntegration
+      )
         await chatbotController.emit({
           instance: { instanceName: this.instance.name, instanceId: this.instanceId },
           remoteJid: messageRaw.key.remoteJid,
@@ -523,18 +529,16 @@ export class EvolutionStartupService extends ChannelStartupService {
       });
 
       return messageRaw;
-    } catch (error) {
-      this.logger.error(error);
+    } catch (error: any) {
+      this.logger?.error?.(error);
       throw new BadRequestException(error.toString());
     }
   }
 
-  public async textMessage(data: SendTextDto, isIntegration = false) {
-    const res = await this.sendMessageWithTyping(
+  public async textMessage(data: SendTextDto, isIntegration = false): Promise<any> {
+    return await this.sendMessageWithTyping(
       data.number,
-      {
-        conversation: data.text,
-      },
+      { conversation: data.text },
       {
         delay: data?.delay,
         presence: 'composing',
@@ -546,15 +550,14 @@ export class EvolutionStartupService extends ChannelStartupService {
       null,
       isIntegration,
     );
-    return res;
   }
 
-  protected async prepareMediaMessage(mediaMessage: MediaMessage) {
+  protected async prepareMediaMessage(mediaMessage: MediaMessage): Promise<any> {
     try {
       if (mediaMessage.mediatype === 'document' && !mediaMessage.fileName) {
         const regex = new RegExp(/.*\/(.+?)\./);
         const arrayMatch = regex.exec(mediaMessage.media);
-        mediaMessage.fileName = arrayMatch[1];
+        mediaMessage.fileName = arrayMatch?.[1];
       }
 
       if (mediaMessage.mediatype === 'image' && !mediaMessage.fileName) {
@@ -565,7 +568,7 @@ export class EvolutionStartupService extends ChannelStartupService {
         mediaMessage.fileName = 'video.mp4';
       }
 
-      let mimetype: string | false;
+      let mimetype: string | false = '';
 
       const prepareMedia: any = {
         caption: mediaMessage?.caption,
@@ -578,26 +581,23 @@ export class EvolutionStartupService extends ChannelStartupService {
       if (isURL(mediaMessage.media)) {
         mimetype = mimeTypes.lookup(mediaMessage.media);
       } else {
-        mimetype = mimeTypes.lookup(mediaMessage.fileName);
+        mimetype = mimeTypes.lookup(mediaMessage.fileName || '');
       }
 
       prepareMedia.mimetype = mimetype;
 
       return prepareMedia;
-    } catch (error) {
-      this.logger.error(error);
+    } catch (error: any) {
+      this.logger?.error?.(error);
       throw new InternalServerErrorException(error?.toString() || error);
     }
   }
 
-  public async mediaMessage(data: SendMediaDto, file?: any, isIntegration = false) {
+  public async mediaMessage(data: SendMediaDto, file?: any, isIntegration = false): Promise<any> {
     const mediaData: SendMediaDto = { ...data };
-
     if (file) mediaData.media = file.buffer.toString('base64');
-
     const message = await this.prepareMediaMessage(mediaData);
-
-    const mediaSent = await this.sendMessageWithTyping(
+    return await this.sendMessageWithTyping(
       data.number,
       { ...message },
       {
@@ -611,19 +611,16 @@ export class EvolutionStartupService extends ChannelStartupService {
       file,
       isIntegration,
     );
-
-    return mediaSent;
   }
 
-  public async processAudio(audio: string, number: string, file: any) {
+  public async processAudio(audio: string, number: string, file: any): Promise<any> {
     number = number.replace(/\D/g, '');
     const hash = `${number}-${new Date().getTime()}`;
 
     if (process.env.API_AUDIO_CONVERTER) {
       try {
-        this.logger.verbose('Using audio converter API');
+        this.logger?.verbose?.('Using audio converter API');
         const formData = new FormData();
-
         if (file) {
           formData.append('file', file.buffer, {
             filename: file.originalname,
@@ -634,7 +631,6 @@ export class EvolutionStartupService extends ChannelStartupService {
         } else {
           formData.append('base64', audio);
         }
-
         formData.append('format', 'mp4');
 
         const response = await axios.post(process.env.API_AUDIO_CONVERTER, formData, {
@@ -648,16 +644,14 @@ export class EvolutionStartupService extends ChannelStartupService {
           throw new InternalServerErrorException('Failed to convert audio');
         }
 
-        const prepareMedia: any = {
+        return {
           fileName: `${hash}.mp4`,
           mediaType: 'audio',
           media: response?.data?.audio,
           mimetype: 'audio/mpeg',
         };
-
-        return prepareMedia;
-      } catch (error) {
-        this.logger.error(error?.response?.data || error);
+      } catch (error: any) {
+        this.logger?.error?.(error?.response?.data || error);
         throw new InternalServerErrorException(error?.response?.data?.message || error?.toString() || error);
       }
     } else {
@@ -671,9 +665,9 @@ export class EvolutionStartupService extends ChannelStartupService {
       };
 
       if (isURL(audio)) {
-        mimetype = mimeTypes.lookup(audio).toString();
+        mimetype = (mimeTypes.lookup(audio) || '').toString();
       } else {
-        mimetype = mimeTypes.lookup(prepareMedia.fileName).toString();
+        mimetype = (mimeTypes.lookup(prepareMedia.fileName) || '').toString();
       }
 
       prepareMedia.mimetype = mimetype;
@@ -682,19 +676,15 @@ export class EvolutionStartupService extends ChannelStartupService {
     }
   }
 
-  public async audioWhatsapp(data: SendAudioDto, file?: any, isIntegration = false) {
+  public async audioWhatsapp(data: SendAudioDto, file?: any, isIntegration = false): Promise<any> {
     const mediaData: SendAudioDto = { ...data };
-
     if (file?.buffer) {
       mediaData.audio = file.buffer.toString('base64');
     } else {
-      console.error('El archivo o buffer no est� definido correctamente.');
       throw new Error('File or buffer is undefined.');
     }
-
     const message = await this.processAudio(mediaData.audio, data.number, file);
-
-    const audioSent = await this.sendMessageWithTyping(
+    return await this.sendMessageWithTyping(
       data.number,
       { ...message },
       {
@@ -708,11 +698,9 @@ export class EvolutionStartupService extends ChannelStartupService {
       file,
       isIntegration,
     );
-
-    return audioSent;
   }
 
-  public async buttonMessage(data: SendButtonsDto, isIntegration = false) {
+  public async buttonMessage(data: SendButtonsDto, isIntegration = false): Promise<any> {
     return await this.sendMessageWithTyping(
       data.number,
       {
@@ -734,148 +722,53 @@ export class EvolutionStartupService extends ChannelStartupService {
       isIntegration,
     );
   }
-  public async locationMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async listMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async templateMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async contactMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async reactionMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async getBase64FromMediaMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async deleteMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async mediaSticker() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async pollMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async statusMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async reloadConnection() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async whatsappNumber() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async markMessageAsRead() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async archiveChat() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async markChatUnread() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async fetchProfile() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async offerCall() {
-    throw new BadRequestException('Method not available on WhatsApp Business API');
-  }
-  public async sendPresence() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async setPresence() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async fetchPrivacySettings() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updatePrivacySettings() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async fetchBusinessProfile() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateProfileName() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateProfileStatus() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateProfilePicture() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async removeProfilePicture() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async blockUser() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateMessage() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async createGroup() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateGroupPicture() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateGroupSubject() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateGroupDescription() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async findGroup() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async fetchAllGroups() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async inviteCode() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async inviteInfo() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async sendInvite() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async acceptInviteCode() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async revokeInviteCode() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async findParticipants() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateGParticipant() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async updateGSetting() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async toggleEphemeral() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async leaveGroup() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async fetchLabels() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async handleLabel() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async receiveMobileCode() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
-  public async fakeCall() {
-    throw new BadRequestException('Method not available on Evolution Channel');
-  }
+
+  public async locationMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async listMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async templateMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async contactMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async reactionMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async getBase64FromMediaMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async deleteMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async mediaSticker(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async pollMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async statusMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async reloadConnection(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async whatsappNumber(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async markMessageAsRead(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async archiveChat(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async markChatUnread(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async fetchProfile(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async offerCall(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
+  public async sendPresence(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async setPresence(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async fetchPrivacySettings(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updatePrivacySettings(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async fetchBusinessProfile(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateProfileName(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateProfileStatus(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateProfilePicture(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async removeProfilePicture(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async blockUser(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateMessage(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async createGroup(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateGroupPicture(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateGroupSubject(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateGroupDescription(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async findGroup(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async fetchAllGroups(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async inviteCode(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async inviteInfo(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async sendInvite(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async acceptInviteCode(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async revokeInviteCode(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async findParticipants(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateGParticipant(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async updateGSetting(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async toggleEphemeral(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async leaveGroup(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async fetchLabels(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async handleLabel(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async receiveMobileCode(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
+  public async fakeCall(): Promise<never> { throw new BadRequestException('Method not available on Evolution Channel'); }
 }

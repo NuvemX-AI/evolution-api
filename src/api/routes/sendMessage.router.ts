@@ -1,4 +1,4 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
+import { RouterBroker } from '../abstract/abstract.router';
 import {
   SendAudioDto,
   SendButtonsDto,
@@ -13,8 +13,9 @@ import {
   SendStickerDto,
   SendTemplateDto,
   SendTextDto,
-} from '@api/dto/sendMessage.dto';
-import { sendMessageController } from '@api/server.module';
+} from '../dto/sendMessage.dto';
+import { SendMessageController } from '../controllers/sendMessage.controller';
+
 import {
   audioMessageSchema,
   buttonsMessageSchema,
@@ -30,25 +31,41 @@ import {
   templateMessageSchema,
   textMessageSchema,
 } from '@validate/validate.schema';
-import { RequestHandler, Router } from 'express';
+import { RequestHandler, Router, Request } from 'express';
 import multer from 'multer';
+import { HttpStatus } from '../constants/http-status';
+import { WAMonitoringService } from '../services/wa-monitoring.service';
 
-import { HttpStatus } from './index.router';
+// Augmentação compatível e segura
+declare global {
+  namespace Express {
+    interface Request {
+      file?: any; // Para máxima compatibilidade/multer
+    }
+  }
+}
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export class MessageRouter extends RouterBroker {
-  constructor(...guards: RequestHandler[]) {
+  public readonly router: Router = Router();
+  private readonly sendMessageController: SendMessageController;
+
+  constructor(
+    waMonitor: WAMonitoringService,
+    ...guards: RequestHandler[]
+  ) {
     super();
+    this.sendMessageController = new SendMessageController(waMonitor);
+
     this.router
       .post(this.routerPath('sendTemplate'), ...guards, async (req, res) => {
         const response = await this.dataValidate<SendTemplateDto>({
           request: req,
           schema: templateMessageSchema,
           ClassRef: SendTemplateDto,
-          execute: (instance, data) => sendMessageController.sendTemplate(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendTemplate(instance, data),
         });
-
         return res.status(HttpStatus.CREATED).json(response);
       })
       .post(this.routerPath('sendText'), ...guards, async (req, res) => {
@@ -56,68 +73,67 @@ export class MessageRouter extends RouterBroker {
           request: req,
           schema: textMessageSchema,
           ClassRef: SendTextDto,
-          execute: (instance, data) => sendMessageController.sendText(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendText(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
       })
-      .post(this.routerPath('sendMedia'), ...guards, upload.single('file'), async (req, res) => {
+      .post(this.routerPath('sendMedia'), ...guards, upload.single('file'), async (req: Request, res) => {
         const bodyData = req.body;
 
         const response = await this.dataValidate<SendMediaDto>({
           request: req,
           schema: mediaMessageSchema,
           ClassRef: SendMediaDto,
-          execute: (instance) => sendMessageController.sendMedia(instance, bodyData, req.file as any),
+          execute: (instance) => this.sendMessageController.sendMedia(instance, bodyData, req.file),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
       })
-      .post(this.routerPath('sendPtv'), ...guards, upload.single('file'), async (req, res) => {
+      .post(this.routerPath('sendPtv'), ...guards, upload.single('file'), async (req: Request, res) => {
         const bodyData = req.body;
 
         const response = await this.dataValidate<SendPtvDto>({
           request: req,
           schema: ptvMessageSchema,
           ClassRef: SendPtvDto,
-          execute: (instance) => sendMessageController.sendPtv(instance, bodyData, req.file as any),
+          execute: (instance) => this.sendMessageController.sendPtv(instance, bodyData, req.file),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
       })
-      .post(this.routerPath('sendWhatsAppAudio'), ...guards, upload.single('file'), async (req, res) => {
+      .post(this.routerPath('sendWhatsAppAudio'), ...guards, upload.single('file'), async (req: Request, res) => {
         const bodyData = req.body;
 
         const response = await this.dataValidate<SendAudioDto>({
           request: req,
           schema: audioMessageSchema,
           ClassRef: SendMediaDto,
-          execute: (instance) => sendMessageController.sendWhatsAppAudio(instance, bodyData, req.file as any),
+          execute: (instance) => this.sendMessageController.sendWhatsAppAudio(instance, bodyData, req.file),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
       })
-      // TODO: Revisar funcionamento do envio de Status
-      .post(this.routerPath('sendStatus'), ...guards, upload.single('file'), async (req, res) => {
+      .post(this.routerPath('sendStatus'), ...guards, upload.single('file'), async (req: Request, res) => {
         const bodyData = req.body;
 
         const response = await this.dataValidate<SendStatusDto>({
           request: req,
           schema: statusMessageSchema,
           ClassRef: SendStatusDto,
-          execute: (instance) => sendMessageController.sendStatus(instance, bodyData, req.file as any),
+          execute: (instance) => this.sendMessageController.sendStatus(instance, bodyData, req.file),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
       })
-      .post(this.routerPath('sendSticker'), ...guards, upload.single('file'), async (req, res) => {
+      .post(this.routerPath('sendSticker'), ...guards, upload.single('file'), async (req: Request, res) => {
         const bodyData = req.body;
 
         const response = await this.dataValidate<SendStickerDto>({
           request: req,
           schema: stickerMessageSchema,
           ClassRef: SendStickerDto,
-          execute: (instance) => sendMessageController.sendSticker(instance, bodyData, req.file as any),
+          execute: (instance) => this.sendMessageController.sendSticker(instance, bodyData, req.file),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
@@ -127,7 +143,7 @@ export class MessageRouter extends RouterBroker {
           request: req,
           schema: locationMessageSchema,
           ClassRef: SendLocationDto,
-          execute: (instance, data) => sendMessageController.sendLocation(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendLocation(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
@@ -137,7 +153,7 @@ export class MessageRouter extends RouterBroker {
           request: req,
           schema: contactMessageSchema,
           ClassRef: SendContactDto,
-          execute: (instance, data) => sendMessageController.sendContact(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendContact(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
@@ -147,7 +163,7 @@ export class MessageRouter extends RouterBroker {
           request: req,
           schema: reactionMessageSchema,
           ClassRef: SendReactionDto,
-          execute: (instance, data) => sendMessageController.sendReaction(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendReaction(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
@@ -157,7 +173,7 @@ export class MessageRouter extends RouterBroker {
           request: req,
           schema: pollMessageSchema,
           ClassRef: SendPollDto,
-          execute: (instance, data) => sendMessageController.sendPoll(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendPoll(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
@@ -167,7 +183,7 @@ export class MessageRouter extends RouterBroker {
           request: req,
           schema: listMessageSchema,
           ClassRef: SendListDto,
-          execute: (instance, data) => sendMessageController.sendList(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendList(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
@@ -177,12 +193,10 @@ export class MessageRouter extends RouterBroker {
           request: req,
           schema: buttonsMessageSchema,
           ClassRef: SendButtonsDto,
-          execute: (instance, data) => sendMessageController.sendButtons(instance, data),
+          execute: (instance, data) => this.sendMessageController.sendButtons(instance, data),
         });
 
         return res.status(HttpStatus.CREATED).json(response);
       });
   }
-
-  public readonly router: Router = Router();
 }

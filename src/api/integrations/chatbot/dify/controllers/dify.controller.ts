@@ -1,14 +1,14 @@
-import { IgnoreJidDto } from '@api/dto/chatbot.dto';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { DifyDto } from '@api/integrations/chatbot/dify/dto/dify.dto';
-import { DifyService } from '@api/integrations/chatbot/dify/services/dify.service';
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import { DifyDto } from '../dto/dify.dto';
+import { DifyService } from '../services/dify.service';
+import { PrismaRepository } from '../../../../repository/repository.service';
+import { WAMonitoringService } from '../../../../services/monitor.service';
 import { configService, Dify } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { BadRequestException } from '@exceptions';
 import { Dify as DifyModel } from '@prisma/client';
-import { getConversationMessage } from '@utils/getConversationMessage';
+import { getConversationMessage } from '../../../../utils/getConversationMessage';
 
 import { ChatbotController, ChatbotControllerInterface, EmitData } from '../../chatbot.controller';
 

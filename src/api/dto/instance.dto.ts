@@ -1,9 +1,9 @@
-import { IntegrationDto } from '@api/integrations/integration.dto';
+import { IntegrationDto } from '../integrations/integration.dto';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { WAPresence } from 'baileys';
 
 export class InstanceDto extends IntegrationDto {
-  instanceName: string;
+  instanceName!: string;
   instanceId?: string;
   qrcode?: boolean;
   businessId?: string;
@@ -14,6 +14,7 @@ export class InstanceDto extends IntegrationDto {
   ownerJid?: string;
   profileName?: string;
   profilePicUrl?: string;
+
   // settings
   rejectCall?: boolean;
   msgCall?: string;
@@ -23,12 +24,15 @@ export class InstanceDto extends IntegrationDto {
   readStatus?: boolean;
   syncFullHistory?: boolean;
   wavoipToken?: string;
+
   // proxy
   proxyHost?: string;
   proxyPort?: string;
   proxyProtocol?: string;
   proxyUsername?: string;
   proxyPassword?: string;
+
+  // webhook
   webhook?: {
     enabled?: boolean;
     events?: string[];
@@ -37,6 +41,8 @@ export class InstanceDto extends IntegrationDto {
     byEvents?: boolean;
     base64?: boolean;
   };
+
+  // chatwoot
   chatwootAccountId?: string;
   chatwootConversationPending?: boolean;
   chatwootAutoCreate?: boolean;
@@ -51,8 +57,19 @@ export class InstanceDto extends IntegrationDto {
   chatwootSignMsg?: boolean;
   chatwootToken?: string;
   chatwootUrl?: string;
+
+  constructor(data?: Partial<InstanceDto>) {
+    super();
+    if (data) Object.assign(this, data);
+  }
 }
 
+// ----------- CORRIGIDO PARA INCLUIR instanceName -----------
 export class SetPresenceDto {
-  presence: WAPresence;
+  instanceName!: string;
+  presence!: WAPresence;
+
+  constructor(data?: Partial<SetPresenceDto>) {
+    if (data) Object.assign(this, data);
+  }
 }

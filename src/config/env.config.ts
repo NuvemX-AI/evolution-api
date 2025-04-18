@@ -297,6 +297,17 @@ export class ConfigService {
     return this.env[key] as T;
   }
 
+public getAuth(): { username: string; password: string } {
+  const username = process.env.AUTH_USER || 'admin';
+  const password = process.env.AUTH_PASS || 'admin';
+
+  if (!username || !password) {
+    throw new Error('❌ AUTH_USER ou AUTH_PASS não definidos no .env');
+  }
+
+  return { username, password };
+}
+
   private loadEnv() {
     this.env = this.envProcess();
     this.env.PRODUCTION = process.env?.NODE_ENV === 'PROD';

@@ -1,8 +1,8 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { MediaDto } from '@api/integrations/storage/s3/dto/media.dto';
-import { s3Schema, s3UrlSchema } from '@api/integrations/storage/s3/validate/s3.schema';
-import { HttpStatus } from '@api/routes/index.router';
-import { s3Controller } from '@api/server.module';
+import { RouterBroker } from '../../../abstract/abstract.router';
+import { MediaDto } from '../dto/media.dto';
+import { s3Schema, s3UrlSchema } from '../validate/s3.schema';
+import { HttpStatus } from '../../../../routes/index.router';
+import { s3Controller } from '../../../../server.module';
 import { RequestHandler, Router } from 'express';
 
 export class S3Router extends RouterBroker {

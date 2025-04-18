@@ -1,10 +1,10 @@
-import { PusherController } from '@api/integrations/event/pusher/pusher.controller';
-import { RabbitmqController } from '@api/integrations/event/rabbitmq/rabbitmq.controller';
-import { SqsController } from '@api/integrations/event/sqs/sqs.controller';
-import { WebhookController } from '@api/integrations/event/webhook/webhook.controller';
-import { WebsocketController } from '@api/integrations/event/websocket/websocket.controller';
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
+import { PusherController } from './pusher/pusher.controller';
+import { RabbitmqController } from './rabbitmq/rabbitmq.controller';
+import { SqsController } from './sqs/sqs.controller';
+import { WebhookController } from './webhook/webhook.controller';
+import { WebsocketController } from './websocket/websocket.controller';
+import { PrismaRepository } from '../../repository/repository.service';
+import { WAMonitoringService } from '../../services/monitor.service';
 import { Server } from 'http';
 
 export class EventManager {

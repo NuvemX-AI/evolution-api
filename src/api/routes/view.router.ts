@@ -1,4 +1,4 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
+import { RouterBroker } from '../abstract/abstract.router';
 import express, { Router } from 'express';
 import path from 'path';
 

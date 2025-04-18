@@ -1,7 +1,7 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { InstanceDto } from '@api/dto/instance.dto';
-import { TemplateDto } from '@api/dto/template.dto';
-import { templateController } from '@api/server.module';
+import { RouterBroker } from '../abstract/abstract.router';
+import { InstanceDto } from '../dto/instance.dto';
+import { TemplateDto } from '../dto/template.dto';
+import { templateController } from '../server.module';
 import { ConfigService } from '@config/env.config';
 import { instanceSchema, templateSchema } from '@validate/validate.schema';
 import { RequestHandler, Router } from 'express';

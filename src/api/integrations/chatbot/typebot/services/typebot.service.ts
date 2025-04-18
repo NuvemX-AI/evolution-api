@@ -1,10 +1,10 @@
-import { PrismaRepository } from '@api/repository/repository.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
+import { PrismaRepository } from '../../../../repository/repository.service';
+import { WAMonitoringService } from '../../../../services/monitor.service';
 import { Auth, ConfigService, HttpServer, Typebot } from '@config/env.config';
 import { Logger } from '@config/logger.config';
 import { Instance, IntegrationSession, Message, Typebot as TypebotModel } from '@prisma/client';
-import { getConversationMessage } from '@utils/getConversationMessage';
-import { sendTelemetry } from '@utils/sendTelemetry';
+import { getConversationMessage } from '../../../../utils/getConversationMessage';
+import { sendTelemetry } from '../../../../utils/sendTelemetry';
 import axios from 'axios';
 
 export class TypebotService {

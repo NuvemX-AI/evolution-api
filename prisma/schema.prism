@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Instance {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  number          String   @unique
+  token           String?
+  profileName     String?
+  profilePicUrl   String?
+  ownerJid        String?
+  connectionStatus String
+  integration     String
+  clientName      String
+  businessId      String?
+
+  session         Session[]
+  chat            Chat[]
+  contact         Contact[]
+  message         Message[]
+  webhook         Webhook[]
+  chatwoot        Chatwoot[]
+  proxy           Proxy[]
+  rabbitmq        Rabbitmq[]
+  sqs             Sqs[]
+  integrationSession IntegrationSession[]
+  typebot         Typebot[]
+  websocket       Websocket[]
+  setting         Setting[]
+  label           Label[]
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  sessionId  String
+  data       String?
+  instance   Instance @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Chat {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Contact {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Webhook {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Chatwoot {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Proxy {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Rabbitmq {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Sqs {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model IntegrationSession {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Typebot {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Websocket {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Setting {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
+
+model Label {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id])
+}
