@@ -1,6 +1,6 @@
 import { RouterBroker } from '../../../abstract/abstract.router';
 import { InstanceDto } from '@api/dto/instance.dto';
-import { HttpStatus } from '../../constants/http-status';
+import httpStatus from '../../../constants/http-status'
 import { instanceSchema } from '@validate/instance.schema';
 import { RequestHandler, Router } from 'express';
 
