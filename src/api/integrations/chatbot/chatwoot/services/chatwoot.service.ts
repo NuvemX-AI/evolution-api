@@ -1277,6 +1277,7 @@ export class ChatwootService {
             'incoming',
           );
         }
+      }
 
         if (command === 'status') {
           const state = waInstance?.connectionStatus?.state;
