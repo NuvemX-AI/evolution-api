@@ -1473,6 +1473,10 @@ export class ChatwootService {
           } // fecha if (lastMessage && !lastMessage.chatwootIsRead)
         } // fecha if (chatwootRead)
 
+export class ChatwootService {
+  private readonly logger = new Logger('ChatwootService');
+  private provider: any;
+  
   constructor(
     private readonly waMonitor: WAMonitoringService,
     private readonly configService: ConfigService,
