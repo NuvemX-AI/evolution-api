@@ -184,7 +184,7 @@ model Websocket {
   instanceId  String   @unique
   instance    Instance @relation(fields: [instanceId], references: [id])
   url         String?
-  protocols   String[]?
+  protocols   String[] @default([])
   enabled     Boolean?
 
   @@index([instanceId])
@@ -196,7 +196,7 @@ model Setting {
   instance        Instance @relation(fields: [instanceId], references: [id])
   rejectCall      Boolean?
   msgCall         String?
-  groupsIgnore    String[]?
+  groupsIgnore    String[] @default([])
   alwaysOnline    Boolean?
   readMessages    Boolean?
   readStatus      Boolean?
@@ -326,7 +326,7 @@ model Typebot {
   stopBotFromMe    Boolean?
   keepOpen         Boolean?
   debounceTime     Int?
-  ignoreJids       String[]?
+  ignoreJids       String[]   @default([])
   enabled          Boolean?
 
   setting          TypebotSetting[]
