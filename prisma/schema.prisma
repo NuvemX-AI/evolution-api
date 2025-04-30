@@ -7,6 +7,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ——————————————————————————————————————————————
+// ENUMS
+// ——————————————————————————————————————————————
+
+enum TriggerType {
+  KEYWORD
+  SCHEDULE
+  WEBHOOK
+  ALWAYS
+}
+
+enum TriggerOperator {
+  EQUALS
+  CONTAINS
+  STARTS_WITH
+  ENDS_WITH
+}
+
+// ——————————————————————————————————————————————
+// MODELS
+// ——————————————————————————————————————————————
+
 model Instance {
   id               String   @id @default(uuid())
   name             String   @unique
@@ -21,10 +43,12 @@ model Instance {
   businessId       String?
   createdAt        DateTime @default(now())
 
+  // relações com demais tabelas
   session            Session[]
   chat               Chat[]
   contact            Contact[]
   message            Message[]
+  messageUpdate      MessageUpdate[]
   webhook            Webhook[]
   chatwoot           Chatwoot[]
   proxy              Proxy[]
@@ -33,15 +57,25 @@ model Instance {
   websocket          Websocket[]
   setting            Setting[]
   integrationSession IntegrationSession[]
-  typebot            Typebot[]
+  dify               Dify?
+  evolutionBot       EvolutionBot?
+  flowise            Flowise?
+  openaiBot          OpenaiBot?
+  typebot            Typebot?
   label              Label[]
+  pusher             Pusher?
 }
 
 model Session {
   id         String   @id @default(uuid())
-  sessionId  String
+  sessionId  String   @unique
   instanceId String
   instance   Instance @relation(fields: [instanceId], references: [id])
+  creds      Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([instanceId])
 }
 
 model Chat {
@@ -62,62 +96,270 @@ model Message {
   instance   Instance @relation(fields: [instanceId], references: [id])
 }
 
-model Webhook {
+model MessageUpdate {
   id         String   @id @default(uuid())
   instanceId String
   instance   Instance @relation(fields: [instanceId], references: [id])
+  messageId  String?
+  data       Json?
+  createdAt  DateTime @default(now())
+}
+
+model Webhook {
+  id            String   @id @default(uuid())
+  instanceId    String   @unique
+  instance      Instance @relation(fields: [instanceId], references: [id])
+  enabled       Boolean?
+  webhookBase64 String?
+
+  @@index([instanceId])
 }
 
 model Chatwoot {
-  id         String   @id @default(uuid())
-  instanceId String
-  instance   Instance @relation(fields: [instanceId], references: [id])
+  id                      String   @id @default(uuid())
+  instanceId              String   @unique
+  instance                Instance @relation(fields: [instanceId], references: [id])
+  enabled                 Boolean?
+  accountId               String?
+  token                   String?
+  url                     String?
+  nameInbox               String?
+  signMsg                 String?
+  signDelimiter           String?
+  number                  String?
+  reopenConversation      Boolean?
+  conversationPending     Boolean?
+  mergeBrazilContacts     Boolean?
+  importContacts          Boolean?
+  importMessages          Boolean?
+  daysLimitImportMessages Int?
+  organization            String?
+  logo                    String?
+
+  @@index([instanceId])
 }
 
 model Proxy {
   id         String   @id @default(uuid())
-  instanceId String
+  instanceId String   @unique
   instance   Instance @relation(fields: [instanceId], references: [id])
+  enabled    Boolean?
+  host       String?
+  port       Int?
+  protocol   String?
+  username   String?
+  password   String?
+
+  @@index([instanceId])
 }
 
 model Rabbitmq {
   id         String   @id @default(uuid())
-  instanceId String
+  instanceId String   @unique
   instance   Instance @relation(fields: [instanceId], references: [id])
+  url        String?
+  queue      String?
+  exchange   String?
+  routingKey String?
+  enabled    Boolean?
+
+  @@index([instanceId])
 }
 
 model Sqs {
-  id         String   @id @default(uuid())
-  instanceId String
-  instance   Instance @relation(fields: [instanceId], references: [id])
+  id              String   @id @default(uuid())
+  instanceId      String   @unique
+  instance        Instance @relation(fields: [instanceId], references: [id])
+  region          String?
+  queueUrl        String?
+  accessKeyId     String?
+  secretAccessKey String?
+  enabled         Boolean?
+
+  @@index([instanceId])
 }
 
 model Websocket {
-  id         String   @id @default(uuid())
-  instanceId String
-  instance   Instance @relation(fields: [instanceId], references: [id])
+  id          String   @id @default(uuid())
+  instanceId  String   @unique
+  instance    Instance @relation(fields: [instanceId], references: [id])
+  url         String?
+  protocols   String[]?
+  enabled     Boolean?
+
+  @@index([instanceId])
 }
 
 model Setting {
-  id         String   @id @default(uuid())
-  instanceId String
-  instance   Instance @relation(fields: [instanceId], references: [id])
+  id              String   @id @default(uuid())
+  instanceId      String   @unique
+  instance        Instance @relation(fields: [instanceId], references: [id])
+  rejectCall      Boolean?
+  msgCall         String?
+  groupsIgnore    String[]?
+  alwaysOnline    Boolean?
+  readMessages    Boolean?
+  readStatus      Boolean?
+  syncFullHistory Boolean?
+  wavoipToken     String?
+
+  @@index([instanceId])
 }
 
 model IntegrationSession {
   id         String   @id @default(uuid())
   instanceId String
   instance   Instance @relation(fields: [instanceId], references: [id])
+  sessionId  String?
+  botId      String?
+  remoteJid  String?
+  status     String?
+  awaitUser  Boolean?  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([instanceId])
+  @@index([botId])
+}
+
+model Dify {
+  id         String   @id @default(uuid())
+  instanceId String   @unique
+  instance   Instance @relation(fields: [instanceId], references: [id])
+  apiKey     String
+  url        String
+  enabled    Boolean?
+
+  setting    DifySetting[]
+
+  @@index([instanceId])
+}
+
+model DifySetting {
+  id      String @id @default(uuid())
+  difyId  String
+  dify    Dify   @relation(fields: [difyId], references: [id])
+  key     String
+  value   String
+}
+
+model EvolutionBot {
+  id           String           @id @default(uuid())
+  instanceId   String           @unique
+  instance     Instance         @relation(fields: [instanceId], references: [id])
+  apiKey       String
+  model        String?
+  enabled      Boolean?
+
+  setting      EvolutionBotSetting[]
+
+  @@index([instanceId])
+}
+
+model EvolutionBotSetting {
+  id              String        @id @default(uuid())
+  evolutionBotId  String
+  evolutionBot    EvolutionBot  @relation(fields: [evolutionBotId], references: [id])
+  key             String
+  value           String
+}
+
+model Flowise {
+  id         String   @id @default(uuid())
+  instanceId String   @unique
+  instance   Instance @relation(fields: [instanceId], references: [id])
+  url        String
+  token      String?
+  enabled    Boolean?
+
+  setting    FlowiseSetting[]
+
+  @@index([instanceId])
+}
+
+model FlowiseSetting {
+  id        String   @id @default(uuid())
+  flowiseId String
+  flowise   Flowise  @relation(fields: [flowiseId], references: [id])
+  key       String
+  value     String
+}
+
+model OpenaiBot {
+  id         String     @id @default(uuid())
+  instanceId String     @unique
+  instance   Instance   @relation(fields: [instanceId], references: [id])
+  name       String?
+  enabled    Boolean?
+
+  setting    OpenaiSetting[]
+  creds      OpenaiCreds[]
+
+  @@index([instanceId])
+}
+
+model OpenaiSetting {
+  id           String     @id @default(uuid())
+  openaiBotId  String
+  openaiBot    OpenaiBot  @relation(fields: [openaiBotId], references: [id])
+  model        String
+  maxTokens    Int?
+}
+
+model OpenaiCreds {
+  id           String     @id @default(uuid())
+  openaiBotId  String
+  openaiBot    OpenaiBot  @relation(fields: [openaiBotId], references: [id])
+  apiKey       String
 }
 
 model Typebot {
+  id               String     @id @default(uuid())
+  instanceId       String     @unique
+  instance         Instance   @relation(fields: [instanceId], references: [id])
+  url              String
+  expire           Int?
+  keywordFinish    String?
+  delayMessage     Int?
+  unknownMessage   String?
+  listeningFromMe  Boolean?
+  stopBotFromMe    Boolean?
+  keepOpen         Boolean?
+  debounceTime     Int?
+  ignoreJids       String[]?
+  enabled          Boolean?
+
+  setting          TypebotSetting[]
+
+  @@index([instanceId])
+}
+
+model TypebotSetting {
   id         String   @id @default(uuid())
-  instanceId String
-  instance   Instance @relation(fields: [instanceId], references: [id])
+  typebotId  String
+  typebot    Typebot  @relation(fields: [typebotId], references: [id])
+  key        String
+  value      String
 }
 
 model Label {
   id         String   @id @default(uuid())
   instanceId String
   instance   Instance @relation(fields: [instanceId], references: [id])
+  name       String
+  color      String?
+}
+
+model Pusher {
+  id         String   @id @default(uuid())
+  instanceId String   @unique
+  instance   Instance @relation(fields: [instanceId], references: [id])
+  enabled    Boolean?
+  appId      String?
+  key        String?
+  secret     String?
+  cluster    String?
+  useTLS     Boolean?
+
+  @@index([instanceId])
 }
