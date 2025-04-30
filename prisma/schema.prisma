@@ -64,6 +64,7 @@ model Instance {
   typebot            Typebot?
   label              Label[]
   pusher             Pusher?
+  whatsappIntegration WhatsappIntegration[]
 }
 
 model Session {
@@ -360,6 +361,19 @@ model Pusher {
   secret     String?
   cluster    String?
   useTLS     Boolean?
+
+  @@index([instanceId])
+}
+
+model WhatsappIntegration {
+  id          String   @id @default(uuid())
+  instanceId  String
+  instance    Instance @relation(fields: [instanceId], references: [id])
+  phoneNumber String?
+  apiToken    String?
+  status      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([instanceId])
 }
