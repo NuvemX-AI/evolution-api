@@ -1473,14 +1473,6 @@ export class ChatwootService {
           } // fecha if (lastMessage && !lastMessage.chatwootIsRead)
         } // fecha if (chatwootRead)
 
-interface ChatwootMessage {
-  messageId?: number;
-  inboxId?: number;
-  conversationId?: number;
-  contactInboxSourceId?: string;
-  isRead?: boolean;
-}
-
 export class ChatwootService {
   private readonly logger = new Logger('ChatwootService');
   private provider: any;
