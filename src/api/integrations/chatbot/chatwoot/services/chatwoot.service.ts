@@ -1472,39 +1472,6 @@ export class ChatwootService {
             });
           } // fecha if (lastMessage && !lastMessage.chatwootIsRead)
         } // fecha if (chatwootRead)
-import { InstanceDto } from '@api/dto/instance.dto';
-import { Options, Quoted, SendAudioDto, SendMediaDto, SendTextDto } from '@api/dto/sendMessage.dto';
-import { ChatwootDto } from '@api/integrations/chatbot/chatwoot/dto/chatwoot.dto';
-import { postgresClient } from '@api/integrations/chatbot/chatwoot/libs/postgres.client';
-import { chatwootImport } from '@api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper';
-import { PrismaRepository } from '@api/repository/repository.service';
-import { CacheService } from '@api/services/cache.service';
-import { WAMonitoringService } from '@api/services/monitor.service';
-import { Events } from '@api/types/wa.types';
-import { Chatwoot, ConfigService, Database, HttpServer } from '@config/env.config';
-import { Logger } from '@config/logger.config';
-import ChatwootClient, {
-  ChatwootAPIConfig,
-  contact,
-  contact_inboxes,
-  conversation,
-  conversation_show,
-  generic_id,
-  inbox,
-} from '@figuro/chatwoot-sdk';
-import { request as chatwootRequest } from '@figuro/chatwoot-sdk/dist/core/request';
-import { Chatwoot as ChatwootModel, Contact as ContactModel, Message as MessageModel } from '@prisma/client';
-import i18next from '../../../../utils/i18n';
-import { sendTelemetry } from '../../../../utils/sendTelemetry';
-import axios from 'axios';
-import { proto } from 'baileys';
-import dayjs from 'dayjs';
-import FormData from 'form-data';
-import Jimp from 'jimp';
-import Long from 'long';
-import mimeTypes from 'mime-types';
-import path from 'path';
-import { Readable } from 'stream';
 
 interface ChatwootMessage {
   messageId?: number;
