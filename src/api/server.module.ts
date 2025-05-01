@@ -17,9 +17,9 @@ import { EventEmitter2 } from 'eventemitter2';
 /* Aliases (conforme tsconfig.json)                  */
 /* ------------------------------------------------- */
 import { HttpStatus }          from '@constants/http-status';
-import { configService }       from '@config/env.config';
 import { CacheEngine }         from '@cache/cacheengine';
 import { CacheService }        from '@services/cache.service';
+import { ConfigService }       from '@config/config.service';
 import { WAMonitoringService } from '@services/wa-monitoring.service';
 import { PrismaRepository }    from '@repository/repository.service';
 
@@ -58,12 +58,21 @@ import { S3Controller } from './integrations/storage/s3/controllers/s3.controlle
 /* ------------------------------------------------- */
 /*  SINGLETONS / SHARED INSTANCES                    */
 /* ------------------------------------------------- */
-const cacheInstance = new CacheService(new CacheEngine(configService, 'evolution').getEngine());
+// agora usamos a classe ConfigService em vez de importar um objeto pronto
+const configService = new ConfigService();
+
+// cache singleton
+const cacheInstance = new CacheService(
+  new CacheEngine(configService, 'evolution').getEngine()
+);
+
+// prisma
 const prismaRepository = new PrismaRepository(configService);
 
-/* Event manager (pode evoluir depois) */
+// event manager
 const eventManager = new EventEmitter2({ wildcard: true, maxListeners: 100 });
 
+// monitor do WhatsApp
 const waMonitor = new WAMonitoringService({
   eventEmitter    : eventManager,
   configService,
@@ -78,21 +87,65 @@ const waMonitor = new WAMonitoringService({
 /* ------------------------------------------------- */
 /* CONTROLLERS instanciados (injeção simplificada)   */
 /* ------------------------------------------------- */
-const instanceController   = new InstanceController(configService as any, prismaRepository as any, waMonitor as any);
-const chatController       = new ChatController(waMonitor as any, prismaRepository as any, configService as any);
-const groupController      = new GroupController(waMonitor as any, prismaRepository as any, configService as any);
-const callController       = new CallController(waMonitor as any, prismaRepository as any, configService as any);
+const instanceController   = new InstanceController(
+  configService,
+  prismaRepository,
+  waMonitor,
+  eventManager,
+);
+const chatController       = new ChatController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
+const groupController      = new GroupController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
+const callController       = new CallController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
 
 /* chatbots */
-const chatbotController        = new ChatbotController(waMonitor as any, prismaRepository as any, configService as any);
-const difyController           = new DifyController(waMonitor as any, prismaRepository as any, configService as any);
-const evolutionBotController   = new EvolutionBotController(waMonitor as any, prismaRepository as any, configService as any);
-const flowiseController        = new FlowiseController(waMonitor as any, prismaRepository as any, configService as any);
-const openaiController         = new OpenaiController(waMonitor as any, prismaRepository as any, configService as any);
-const typebotController        = new TypebotController(waMonitor as any, prismaRepository as any, configService as any);
+const chatbotController        = new ChatbotController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
+const difyController           = new DifyController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
+const evolutionBotController   = new EvolutionBotController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
+const flowiseController        = new FlowiseController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
+const openaiController         = new OpenaiController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
+const typebotController        = new TypebotController(
+  waMonitor,
+  prismaRepository,
+  configService,
+);
 
 /* storage */
-const s3Controller             = new S3Controller(prismaRepository as any, configService as any);
+const s3Controller             = new S3Controller(
+  prismaRepository,
+  configService,
+);
 
 /* ------------------------------------------------- */
 /*  EXPRESS ROUTER                                   */
@@ -102,7 +155,7 @@ const guards        = [instanceExistsGuard, instanceLoggedGuard];
 const telemetry     = new Telemetry();
 const pkg           = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
 
-/* assets do manager (frontend) */
+// servindo assets do frontend
 router.get('/assets/*', (req, res) => {
   const fileName = req.params[0];
   const filePath = path.join(process.cwd(), 'manager', 'dist', 'assets', fileName);
@@ -115,14 +168,14 @@ router.get('/assets/*', (req, res) => {
   }
 });
 
-/* API pública básica */
+// rotas públicas e protegidas
 router
   .use((req, res, next) => telemetry.collectTelemetry(req, res, next))
 
   .get('/', (_req, res) => {
     res.status(HttpStatus.OK).json({
       status        : HttpStatus.OK,
-      message       : 'Welcome to Evolution‑API. It’s alive! 🚀',
+      message       : 'Welcome to Evolution-API. It’s alive! 🚀',
       version       : pkg.version,
       clientName    : process.env.DATABASE_CONNECTION_CLIENT_NAME,
       documentation : 'https://doc.evolution-api.com',
