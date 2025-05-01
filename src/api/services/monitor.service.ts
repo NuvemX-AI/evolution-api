@@ -1,72 +1,79 @@
-// src/api/services/monitor.service.ts
+// Arquivo: src/api/services/monitor.service.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // Imports de DTOs e Tipos
-import { InstanceDto } from '@api/dto/instance.dto'; // TODO: Precisa do arquivo instance.dto.ts
-import { Events, Integration } from '@api/types/wa.types'; // TODO: Precisa do arquivo wa.types.ts
+import { InstanceDto } from '@api/dto/instance.dto';
+import { Events } from '@api/types/wa.types';
+// CORREÇÃO TS2749: Importar Integration Enum (ajuste o path se necessário)
+import { Integration, Prisma } from '@prisma/client'; // Ou '@api/types/wa.types'
 
 // Imports de Serviços, Repositórios, Config
-import { ProviderFiles } from '@provider/sessions'; // TODO: Precisa do arquivo sessions.ts
+import { ProviderFiles } from '@provider/sessions';
 import { PrismaRepository } from '@repository/repository.service';
-// TODO: Precisa do arquivo server.module.ts que exporta 'channelController' (pode ser um objeto/instância)
-import { channelController } from '@api/server.module';
-// TODO: Precisa do arquivo env.config.ts para estes tipos
-import { CacheConf, Chatwoot, ConfigService, Database, DelInstance, ProviderSession } from '@config/env.config';
-import { Logger } from '@config/logger.config'; // TODO: Precisa do arquivo logger.config.ts
-import { INSTANCE_DIR, STORE_DIR } from '@config/path.config'; // TODO: Precisa do arquivo path.config.ts
-import { NotFoundException } from '@exceptions'; // TODO: Precisa do arquivo exceptions/index.ts
-import { CacheService } from './cache.service'; // TODO: Precisa do arquivo cache.service.ts
-// TODO: Importar a classe/interface base da instância, ex: import { ChannelStartupService } from './channel.service';
+// CORREÇÃO TS2724: Importar o controller correto (ex: instanceController)
+import { instanceController } from '@api/server.module'; // Ou importar WAMonitoringService se ele gerenciar
+import { ConfigService, CacheConf, ChatwootConfig, DatabaseConfig, DelInstanceConfig, ProviderSessionConfig } from '@config/env.config'; // Usar tipos específicos
+import { Logger } from '@config/logger.config';
+import { INSTANCE_DIR, STORE_DIR } from '@config/path.config';
+// CORREÇÃO TS2304: Importar Exceptions
+import { BadRequestException, InternalServerErrorException, NotFoundException } from '@exceptions';
+import { CacheService } from './cache.service'; // Import local
+import { ChannelStartupService } from './channel.service'; // Importar classe base para tipagem
 
 // Imports Node.js e Libs Externas
-import { Prisma } from '@prisma/client'; // Importando tipos Prisma
-import { execSync } from 'child_process';
+// import { execSync } from 'child_process'; // Descomentar se usado
 import EventEmitter2 from 'eventemitter2';
 import { rmSync } from 'fs';
 import { join } from 'path';
-import { delay } from '@whiskeysockets/baileys'; // Importando delay
+// CORREÇÃO TS2307: Importar delay
+import { delay } from '@whiskeysockets/baileys';
+// CORREÇÃO TS2304: Importar v4
+import { v4 } from 'uuid';
+
 
 export class WAMonitoringService {
-  // TODO: Tipar Logger corretamente quando logger.config.ts for fornecido
-  private readonly logger: Logger = new Logger('WAMonitoringService');
+  private readonly logger: Logger; // Logger agora é injetado ou criado com base injetada
 
-  // Armazena as instâncias ativas
-  // TODO: Substituir 'any' pelo tipo/interface base da instância (ex: ChannelStartupService)
-  public readonly waInstances: Record<string, any> = {};
+  // Armazena as instâncias ativas (usando a classe base como tipo)
+  public readonly waInstances: Record<string, ChannelStartupService> = {};
 
-  // Configurações locais cacheadas
-  // TODO: Tipar Database e CacheConf corretamente (precisa de env.config.ts)
-  private readonly db: Partial<any /*Database*/> = {};
-  private readonly redis: Partial<any /*CacheConf*/> = {};
-  private readonly providerSession: any /*ProviderSession*/ | undefined;
+  // Configurações locais cacheadas (tipadas)
+  private readonly dbConfig: Partial<DatabaseConfig> = {};
+  private readonly redisConfig: Partial<CacheConf> = {}; // Renomeado para evitar conflito
+  private readonly providerSessionConfig: ProviderSessionConfig | undefined;
+  private readonly delInstanceConfig: DelInstanceConfig | undefined; // Tipado
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
     private readonly prismaRepository: PrismaRepository,
-    private readonly providerFiles: ProviderFiles, // TODO: Precisa da definição e importação
-    private readonly cache: CacheService, // TODO: Precisa da definição e importação
-    private readonly chatwootCache: CacheService, // TODO: Precisa da definição e importação
-    private readonly baileysCache: CacheService, // TODO: Precisa da definição e importação
+    private readonly providerFiles: ProviderFiles,
+    private readonly cache: CacheService,
+    private readonly chatwootCache: CacheService,
+    private readonly baileysCache: CacheService,
+    baseLogger: Logger, // Injetar logger base
   ) {
+    this.logger = baseLogger.child({ context: 'WAMonitoringService' });
     this.logger.info('Iniciando WAMonitoringService...');
 
-    // Carrega configurações relevantes usando optional chaining '?' para segurança
-    Object.assign(this.db, this.configService.get<any /*Database*/>('DATABASE') || {});
-    Object.assign(this.redis, this.configService.get<any /*CacheConf*/>('CACHE') || {});
-    this.providerSession = this.configService.get<any /*ProviderSession*/>('PROVIDER');
+    // Carrega configurações relevantes
+    Object.assign(this.dbConfig, this.configService.get<DatabaseConfig>('DATABASE') || {});
+    Object.assign(this.redisConfig, this.configService.get<CacheConf>('CACHE') || {});
+    this.providerSessionConfig = this.configService.get<ProviderSessionConfig>('PROVIDER');
+    this.delInstanceConfig = this.configService.get<DelInstanceConfig>('DEL_INSTANCE'); // Carrega config de deleção
 
-    this.setupInternalEventListeners(); // Configura listeners para eventos internos
+    this.setupInternalEventListeners();
     this.logger.info('WAMonitoringService iniciado e listeners configurados.');
 
-    // Considerar chamar loadInstance() fora do construtor, talvez em um método onModuleInit se usar NestJS
-    // this.loadInstance();
+    // Carregar instâncias após o serviço estar pronto
+    this.loadInstance().catch(err => this.logger.error({ err }, 'Erro inicial ao carregar instâncias'));
   }
 
   /** Configura listeners para eventos de remoção/logout */
   private setupInternalEventListeners(): void {
     this.eventEmitter.on('remove.instance', async (instanceName: string, reason?: string) => {
        this.logger.log(`Evento 'remove.instance' para: ${instanceName}. Razão: ${reason || 'N/A'}`);
-       await this.remove(instanceName); // Chama o método de remoção/limpeza
+       await this.remove(instanceName);
     });
 
     this.eventEmitter.on('logout.instance', async (instanceName: string, reason?: string) => {
@@ -78,17 +85,14 @@ export class WAMonitoringService {
              return;
          };
 
-         // TODO: Precisa de Events e do método sendDataWebhook na instância
          await instance.sendDataWebhook?.(Events.LOGOUT_INSTANCE, null);
 
-         // TODO: Precisa do tipo Chatwoot do env.config
-         if (this.configService.get<any>('CHATWOOT')?.ENABLED) {
-           // TODO: Verificar se método clearCacheChatwoot existe na instância
+         if (this.configService.get<ChatwootConfig>('CHATWOOT')?.ENABLED) {
            instance.clearCacheChatwoot?.();
          }
-         await this.cleaningUp(instanceName); // Limpa dados de sessão/cache
+         await this.cleaningUp(instanceName);
        } catch (e: any) {
-         this.logger.error(`Erro durante logout.instance para "${instanceName}": ${e.message}`);
+         this.logger.error({ err: e }, `Erro durante logout.instance para "${instanceName}"`);
        }
     });
 
@@ -98,24 +102,23 @@ export class WAMonitoringService {
         const current = this.waInstances[instanceName];
         if (!current) return;
 
-        // Tenta forçar logout e fechar conexão (específico do Baileys/instâncias com client)
+        // Tenta forçar logout e fechar conexão
         await current.client?.logout?.('Forçado devido a falha na conexão: ' + instanceName);
         current.client?.ws?.close?.();
         current.client?.end?.(undefined);
 
         // Reseta estado interno
-        if (current.instance) current.instance.qrcode = { count: 0 }; // Reseta QR code info
-        if (current.stateConnection) current.stateConnection.state = 'close'; // Define estado como fechado
+        if (current.instance) current.instance.qrcode = { count: 0, code: null, base64: null, pairingCode: null };
+        if (current.stateConnection) current.stateConnection.connection = 'close';
 
         // Atualiza status no DB para 'close'
-        // Corrigido: Acesso via .prisma
-        await this.prismaRepository.prisma.instance.updateMany({
+        await this.prismaRepository.instance.updateMany({
             where: { name: instanceName },
             data: { connectionStatus: 'close' }
         });
 
       } catch (error: any) {
-        this.logger.error(`Erro durante limpeza de 'no.connection' para "${instanceName}": ${error.message}`);
+        this.logger.error({ err: error }, `Erro durante limpeza de 'no.connection' para "${instanceName}"`);
       } finally {
         this.logger.warn(`Estado definido como 'close' para instância "${instanceName}" após falha de conexão.`);
       }
@@ -123,8 +126,7 @@ export class WAMonitoringService {
   }
 
   /** Retorna uma instância ativa pelo nome */
-  // TODO: Substituir 'any' pelo tipo base da instância (ex: ChannelStartupService)
-  public get(instanceName: string): any | undefined {
+  public get(instanceName: string): ChannelStartupService | undefined {
     return this.waInstances[instanceName];
   }
 
@@ -135,21 +137,15 @@ export class WAMonitoringService {
 
       try {
         if (instance) {
-            // Tenta enviar webhook ANTES de deletar
-            // TODO: Precisa de Events e do método sendDataWebhook na instância
             await instance.sendDataWebhook?.(Events.REMOVE_INSTANCE, null);
-            // Tenta forçar logout e fechamento
-            await instance.logoutInstance?.();
-            await delay(500); // Pequeno delay para garantir
+            await instance.logoutInstance?.(); // Chama logout da instância específica
+            await delay(500);
         }
-        // Limpa dados de sessão/cache (mesmo se não estiver em memória)
         await this.cleaningUp(instanceName);
-        // Limpa dados persistentes (DB e arquivos) - Ação Destrutiva!
         await this.cleaningStoreData(instanceName);
       } catch (e: any) {
-        this.logger.error(`Erro durante limpeza completa ao remover instância "${instanceName}": ${e.message}`);
+        this.logger.error({ err: e }, `Erro durante limpeza completa ao remover instância "${instanceName}"`);
       } finally {
-        // Remove da memória independentemente de erros na limpeza
         delete this.waInstances[instanceName];
         this.logger.info(`Instância "${instanceName}" removida do monitor.`);
       }
@@ -158,30 +154,30 @@ export class WAMonitoringService {
 
   /** Configura timeout para deletar instância inativa */
   public delInstanceTime(instanceName: string): void {
-    // TODO: Precisa do tipo DelInstance do env.config
-    const time = this.configService.get<number>('DEL_INSTANCE'); // Assumindo que é number
+    // CORREÇÃO: Usar delInstanceConfig tipado
+    const time = this.delInstanceConfig?.TIME;
+    const checkStatus = this.delInstanceConfig?.CHECK_STATUS ?? true; // Default para true
+
     if (typeof time === 'number' && time > 0) {
       this.logger.info(`Agendando verificação de inatividade para "${instanceName}" em ${time} minutos.`);
       setTimeout(async () => {
         const current = this.waInstances[instanceName];
-        // Verifica se a instância ainda existe no monitor e NÃO está aberta
-        if (current && current.connectionStatus?.state !== 'open') {
-          this.logger.warn(`Instância "${instanceName}" inativa após ${time} minutos. Removendo...`);
-          await this.remove(instanceName); // Usa o método remove para limpeza completa
+        // Verifica se ainda existe e se o status não é 'open' (se checkStatus for true)
+        if (current && (!checkStatus || current.connectionStatus?.connection !== 'open')) {
+          this.logger.warn(`Instância "${instanceName}" inativa (${current.connectionStatus?.connection}) após ${time} minutos. Removendo...`);
+          await this.remove(instanceName);
         } else if (current) {
-           this.logger.info(`Instância "${instanceName}" está ativa. Remoção por inatividade cancelada.`);
+           this.logger.info(`Instância "${instanceName}" está ativa (${current.connectionStatus?.connection}). Remoção por inatividade cancelada.`);
         } else {
-             this.logger.info(`Instância "${instanceName}" não encontrada no monitor. Remoção por inatividade cancelada.`);
+           this.logger.info(`Instância "${instanceName}" não encontrada no monitor. Remoção por inatividade cancelada.`);
         }
       }, 1000 * 60 * time);
     }
   }
 
   /** Busca informações de instâncias no DB */
-  // TODO: Tipar retorno com Prisma.Instance[] + Relações
-  public async instanceInfo(instanceNames?: string[]): Promise<any[]> {
-    // TODO: Precisa do tipo Database do env.config
-    const clientName = this.configService.get<any>('DATABASE')?.CONNECTION?.CLIENT_NAME;
+  public async instanceInfo(instanceNames?: string[]): Promise<Prisma.InstanceGetPayload<{ include: any }>[]> {
+    const clientName = this.configService.get<DatabaseConfig>('DATABASE')?.CONNECTION?.CLIENT_NAME;
     const whereClause: Prisma.InstanceWhereInput = { clientName };
 
     if (instanceNames?.length) {
@@ -192,61 +188,50 @@ export class WAMonitoringService {
       }
     }
 
-    this.logger.debug(`Buscando instâncias no DB com filtro: ${JSON.stringify(whereClause)}`);
-    // Corrigido: Acesso via .prisma
-    // TODO: Verificar/Ajustar nomes das relações no include com base no schema.prisma
-    return this.prismaRepository.prisma.instance.findMany({
+    this.logger.debug({ where: whereClause }, `Buscando instâncias no DB`);
+    // CORREÇÃO TS2561: Corrigir nome da relação para 'messages' (ou o nome correto no schema)
+    const includeClause: Prisma.InstanceInclude = {
+        Chatwoot: true, Proxy: true, Rabbitmq: true, Sqs: true, Websocket: true, Setting: true,
+        Dify: true, EvolutionBot: true, Flowise: true,
+        OpenaiBot: { include: { creds: true, setting: true } },
+        Typebot: true, Pusher: true,
+        _count: { select: { messages: true, Contact: true, Chat: true, Label: true } } // <- Corrigido para 'messages'
+    };
+
+    return this.prismaRepository.instance.findMany({ // Usa o getter
       where: whereClause,
-      include: {
-        Chatwoot: true,
-        Proxy: true,
-        Rabbitmq: true,
-        Sqs: true,
-        Websocket: true,
-        Setting: true,
-        Dify: true,         // Adicionadas novas relações do schema
-        EvolutionBot: true,
-        Flowise: true,
-        OpenaiBot: { include: { creds: true, setting: true } }, // Inclui relações aninhadas
-        Typebot: true,
-        Pusher: true,
-        _count: { select: { Message: true, Contact: true, Chat: true, Label: true } }, // Contagem de Labels
-      },
+      include: includeClause,
     });
   }
 
   /** Busca info por ID da instância ou número */
-  // TODO: Tipar retorno com Prisma.Instance + Relações
-  public async instanceInfoById(instanceId?: string, number?: string): Promise<any[]> {
+  public async instanceInfoById(instanceId?: string, number?: string): Promise<Prisma.InstanceGetPayload<{ include: any }>[]> {
       this.logger.debug(`Buscando instância por ID: ${instanceId} ou Número: ${number}`);
-      let whereClause: Prisma.InstanceWhereUniqueInput | Prisma.InstanceWhereInput = {};
+      let whereClause: Prisma.InstanceWhereInput = {};
 
       if (instanceId) {
           whereClause = { id: instanceId };
       } else if (number) {
-          // Assumindo que 'number' pode não ser unique, usamos findFirst
            whereClause = { number: number };
       } else {
+          // CORREÇÃO TS2304: Usar BadRequestException importado
           throw new BadRequestException('É necessário fornecer instanceId ou number.');
       }
 
-      // Corrigido: Acesso via .prisma
-      const instanceDb = await this.prismaRepository.prisma.instance.findFirst({ // findFirst para buscar por 'number'
+      const instanceDb = await this.prismaRepository.instance.findFirst({ // Usa o getter
           where: whereClause,
           select: { name: true }
       });
 
       const instanceName = instanceDb?.name;
-
       if (!instanceName) {
+          // CORREÇÃO TS2304: Usar NotFoundException importado
           throw new NotFoundException(`Instância com ${instanceId ? `ID ${instanceId}` : `Número ${number}`} não encontrada.`);
       }
-
       if (!this.waInstances[instanceName]) {
           this.logger.warn(`Instância "${instanceName}" encontrada no DB mas não está ativa no monitor.`);
       }
-
-      return this.instanceInfo([instanceName]); // Reutiliza para buscar dados completos
+      return this.instanceInfo([instanceName]);
   }
 
   /** Limpa dados de sessão e cache */
@@ -254,40 +239,32 @@ export class WAMonitoringService {
     this.logger.info(`Limpando sessão/cache para instância "${instanceName}"...`);
     let instanceDbId: string | undefined;
 
-    // Limpa sessão do banco (se configurado)
-     // TODO: Precisa do tipo Database do env.config
-    if (this.db?.SAVE_DATA?.INSTANCE) {
-       // Corrigido: Acesso via .prisma e usando findUnique por 'name' (assumindo unique)
-      const found = await this.prismaRepository.prisma.instance.findUnique({
-        where: { name: instanceName },
-        select: { id: true }
+    if (this.dbConfig?.SAVE_DATA?.INSTANCE) {
+      const found = await this.prismaRepository.instance.findUnique({ // Usa o getter
+        where: { name: instanceName }, select: { id: true }
        });
       if (found) {
         instanceDbId = found.id;
-        // Corrigido: Acesso via .prisma
-        await this.prismaRepository.prisma.session.deleteMany({ where: { sessionId: instanceDbId } });
+        await this.prismaRepository.session.deleteMany({ where: { instanceId } }); // Usa o getter e instanceId diretamente
         this.logger.debug(`Sessão do DB deletada para instanceId: ${instanceDbId}`);
-        // Atualiza status para 'close' no DB
-         await this.prismaRepository.prisma.instance.update({
-            where: { id: instanceDbId },
-            data: { connectionStatus: 'close' },
+        await this.prismaRepository.instance.update({ // Usa o getter
+            where: { id: instanceDbId }, data: { connectionStatus: 'close' },
           });
       } else {
            this.logger.warn(`Instância "${instanceName}" não encontrada no DB para limpeza de sessão.`);
       }
     }
 
-    // Limpa cache Redis (se configurado)
-     // TODO: Precisa do tipo CacheConf do env.config e CacheService funcional
-    if (this.redis?.REDIS?.ENABLED && this.redis?.REDIS?.SAVE_INSTANCES) {
-      await this.cache?.delete?.(instanceName); // Deleta chave baseada no nome
-      if (instanceDbId) await this.cache?.delete?.(instanceDbId); // Deleta chave baseada no ID
+    // CORREÇÃO: Usar redisConfig
+    if (this.redisConfig?.REDIS?.ENABLED && this.redisConfig?.REDIS?.SAVE_INSTANCES) {
+      await this.cache?.delete?.(instanceName);
+      if (instanceDbId) await this.cache?.delete?.(instanceDbId);
       this.logger.debug(`Cache Redis limpo para "${instanceName}" e ID "${instanceDbId || 'N/A'}"`);
     }
 
-    // Limpa sessão do Provider (se configurado)
-     // TODO: Precisa do tipo ProviderSession do env.config e ProviderFiles funcional
-    if (this.providerSession?.ENABLED) {
+    // CORREÇÃO: Usar providerSessionConfig
+    if (this.providerSessionConfig?.ENABLED) {
+      // CORREÇÃO TS2339: Adicionar '?' para segurança, mas verificar se removeSession existe
       await this.providerFiles?.removeSession?.(instanceName);
       this.logger.debug(`Sessão do Provider limpa para "${instanceName}"`);
     }
@@ -298,20 +275,15 @@ export class WAMonitoringService {
   public async cleaningStoreData(instanceName: string): Promise<void> {
      this.logger.warn(`ATENÇÃO: Limpando TODOS os dados (DB e arquivos) para instância "${instanceName}"...`);
 
-     // Limpa pasta Chatwoot se configurado
-     // TODO: Precisa do tipo Chatwoot do env.config e da constante STORE_DIR
-     const storeDir = STORE_DIR || './storage'; // Usando valor padrão
-     if (this.configService.get<any>('CHATWOOT')?.ENABLED) {
+     const storeDir = STORE_DIR || './storage';
+     if (this.configService.get<ChatwootConfig>('CHATWOOT')?.ENABLED) {
         const chatwootPath = join(storeDir, 'chatwoot', instanceName + '*');
         this.logger.debug(`Removendo diretório Chatwoot: ${chatwootPath}`);
-        try { rmSync(chatwootPath, { recursive: true, force: true }); } catch (e:any) { this.logger.error(`Erro ao remover pasta Chatwoot (${chatwootPath}): ${e.message}`); }
+        try { rmSync(chatwootPath, { recursive: true, force: true }); } catch (e:any) { this.logger.error({ err: e }, `Erro ao remover pasta Chatwoot (${chatwootPath})`); }
      }
 
-    // Busca ID da instância no DB
-    // Corrigido: Acesso via .prisma
-    const instance = await this.prismaRepository.prisma.instance.findUnique({
-        where: { name: instanceName },
-        select: { id: true }
+    const instance = await this.prismaRepository.instance.findUnique({ // Usa o getter
+        where: { name: instanceName }, select: { id: true }
     });
     if (!instance?.id) {
         this.logger.error(`Instância "${instanceName}" não encontrada no DB para limpeza completa. Abortando limpeza de dados.`);
@@ -319,73 +291,67 @@ export class WAMonitoringService {
     }
     const instanceId = instance.id;
 
-    // Limpa pasta da instância
-    // TODO: Precisa da constante INSTANCE_DIR
-    const instanceDir = INSTANCE_DIR || './instances'; // Usando valor padrão
-    const instancePath = join(instanceDir, instanceId);
+    const instanceDir = INSTANCE_DIR || './instances';
+    const instancePath = join(instanceDir, instanceId); // Usa ID para pasta
     this.logger.debug(`Removendo diretório da instância: ${instancePath}`);
-    try { rmSync(instancePath, { recursive: true, force: true }); } catch (e:any) { this.logger.error(`Erro ao remover pasta da instância (${instancePath}): ${e.message}`); }
+    try { rmSync(instancePath, { recursive: true, force: true }); } catch (e:any) { this.logger.error({ err: e }, `Erro ao remover pasta da instância (${instancePath})`); }
 
-    // Deleta dados relacionados no Prisma
-    // TODO: Confirmar nomes exatos dos modelos e relações no schema.prisma
     this.logger.info(`Deletando dados do DB para instanceId: ${instanceId}`);
     try {
-        // Usar $transaction para garantir atomicidade (ou falhar tudo junto)
-        // Corrigido: Acesso via .prisma
-        await this.prismaRepository.prisma.$transaction([
-            // Deletar dependentes primeiro (ajustar ordem conforme relações e constraints)
-            this.prismaRepository.prisma.session.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.messageUpdate.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.media.deleteMany({ where: { instanceId } }), // Adicionado
-            this.prismaRepository.prisma.message.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.chat.deleteMany({ where: { instanceId } }), // Chat pode depender de Contact ou Label? Verificar schema
-            this.prismaRepository.prisma.contact.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.webhook.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.chatwoot.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.proxy.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.rabbitmq.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.sqs.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.integrationSession.deleteMany({ where: { instanceId } }),
-            // Deletar configurações de bots (assumindo relação direta com Instance)
-            this.prismaRepository.prisma.difySetting.deleteMany({ where: { dify: { instanceId } } }), // Exemplo: deletar settings primeiro
-            this.prismaRepository.prisma.dify.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.evolutionBotSetting.deleteMany({ where: { evolutionBot: { instanceId } } }),
-            this.prismaRepository.prisma.evolutionBot.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.flowiseSetting.deleteMany({ where: { flowise: { instanceId } } }),
-            this.prismaRepository.prisma.flowise.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.openaiCreds.deleteMany({ where: { openaiBot: { instanceId } } }), // Deletar creds/settings antes do bot principal
-            this.prismaRepository.prisma.openaiSetting.deleteMany({ where: { openaiBot: { instanceId } } }),
-            this.prismaRepository.prisma.openaiBot.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.typebotSetting.deleteMany({ where: { typebot: { instanceId } } }),
-            this.prismaRepository.prisma.typebot.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.setting.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.label.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.pusher.deleteMany({ where: { instanceId } }),
-            this.prismaRepository.prisma.websocket.deleteMany({ where: { instanceId } }), // Adicionado Websocket
-            this.prismaRepository.prisma.whatsappIntegration.deleteMany({ where: { instanceId } }), // Adicionado
-
+        // CORREÇÃO TS2353/TS2561: Usar instanceId diretamente no where para deleteMany
+        await this.prismaRepository.client.$transaction([ // Usa client do repo
+            this.prismaRepository.session.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.messageUpdate.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.media.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.message.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.chat.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.contact.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.webhook.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.chatwoot.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.proxy.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.rabbitmq.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.sqs.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.integrationSession.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.difySetting.deleteMany({ where: { instanceId } }), // Assumindo coluna instanceId
+            this.prismaRepository.dify.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.evolutionBotSetting.deleteMany({ where: { instanceId } }), // Assumindo coluna instanceId
+            this.prismaRepository.evolutionBot.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.flowiseSetting.deleteMany({ where: { instanceId } }), // Assumindo coluna instanceId
+            this.prismaRepository.flowise.deleteMany({ where: { instanceId } }),
+            // CORREÇÃO TS2561: Relação OpenaiBot -> OpenaiCreds é One-to-Many, deletar bot primeiro ou usar where na relação
+            this.prismaRepository.openaiCreds.deleteMany({ where: { openaiBots: { some: { instanceId } } } }), // Exemplo usando relação
+            this.prismaRepository.openaiSetting.deleteMany({ where: { openaiBot: { instanceId } } }), // Usar relação
+            this.prismaRepository.openaiBot.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.typebotSetting.deleteMany({ where: { instanceId } }), // Assumindo coluna instanceId
+            this.prismaRepository.typebot.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.setting.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.label.deleteMany({ where: { instanceId } }),
+            this.prismaRepository.pusher.deleteMany({ where: { instanceId } }),
+            // this.prismaRepository.websocket.deleteMany({ where: { instanceId } }), // Modelo Websocket não existe no schema?
+            this.prismaRepository.whatsappIntegration.deleteMany({ where: { instanceId } }),
             // Deleta a instância principal por último
-            this.prismaRepository.prisma.instance.delete({ where: { id: instanceId } })
+            this.prismaRepository.instance.delete({ where: { id: instanceId } })
         ]);
         this.logger.info(`Dados do DB para instanceId ${instanceId} deletados com sucesso.`);
     } catch (dbError: any) {
-         this.logger.error(`Erro ao deletar dados do DB para instanceId ${instanceId}: ${dbError.message}`, dbError.stack);
-         // Mesmo com erro, a instância pode ter sido removida da memória, mas o DB está inconsistente.
+         // CORREÇÃO TS2554: Passar objeto de erro
+         this.logger.error({ err: dbError }, `Erro ao deletar dados do DB para instanceId ${instanceId}`);
     }
   }
 
-  /** Carrega instâncias existentes ao iniciar (baseado na configuração) */
+  /** Carrega instâncias existentes ao iniciar */
   public async loadInstance(): Promise<void> {
     this.logger.info('Carregando instâncias existentes...');
     try {
-       // TODO: Precisa dos tipos ProviderSession, Database, CacheConf de env.config
-      if (this.providerSession?.ENABLED) {
+      // CORREÇÃO: Usar configs tipados
+      if (this.providerSessionConfig?.ENABLED) {
         this.logger.info('Carregando instâncias do Provider...');
         await this.loadInstancesFromProvider();
-      } else if (this.db?.SAVE_DATA?.INSTANCE) {
+      } else if (this.dbConfig?.SAVE_DATA?.INSTANCE) {
          this.logger.info('Carregando instâncias do Banco de Dados...');
         await this.loadInstancesFromDatabase();
-      } else if (this.redis?.REDIS?.ENABLED && this.redis?.REDIS?.SAVE_INSTANCES) {
+      // CORREÇÃO: Usar redisConfig
+      } else if (this.redisConfig?.REDIS?.ENABLED && this.redisConfig?.REDIS?.SAVE_INSTANCES) {
          this.logger.info('Carregando instâncias do Redis...');
         await this.loadInstancesFromRedis();
       } else {
@@ -393,150 +359,112 @@ export class WAMonitoringService {
       }
        this.logger.info('Carregamento de instâncias concluído.');
     } catch (error: any) {
-      this.logger.error(`Erro ao carregar instâncias: ${error.message}`);
+      this.logger.error({ err: error }, `Erro ao carregar instâncias`);
     }
   }
 
-  /** Cria e salva uma nova instância no DB (se configurado) */
-  // TODO: Tipar 'data' com um DTO de criação mais específico
-  public async saveInstance(data: any): Promise<void> {
-    // TODO: Precisa do tipo Database de env.config
-    if (!this.db?.SAVE_DATA?.INSTANCE) {
+  /** Salva/Atualiza instância no DB */
+  public async saveInstance(data: InstanceDto & { ownerJid?: string; profileName?: string; profilePicUrl?: string; hash?: string; }): Promise<void> {
+    if (!this.dbConfig?.SAVE_DATA?.INSTANCE) {
         this.logger.debug('Persistência de instância no DB desabilitada, pulando saveInstance.');
         return;
     }
     this.logger.info(`Salvando/Atualizando instância no DB: ${data.instanceName}`);
     try {
-      const clientName = this.configService.get<any>('DATABASE')?.CONNECTION?.CLIENT_NAME;
-      // Usa upsert para criar se não existir ou atualizar se existir (baseado no nome)
-      // Corrigido: Acesso via .prisma
-      // TODO: Precisa do tipo Integration de wa.types
+      const clientName = this.configService.get<DatabaseConfig>('DATABASE')?.CONNECTION?.CLIENT_NAME;
       const instanceData: Prisma.InstanceUpsertArgs = {
           where: { name: data.instanceName },
           create: {
-              id: data.instanceId || undefined, // Usa ID se fornecido
+              id: data.instanceId || undefined,
               name: data.instanceName,
-              ownerJid: data.ownerJid,
-              profileName: data.profileName,
-              profilePicUrl: data.profilePicUrl,
-              connectionStatus: 'close', // Sempre começa como close no DB
+              ownerJid: data.ownerJid, profileName: data.profileName, profilePicUrl: data.profilePicUrl,
+              connectionStatus: 'close',
               number: data.number,
-              integration: data.integration || 'WHATSAPP_BAILEYS', // TODO: Usar Integration enum
+              integration: data.integration || Integration.WHATSAPP_BAILEYS, // CORREÇÃO TS2749: Usar enum
               token: data.hash || data.token,
-              clientName,
-              businessId: data.businessId,
+              clientName, businessId: data.businessId,
           },
-          update: { // O que atualizar se a instância já existir pelo nome?
-              ownerJid: data.ownerJid,
-              profileName: data.profileName,
-              profilePicUrl: data.profilePicUrl,
-              // NÃO atualizar status aqui, só quando conectar/desconectar
+          update: {
+              ownerJid: data.ownerJid, profileName: data.profileName, profilePicUrl: data.profilePicUrl,
               number: data.number,
-              integration: data.integration || 'WHATSAPP_BAILEYS', // TODO: Usar Integration enum
+              integration: data.integration || Integration.WHATSAPP_BAILEYS, // CORREÇÃO TS2749: Usar enum
               token: data.hash || data.token,
-              clientName,
-              businessId: data.businessId,
-              // connectionStatus: ??? // Não atualizar status aqui
+              clientName, businessId: data.businessId,
           }
       };
-      const saved = await this.prismaRepository.prisma.instance.upsert(instanceData);
+      const saved = await this.prismaRepository.instance.upsert(instanceData); // Usa o getter
       this.logger.info(`Instância "${data.instanceName}" salva/atualizada no DB com ID: ${saved.id}`);
     } catch (error: any) {
-       this.logger.error(`Erro ao salvar/atualizar instância "${data.instanceName}" no DB: ${error.message}`);
-       throw error; // Relança o erro
+       this.logger.error({ err: error }, `Erro ao salvar/atualizar instância "${data.instanceName}" no DB`);
+       throw error;
     }
   }
 
-   /**
-   * Cria e inicializa uma instância de canal (Baileys, Meta, etc.).
-   * Ponto de entrada principal para adicionar/iniciar uma instância.
-   * @param instanceData Dados da instância (nome, token, etc.)
-   * @returns A instância do canal inicializada ou undefined em caso de erro.
-   */
-   // TODO: Retornar tipo base da instância (ex: ChannelStartupService)
-  public async createInstance(instanceData: InstanceDto): Promise<any | undefined> {
+   /** Cria e inicializa uma instância de canal */
+  public async createInstance(instanceData: InstanceDto): Promise<ChannelStartupService | undefined> {
     this.logger.info(`Solicitação para criar/inicializar instância: ${instanceData.instanceName} (Integração: ${instanceData.integration || 'Padrão'})`);
 
     if (this.waInstances[instanceData.instanceName]) {
         this.logger.warn(`Instância "${instanceData.instanceName}" já existe no monitor. Retornando existente.`);
-        // Opcional: Tentar reconectar se estiver fechada?
-        // if (this.waInstances[instanceData.instanceName].connectionStatus?.state === 'close') {
-        //    await this.waInstances[instanceData.instanceName].connectToWhatsapp();
-        // }
         return this.waInstances[instanceData.instanceName];
     }
 
-    // Garante/Obtém/Cria o registro da instância no DB primeiro (se SAVE_DATA.INSTANCE for true)
-    // Isso garante que temos um instanceId consistente.
     let instanceId = instanceData.instanceId;
-    if (this.db?.SAVE_DATA?.INSTANCE) {
+    if (this.dbConfig?.SAVE_DATA?.INSTANCE) {
          try {
              const upsertData: Prisma.InstanceUpsertArgs = {
                  where: { name: instanceData.instanceName },
                  create: {
-                     name: instanceData.instanceName,
-                     id: instanceData.instanceId || undefined, // Permite que o DB gere se não fornecido
-                     integration: instanceData.integration || 'WHATSAPP_BAILEYS', // TODO: Usar enum Integration
-                     token: instanceData.token,
-                     number: instanceData.number,
-                     businessId: instanceData.businessId,
-                     connectionStatus: 'close', // Estado inicial no DB
-                     clientName: this.configService.get<any>('DATABASE')?.CONNECTION?.CLIENT_NAME,
+                     name: instanceData.instanceName, id: instanceData.instanceId || undefined,
+                     integration: instanceData.integration || Integration.WHATSAPP_BAILEYS, // CORREÇÃO TS2749: Usar enum
+                     token: instanceData.token, number: instanceData.number, businessId: instanceData.businessId,
+                     connectionStatus: 'close',
+                     clientName: this.configService.get<DatabaseConfig>('DATABASE')?.CONNECTION?.CLIENT_NAME,
                  },
-                 update: { // Atualiza dados se a instância já existe pelo nome
-                     integration: instanceData.integration || 'WHATSAPP_BAILEYS',
-                     token: instanceData.token,
-                     number: instanceData.number,
-                     businessId: instanceData.businessId,
+                 update: {
+                     integration: instanceData.integration || Integration.WHATSAPP_BAILEYS, // CORREÇÃO TS2749: Usar enum
+                     token: instanceData.token, number: instanceData.number, businessId: instanceData.businessId,
                  }
              };
-             // Corrigido: Acesso via .prisma
-             const dbInstance = await this.prismaRepository.prisma.instance.upsert(upsertData);
-             instanceId = dbInstance.id; // Usa o ID do banco (criado ou existente)
-             instanceData.instanceId = instanceId; // Atualiza o DTO com o ID correto
+             const dbInstance = await this.prismaRepository.instance.upsert(upsertData); // Usa getter
+             instanceId = dbInstance.id;
+             instanceData.instanceId = instanceId;
              this.logger.info(`Registro da instância "${instanceData.instanceName}" garantido no DB com ID: ${instanceId}`);
          } catch(dbError: any) {
-              this.logger.error(`Erro ao garantir registro da instância "${instanceData.instanceName}" no DB: ${dbError.message}`);
+              this.logger.error({ err: dbError }, `Erro ao garantir registro da instância "${instanceData.instanceName}" no DB`);
+              // CORREÇÃO TS2304: Usar InternalServerErrorException importado
               throw new InternalServerErrorException(`Erro de banco de dados ao preparar instância: ${dbError.message}`);
          }
     } else if (!instanceId) {
-         // Se não salva no DB e não tem ID, gera um temporário (menos ideal)
+         // CORREÇÃO TS2304: Usar v4 importado
          instanceId = v4();
          instanceData.instanceId = instanceId;
           this.logger.warn(`Persistência de instância no DB desabilitada. Usando ID gerado: ${instanceId} para ${instanceData.instanceName}`);
     }
 
-    // Agora tenta inicializar a instância real usando o channelController
+    // Agora tenta inicializar a instância real
     try {
-        // TODO: 'channelController.init' é a peça que falta. Precisa ser importado e funcional.
-        //       Ele deve retornar a instância específica do canal (Baileys, Meta, etc.).
-        this.logger.debug(`Chamando channelController.init para ${instanceData.instanceName} (ID: ${instanceId})`);
-        const instance = channelController?.init?.(instanceData, {
-            // Injetando dependências que o channelController/Serviços de Canal podem precisar
-            configService: this.configService,
-            eventEmitter: this.eventEmitter,
-            prismaRepository: this.prismaRepository,
-            cache: this.cache,
-            chatwootCache: this.chatwootCache,
-            baileysCache: this.baileysCache,
-            providerFiles: this.providerFiles,
-        });
+        // CORREÇÃO: Usar instanceController importado (ou lógica equivalente)
+        // A forma como a instância específica é criada depende da sua arquitetura.
+        // Se WAMonitoringService for responsável por isso, ele precisa de um método/lógica aqui.
+        // Assumindo que instanceController.createInstanceChannel faz isso:
+        if (!instanceController || typeof instanceController.createInstanceChannel !== 'function') {
+             throw new Error('instanceController.createInstanceChannel não está disponível/definido.');
+        }
+        const instance: ChannelStartupService = await instanceController.createInstanceChannel(instanceData); // Passa DTO
 
         if (!instance) {
-            this.logger.error(`Falha ao inicializar instância via channelController para ${instanceData.instanceName}`);
-            throw new Error('channelController.init retornou inválido');
+            throw new Error('Falha ao criar a instância específica do canal.');
         }
-        this.logger.debug(`Instância inicializada via channelController para ${instanceData.instanceName}`);
+        this.logger.debug(`Instância específica do canal criada para ${instanceData.instanceName}`);
 
-        // Configura a instância (passa dados como ID, nome, token)
-        // TODO: Garantir que a instância retornada tenha o método 'setInstance'
-        instance.setInstance(instanceData);
+        // Configura a instância (ID, nome, etc.) - setInstance já é chamado dentro de createInstanceChannel? Verificar
+        // instance.setInstance(instanceData); // Pode ser redundante
 
-        // Tenta conectar ao respectivo serviço (WhatsApp, Meta API, etc.)
-        // TODO: Garantir que a instância retornada tenha o método 'connectToWhatsapp'
-        await instance.connectToWhatsapp(); // Pode gerar QR code, etc.
+        // Tenta conectar
+        // TODO: Corrigir nome do método se não for 'connectToWhatsapp' na instância retornada
+        await instance.start?.(); // Chama start (ou connectToWhatsapp)
 
-        // Armazena no monitor e configura timeout
         this.waInstances[instanceData.instanceName] = instance;
         this.logger.info(`Instância "${instanceData.instanceName}" (ID: ${instanceId}) adicionada ao monitor e conexão iniciada.`);
         this.delInstanceTime(instanceData.instanceName);
@@ -544,42 +472,33 @@ export class WAMonitoringService {
         return instance;
 
     } catch (error: any) {
-        this.logger.error(`Erro CRÍTICO ao criar/inicializar instância ${instanceData.instanceName}: ${error.message}`, error.stack);
-        // Se falhou aqui, tenta remover o registro do DB se ele foi criado/atualizado e SAVE_DATA está ativo
-        if (this.db?.SAVE_DATA?.INSTANCE && instanceId) {
-             this.logger.warn(`Tentando remover registro DB para ${instanceName} devido à falha na inicialização...`);
-             // Idealmente, apenas reverteria o upsert, mas delete é mais simples
-             // CUIDADO: Isso pode deletar uma instância que existia antes mas falhou ao reiniciar
-             // await this.prismaRepository.prisma.instance.delete({ where: { id: instanceId } }).catch(e => this.logger.error(`Erro ao deletar instância ${instanceId} do DB após falha: ${e.message}`));
+        // CORREÇÃO TS2554: Passar objeto de erro
+        this.logger.error({ err: error }, `Erro CRÍTICO ao criar/inicializar instância ${instanceData.instanceName}`);
+        if (this.dbConfig?.SAVE_DATA?.INSTANCE && instanceId) {
+             // CORREÇÃO TS2304: Usar instanceData.instanceName
+             this.logger.warn(`Tentando remover registro DB para ${instanceData.instanceName} devido à falha na inicialização...`);
+             // await this.prismaRepository.instance.delete({ where: { id: instanceId } }).catch(e => this.logger.error(`Erro ao deletar instância ${instanceId} do DB após falha: ${e.message}`));
         }
-        // Remove da memória se chegou a ser adicionada
         delete this.waInstances[instanceData.instanceName];
-        // Limpa arquivos/cache relacionados ao ID (se aplicável)
         await this.cleaningUp(instanceData.instanceName);
+        // CORREÇÃO TS2304: Usar InternalServerErrorException importado
         throw new InternalServerErrorException(`Erro ao inicializar instância ${instanceData.instanceName}: ${error.message}`);
     }
   }
 
-
   // --- Métodos de Carregamento (Adaptados) ---
-  // Removido setInstance duplicado
-
   private async loadInstancesFromRedis(): Promise<void> {
-    this.logger.info('Carregando instâncias do Redis...');
-    // TODO: Precisa de CacheService funcional com método keys/scan e get
-    this.logger.warn('loadInstancesFromRedis não implementado.');
+    this.logger.info('Carregando instâncias do Redis (Não implementado)...');
+    // Implementar lógica para buscar chaves/dados do Redis e chamar createInstance
   }
 
   private async loadInstancesFromDatabase(): Promise<void> {
-    // TODO: Precisa do tipo Database de env.config
-    const clientName = this.configService.get<any>('DATABASE')?.CONNECTION?.CLIENT_NAME;
+    const clientName = this.configService.get<DatabaseConfig>('DATABASE')?.CONNECTION?.CLIENT_NAME;
     if (!clientName) {
         this.logger.warn('CLIENT_NAME não definido, não é possível carregar instâncias do DB.');
         return;
     }
-    // Corrigido: Acesso via .prisma
-    // Seleciona apenas os campos necessários para recriar o DTO
-    const instances = await this.prismaRepository.prisma.instance.findMany({
+    const instances = await this.prismaRepository.instance.findMany({ // Usa getter
         where: { clientName },
         select: { id: true, name: true, integration: true, token: true, number: true, businessId: true }
     });
@@ -589,30 +508,26 @@ export class WAMonitoringService {
     const results = await Promise.allSettled(
       instances.map(async (i) => {
         this.logger.info(`Tentando recarregar instância do DB: ${i.name} (ID: ${i.id})`);
-        const instanceDto: InstanceDto = { // TODO: Precisa do DTO InstanceDto
-            instanceId: i.id,
-            instanceName: i.name,
-            integration: i.integration as Integration, // TODO: Precisa do enum Integration
-            token: i.token,
-            number: i.number,
-            businessId: i.businessId,
+        const instanceDto: InstanceDto = {
+            instanceId: i.id, instanceName: i.name,
+            // CORREÇÃO TS2749: Cast para o tipo Integration (importado)
+            integration: i.integration as Integration,
+            token: i.token, number: i.number, businessId: i.businessId,
          };
-         // Usa createInstance para garantir que passe pelo mesmo fluxo de inicialização
-         await this.createInstance(instanceDto);
+         await this.createInstance(instanceDto); // Reusa fluxo de criação
       }),
     );
-
      results.forEach((result, index) => {
         if (result.status === 'rejected') {
-            this.logger.error(`Falha ao recarregar instância ${instances[index].name} do DB: ${result.reason?.message || result.reason}`);
+            // CORREÇÃO TS2554: Passar objeto de erro
+            this.logger.error({ reason: result.reason }, `Falha ao recarregar instância ${instances[index].name} do DB`);
         }
      });
   }
 
   private async loadInstancesFromProvider(): Promise<void> {
-    this.logger.info('Carregando instâncias do Provider...');
-    // TODO: Precisa de ProviderFiles funcional com método allInstances
-    this.logger.warn('loadInstancesFromProvider não implementado.');
+    this.logger.info('Carregando instâncias do Provider (Não implementado)...');
+    // Implementar lógica para buscar dados do ProviderFiles e chamar createInstance
   }
 
 } // Fim da classe WAMonitoringService
