@@ -1,218 +1,162 @@
-console.log('========== LOADING FILE: abstract.router.ts ==========');
+/**
+ * Abstração base para os Routers
+ * – concentro aqui toda a lógica de validação ―
+ *   deixando os arquivos de rota bem mais enxutos.
+ */
+
 import 'express-async-errors';
 
-import { GetParticipant, GroupInvite } from '../dto/group.dto';
-import { InstanceDto } from '../dto/instance.dto';
-import { Logger } from '@config/logger.config';
-import { BadRequestException } from '../../common/exceptions';
 import { Request } from 'express';
 import { JSONSchema7 } from 'json-schema';
-import { validate } from 'jsonschema';
+import { validate, ValidationError } from 'jsonschema';
 
+import { GetParticipant, GroupInvite } from '@api/dto/group.dto';
+import { InstanceDto } from '@api/dto/instance.dto';
+
+import { Logger } from '@config/logger.config';
+import { BadRequestException } from '@exceptions';
+
+/* -------------------------------------------------------------------------- */
+/*  Tipos auxiliares                                                           */
+/* -------------------------------------------------------------------------- */
 type DataValidate<T> = {
   request: Request;
   schema: JSONSchema7;
-  ClassRef: any;
+  /** Classe DTO que tipa/normaliza o corpo recebido */
+  ClassRef: new (...args: any[]) => T;
+  /** Callback que o controller de fato executa */
   execute: (instance: InstanceDto, data: T) => Promise<any>;
 };
 
-const logger = new Logger('Validate');
+const logger = new Logger('Router-Validate');
 
+/* -------------------------------------------------------------------------- */
+/*  Classe abstrata                                                            */
+/* -------------------------------------------------------------------------- */
 export abstract class RouterBroker {
-  constructor() {}
-
-  public routerPath(path: string, param = true) {
-    let route = '/' + path;
-    param ? (route += '/:instanceName') : null;
-    return route;
+  /* -------------------------------- Helpers ------------------------------- */
+  public routerPath(path: string, param = true): string {
+    return `/${path}${param ? '/:instanceName' : ''}`;
   }
 
-  // === MÉTODO CORRIGIDO COM DEBUG ABSOLUTO ===
-  public async dataValidate<T>(args: DataValidate<T>) {
-    const { request, schema, ClassRef, execute } = args;
+  private buildErrorMessage(errors: ValidationError[]): string {
+    return errors
+      .map(({ stack, schema }) =>
+        schema?.description ? String(schema.description) : stack.replace('instance.', ''),
+      )
+      .join('\n');
+  }
 
-    // DEBUG de execução
-    console.log('### DEBUG VERSÃO CORRETA CARREGADA - dataValidate');
-    console.log('BODY:', request.body);
-    console.log('QUERY:', request.query);
-    console.log('PARAMS:', request.params);
-
-    // Merge definitivo de todos os campos
-    const merged = {
-      ...request.body,
-      ...request.query,
-      ...request.params,
-    };
-    console.log('MERGED:', merged);
-
-    // Garante passagem de dados para validação
+  /* ------------------------------- Genérica ------------------------------- */
+  public async dataValidate<T>({
+    request,
+    schema,
+    ClassRef,
+    execute,
+  }: DataValidate<T>) {
+    // Junta tudo (body + query + params)
+    const merged = { ...request.body, ...request.query, ...request.params };
     const ref = new ClassRef(merged);
-    console.log('REF VALIDADO:', ref);
-
-    // Instancia para controller, se necessário
     const instance = new InstanceDto(merged);
 
-    // Mostra o schema no console
-    console.log('SCHEMA:', schema);
+    const result = schema ? validate(ref, schema) : { valid: true, errors: [] as ValidationError[] };
 
-    // Validação
-    const v = schema ? validate(ref, schema) : { valid: true, errors: [] };
-
-    if (!v.valid) {
-      const messageArr: string[] = v.errors.map(({ stack, schema }) => {
-        if (schema['description']) {
-          return schema['description'];
-        }
-        return stack.replace('instance.', '');
-      });
-      const message = messageArr.join('\n');
-      console.log('### ERRO DE VALIDAÇÃO:', message);
+    if (!result.valid) {
+      const message = this.buildErrorMessage(result.errors);
       logger.error(message);
       throw new BadRequestException(message);
     }
 
-    return await execute(instance, ref);
+    return execute(instance, ref);
   }
 
+  /* ------------------ Variantes específicas abaixo (quando                  */
+  /*    precisamos de parâmetros obrigatórios na query ou no body) ----------- */
+
+  /** Sem validar instanceName na rota */
   public async groupNoValidate<T>(args: DataValidate<T>) {
-    const { request, ClassRef, schema, execute } = args;
+    const { request, schema, ClassRef, execute } = args;
 
     const instance = request.params as unknown as InstanceDto;
-    const ref = new ClassRef();
+    const ref = Object.assign(new ClassRef(), request.body);
 
-    Object.assign(ref, request.body);
-
-    const v = validate(ref, schema);
-
-    if (!v.valid) {
-      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
-        if (schema['description']) {
-          return schema['description'];
-        }
-        return stack.replace('instance.', '');
-      });
-      const message = messageArr.join('\n');
-      logger.error(message);
-      throw new BadRequestException(message);
+    const result = validate(ref, schema);
+    if (!result.valid) {
+      throw new BadRequestException(this.buildErrorMessage(result.errors));
     }
 
-    return await execute(instance, ref);
+    return execute(instance, ref);
   }
 
+  /** Requer “groupJid” */
   public async groupValidate<T>(args: DataValidate<T>) {
-    const { request, ClassRef, schema, execute } = args;
+    const { request, schema, ClassRef, execute } = args;
 
     const instance = request.params as unknown as InstanceDto;
     const body = request.body;
 
-    let groupJid: string = body?.groupJid;
+    let groupJid: string =
+      body?.groupJid ??
+      (typeof request.query?.groupJid === 'string' ? String(request.query.groupJid) : '');
 
     if (!groupJid) {
-      if (typeof request.query?.groupJid === 'string') {
-        groupJid = request.query.groupJid;
-      } else {
-        throw new BadRequestException(
-          'The group id needs to be informed in the query.\nex: "groupJid=120362@g.us"'
-        );
-      }
+      throw new BadRequestException(
+        'O parâmetro "groupJid" precisa ser informado na query (ex.: ?groupJid=120362@g.us)',
+      );
     }
 
-    if (!groupJid.endsWith('@g.us')) {
-      groupJid = groupJid + '@g.us';
+    if (!groupJid.endsWith('@g.us')) groupJid += '@g.us';
+    Object.assign(body, { groupJid });
+
+    const ref = Object.assign(new ClassRef(), body);
+
+    const result = validate(ref, schema);
+    if (!result.valid) {
+      throw new BadRequestException(this.buildErrorMessage(result.errors));
     }
 
-    Object.assign(body, {
-      groupJid: groupJid,
-    });
-
-    const ref = new ClassRef();
-
-    Object.assign(ref, body);
-
-    const v = validate(ref, schema);
-
-    if (!v.valid) {
-      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
-        if (schema['description']) {
-          return schema['description'];
-        }
-        return stack.replace('instance.', '');
-      });
-      const message = messageArr.join('\n');
-      logger.error(message);
-      throw new BadRequestException(message);
-    }
-
-    return await execute(instance, ref);
+    return execute(instance, ref);
   }
 
+  /** Requer “inviteCode” */
   public async inviteCodeValidate<T>(args: DataValidate<T>) {
-    const { request, ClassRef, schema, execute } = args;
+    const { request, schema, ClassRef, execute } = args;
 
     const inviteCode = request.query as unknown as GroupInvite;
-
     if (!inviteCode?.inviteCode) {
       throw new BadRequestException(
-        'The group invite code id needs to be informed in the query.\nex: "inviteCode=F1EX5QZxO181L3TMVP31gY" (Obtained from group join link)'
+        'É obrigatório informar "inviteCode" na query (obtido no link de convite do grupo).',
       );
     }
 
     const instance = request.params as unknown as InstanceDto;
-    const body = request.body;
+    const ref = Object.assign(new ClassRef(), request.body, inviteCode);
 
-    const ref = new ClassRef();
-
-    Object.assign(body, inviteCode);
-    Object.assign(ref, body);
-
-    const v = validate(ref, schema);
-
-    if (!v.valid) {
-      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
-        if (schema['description']) {
-          return schema['description'];
-        }
-        return stack.replace('instance.', '');
-      });
-      const message = messageArr.join('\n');
-      logger.error(message);
-      throw new BadRequestException(message);
+    const result = validate(ref, schema);
+    if (!result.valid) {
+      throw new BadRequestException(this.buildErrorMessage(result.errors));
     }
 
-    return await execute(instance, ref);
+    return execute(instance, ref);
   }
 
+  /** Requer “getParticipants” */
   public async getParticipantsValidate<T>(args: DataValidate<T>) {
-    const { request, ClassRef, schema, execute } = args;
+    const { request, schema, ClassRef, execute } = args;
 
-    const getParticipants = request.query as unknown as GetParticipant;
-
-    if (!getParticipants?.getParticipants) {
-      throw new BadRequestException('The getParticipants needs to be informed in the query');
+    const gp = request.query as unknown as GetParticipant;
+    if (!gp?.getParticipants) {
+      throw new BadRequestException('O parâmetro "getParticipants" precisa ser informado na query.');
     }
 
     const instance = request.params as unknown as InstanceDto;
-    const body = request.body;
+    const ref = Object.assign(new ClassRef(), request.body, gp);
 
-    const ref = new ClassRef();
-
-    Object.assign(body, getParticipants);
-    Object.assign(ref, body);
-
-    const v = validate(ref, schema);
-
-    if (!v.valid) {
-      const messageArr: string[] = v.errors.map(({ property, stack, schema }) => {
-        if (schema['description']) {
-          return schema['description'];
-        }
-        return stack.replace('instance.', '');
-      });
-      const message = messageArr.join('\n');
-      logger.error(message);
-      throw new BadRequestException(message);
+    const result = validate(ref, schema);
+    if (!result.valid) {
+      throw new BadRequestException(this.buildErrorMessage(result.errors));
     }
 
-    return await execute(instance, ref);
+    return execute(instance, ref);
   }
 }
