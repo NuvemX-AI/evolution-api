@@ -3,15 +3,25 @@ import { ROOT_DIR } from '@config/path.config';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-export type IInsert = { insertCount: number };
+/** Resultado padrão para operações que escrevem no disco ou BD */
+export interface IInsert {
+  insertCount: number;
+}
 
+/**
+ * Contrato mínimo para repositórios
+ * • Todos recebem/retornam genéricos, permitindo reutilização
+ */
 export interface IRepository {
-  insert(data: any, instanceName: string, saveDb?: boolean): Promise<IInsert>;
-  update(data: any, instanceName: string, saveDb?: boolean): Promise<IInsert>;
-  find(query: any): Promise<any>;
+  insert<T = unknown>(data: T, instanceName: string, saveDb?: boolean): Promise<IInsert>;
+  update<T = unknown>(data: T, instanceName: string, saveDb?: boolean): Promise<IInsert>;
+  find<T = unknown>(query: any): Promise<T | null>;
   delete(query: any, force?: boolean): Promise<any>;
 
+  /** Configurações de BD, injetadas via ConfigService */
   dbSettings: Database;
+
+  /** Caminho físico onde persistimos arquivos .json */
   readonly storePath: string;
 }
 
@@ -29,38 +39,30 @@ export abstract class Repository implements IRepository {
   dbSettings: Database;
   readonly storePath = join(ROOT_DIR, 'store');
 
-  public writeStore = <T = any>(create: WriteStore<T>) => {
+  /** Persistência em arquivo local – útil para mocks e fallback */
+  public writeStore = <T = unknown>(create: WriteStore<T>) => {
     if (!existsSync(create.path)) {
       mkdirSync(create.path, { recursive: true });
     }
     try {
-      writeFileSync(join(create.path, create.fileName + '.json'), JSON.stringify({ ...create.data }), {
-        encoding: 'utf-8',
-      });
+      writeFileSync(
+        join(create.path, `${create.fileName}.json`),
+        JSON.stringify({ ...create.data }),
+        { encoding: 'utf-8' }
+      );
 
-      return { message: 'create - success' };
+      return { message: 'create – success' };
     } finally {
+      // Evita manter referência em memória
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       create.data = undefined;
     }
   };
 
-  // eslint-disable-next-line
-    public insert(data: any, instanceName: string, saveDb = false): Promise<IInsert> {
-    throw new Error('Method not implemented.');
-  }
-
-  // eslint-disable-next-line
-    public update(data: any, instanceName: string, saveDb = false): Promise<IInsert> {
-    throw new Error('Method not implemented.');
-  }
-
-  // eslint-disable-next-line
-    public find(query: any): Promise<any> {
-    throw new Error('Method not implemented.');
-  }
-
-  // eslint-disable-next-line
-    delete(query: any, force?: boolean): Promise<any> {
-    throw new Error('Method not implemented.');
-  }
+  // Métodos a serem implementados nos repositórios concretos
+  abstract insert<T = unknown>(data: T, instanceName: string, saveDb?: boolean): Promise<IInsert>;
+  abstract update<T = unknown>(data: T, instanceName: string, saveDb?: boolean): Promise<IInsert>;
+  abstract find<T = unknown>(query: any): Promise<T | null>;
+  abstract delete(query: any, force?: boolean): Promise<any>;
 }
