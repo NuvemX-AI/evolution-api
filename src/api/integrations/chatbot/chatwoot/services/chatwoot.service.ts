@@ -1,21 +1,36 @@
 // src/api/integrations/chatbot/chatwoot/services/chatwoot.service.ts
 
 // Imports de DTOs e Tipos (usando aliases @api)
-import { InstanceDto } from '@api/dto/instance.dto';
+import { InstanceDto } from '@api/dto/instance.dto'; // TODO: Precisa do arquivo instance.dto.ts
 // TODO: Precisamos dos arquivos DTOs para estes imports
 // import { Options, Quoted, SendAudioDto, SendMediaDto, SendTextDto } from '@api/dto/sendMessage.dto';
 // import { ChatwootDto } from '@api/integrations/chatbot/chatwoot/dto/chatwoot.dto';
+type ChatwootDto = any; // Placeholder DTO
+type Options = any; // Placeholder DTO
+type Quoted = any; // Placeholder DTO
 
 // Imports de libs e utils Chatwoot (caminhos precisam ser confirmados)
-import { postgresClient } from '@api/integrations/chatbot/chatwoot/libs/postgres.client'; // TODO: Precisa do arquivo postgres.client.ts
-import { chatwootImport } from '@api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper'; // TODO: Precisa do arquivo chatwoot-import-helper.ts
+// TODO: Precisa do arquivo postgres.client.ts que exporte 'postgresClient'
+// import { postgresClient } from '@api/integrations/chatbot/chatwoot/libs/postgres.client';
+const postgresClient: any = { getChatwootConnection: () => ({ query: async () => ({ rows: [] }) }) }; // Placeholder
+// TODO: Precisa do arquivo chatwoot-import-helper.ts que exporte 'chatwootImport'
+// import { chatwootImport } from '@api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper';
+const chatwootImport: any = { // Placeholder
+    addHistoryMessages: () => {},
+    addHistoryContacts: () => {},
+    getContactsOrderByRecentConversations: async () => [],
+    importHistoryMessages: async () => 0,
+    isIgnorePhoneNumber: () => false,
+    getExistingSourceIds: async () => new Set(),
+};
 
 // Imports de Serviços, Repositórios, Config (usando aliases)
 import { PrismaRepository } from '@repository/repository.service';
 import { CacheService } from '@api/services/cache.service'; // TODO: Precisa do arquivo cache.service.ts
 import { WAMonitoringService } from '@api/services/monitor.service';
 import { Events } from '@api/types/wa.types'; // TODO: Precisa do arquivo wa.types.ts
-import { Chatwoot, ConfigService, Database, HttpServer } from '@config/env.config'; // TODO: Precisa do arquivo env.config.ts
+// TODO: Precisa do arquivo env.config.ts que exporte Chatwoot, ConfigService, Database, HttpServer
+import { Chatwoot, ConfigService, Database, HttpServer } from '@config/env.config';
 import { Logger } from '@config/logger.config'; // TODO: Precisa do arquivo logger.config.ts
 
 // Imports de SDKs e Libs Externas
@@ -41,7 +56,7 @@ import axios from 'axios';
 import { proto } from '@whiskeysockets/baileys'; // Importando proto se necessário para MessageModel
 import dayjs from 'dayjs';
 import FormData from 'form-data';
-import Jimp from 'jimp';
+// import Jimp from 'jimp'; // Jimp não parece ser usado, comentado
 import Long from 'long'; // Baileys usa Long para timestamps
 import mimeTypes from 'mime-types';
 import path from 'path';
@@ -58,173 +73,178 @@ interface ChatwootMessageInfo {
 }
 
 export class ChatwootService {
-  // TODO: Inicializar Logger corretamente
-  private readonly logger: Logger = new Logger('ChatwootService');
-  // TODO: Definir tipo mais específico se possível
+  // TODO: Inicializar Logger corretamente (Precisa de logger.config.ts)
+  private readonly logger: any = new Logger('ChatwootService'); // Usando 'any' como placeholder
+  // TODO: Definir tipo mais específico se possível (ChatwootModel do Prisma já importado)
   private provider: ChatwootModel | null = null; // Armazena a configuração do provedor Chatwoot
-  // TODO: Inicializar postgresClient corretamente (se aplicável)
+  // TODO: Inicializar postgresClient corretamente (Precisa de postgres.client.ts)
   private pgClient: any = postgresClient?.getChatwootConnection?.(); // Tipo 'any' como placeholder
 
   constructor(
     // TODO: Verificar se WAMonitoringService é realmente necessário aqui ou apenas em métodos específicos
     private readonly waMonitor: WAMonitoringService,
-    private readonly configService: ConfigService,
-    private readonly prismaRepository: PrismaRepository,
-    private readonly cache: CacheService, // Cache geral
-    // Note: O chatwootCache foi removido do construtor original, adicione se necessário
+    private readonly configService: ConfigService, // Assumindo que ConfigService foi injetado corretamente
+    private readonly prismaRepository: PrismaRepository, // Assumindo injeção
+    private readonly cache: CacheService, // Assumindo injeção // TODO: Precisa de cache.service.ts
+    // O chatwootCache foi removido do construtor original, adicione se necessário
   ) {
-      if (!this.pgClient && this.configService.get<Chatwoot>('CHATWOOT')?.IMPORT?.DATABASE?.CONNECTION?.URI) {
+      // TODO: Precisa do tipo Chatwoot de env.config.ts
+      // TODO: Precisa do postgresClient inicializado corretamente
+      if (!this.pgClient && this.configService.get<any>('CHATWOOT')?.IMPORT?.DATABASE?.CONNECTION?.URI) {
            this.logger.warn('Postgres client para importação Chatwoot não inicializado. A importação de histórico pode falhar.');
-           // Tentar inicializar aqui se a importação for estática?
-           // this.pgClient = postgresClient?.getChatwootConnection?.();
+           // Tentar inicializar aqui? Ex: this.pgClient = postgresClient?.getChatwootConnection?.();
       }
   }
 
   // Busca o provedor Chatwoot (configuração) para a instância, com cache
   private async getProvider(instance: InstanceDto): Promise<ChatwootModel | null> {
-    const cacheKey = `${instance.instanceName}:chatwootProvider`; // Chave de cache específica
+    const cacheKey = `${instance.instanceName}:chatwootProvider`;
     this.logger.debug(`Buscando provedor Chatwoot para ${instance.instanceName}. Cache key: ${cacheKey}`);
 
-    const cachedProvider = await this.cache.get<ChatwootModel>(cacheKey);
+    // TODO: Precisa de CacheService com método get
+    const cachedProvider = await this.cache?.get?.<ChatwootModel>(cacheKey);
     if (cachedProvider) {
        this.logger.debug(`Provedor Chatwoot encontrado no cache para ${instance.instanceName}`);
-      this.provider = cachedProvider; // Atualiza a propriedade da classe
+      this.provider = cachedProvider;
       return cachedProvider;
     }
 
-    this.logger.debug(`Provedor Chatwoot não encontrado no cache para ${instance.instanceName}. Buscando no monitor/DB...`);
-    // TODO: O método findChatwoot não existe em WAMonitoringService.
-    //       A lógica para buscar a configuração Chatwoot da instância precisa ser implementada.
-    //       Pode ser algo como buscar no PrismaRepository.chatwoot usando instance.instanceId
-    // const provider = await this.waMonitor.waInstances[instance.instanceName]?.findChatwoot();
+    this.logger.debug(`Provedor Chatwoot não encontrado no cache para ${instance.instanceName}. Buscando no DB...`);
+    // Corrigido: Busca diretamente no Prisma usando instanceId do DTO
     const provider = await this.prismaRepository.prisma.chatwoot.findUnique({
-        where: { instanceId: instance.instanceId } // Assumindo que instanceId é a chave
+        where: { instanceId: instance.instanceId } // Assumindo que instanceId é a chave única
     });
-
 
     if (!provider || !provider.enabled) {
       this.logger.warn(`Provedor Chatwoot não encontrado ou desabilitado para ${instance.instanceName}`);
-      this.provider = null; // Garante que provider interno esteja nulo
+      this.provider = null;
       return null;
     }
 
      this.logger.debug(`Provedor Chatwoot encontrado para ${instance.instanceName}. Armazenando no cache.`);
-    await this.cache.set(cacheKey, provider); // Armazena no cache
-    this.provider = provider; // Atualiza a propriedade da classe
+    // TODO: Precisa de CacheService com método set
+    await this.cache?.set?.(cacheKey, provider); // Armazena no cache
+    this.provider = provider;
     return provider;
   }
 
   // Cria e retorna um cliente SDK do Chatwoot configurado
   private async clientCw(instance: InstanceDto): Promise<ChatwootClient | null> {
-    const provider = await this.getProvider(instance); // Busca ou atualiza this.provider
+    const provider = await this.getProvider(instance);
     if (!provider) {
-      // getProvider já logou o aviso
       return null;
     }
     // Retorna um novo cliente configurado
-    return new ChatwootClient({ config: this.getClientCwConfig() });
+    try {
+        return new ChatwootClient({ config: this.getClientCwConfig() });
+    } catch(error: any) {
+        this.logger.error(`Erro ao criar ChatwootClient para ${instance.instanceName}: ${error.message}`);
+        return null;
+    }
   }
 
   // Retorna a configuração formatada para o SDK do Chatwoot
+  // TODO: Adicionar os campos faltantes ao tipo ChatwootModel do Prisma ou buscar de env.config
   public getClientCwConfig(): ChatwootAPIConfig & { nameInbox?: string; mergeBrazilContacts?: boolean, conversationPending?: boolean, reopenConversation?: boolean, signMsg?: boolean, signDelimiter?: string } {
      if (!this.provider) {
-         // Isso não deveria acontecer se clientCw foi chamado antes, mas adiciona segurança
          throw new Error("Provedor Chatwoot não carregado para obter configuração.");
      }
+     // Tipagem mais segura usando optional chaining e valores padrão
     return {
       basePath: this.provider.url,
-      with_credentials: true, // Geralmente necessário
-      credentials: 'include', // Geralmente necessário
+      with_credentials: true,
+      credentials: 'include',
       token: this.provider.token,
-      // Adicionando outras configurações do modelo ChatwootModel (ajuste os nomes se necessário)
+      // Usando optional chaining e valores padrão
       nameInbox: this.provider.nameInbox || undefined,
-      mergeBrazilContacts: this.provider.mergeBrazilContacts ?? false, // Padrão false
-      conversationPending: this.provider.conversationPending ?? false, // Padrão false
-      reopenConversation: this.provider.reopenConversation ?? false, // Padrão false
-      signMsg: this.provider.signMsg ?? false, // Padrão false
-      signDelimiter: this.provider.signDelimiter ?? '\n', // Padrão nova linha
+      mergeBrazilContacts: this.provider.mergeBrazilContacts ?? false,
+      conversationPending: this.provider.conversationPending ?? false,
+      reopenConversation: this.provider.reopenConversation ?? false,
+      signMsg: this.provider.signMsg ?? false,
+      signDelimiter: this.provider.signDelimiter ?? '\n',
     };
   }
 
   // Expõe o serviço de cache (se necessário externamente)
-  public getCache(): CacheService {
+  public getCache(): CacheService { // TODO: Precisa de CacheService
     return this.cache;
   }
 
   // Cria/Atualiza a configuração do Chatwoot para uma instância
-  public async create(instance: InstanceDto, data: ChatwootDto): Promise<ChatwootDto> {
+  public async create(instance: InstanceDto, data: ChatwootDto): Promise<ChatwootDto> { // TODO: Precisa do DTO ChatwootDto
      this.logger.info(`Criando/Atualizando configuração Chatwoot para ${instance.instanceName}`);
-     // TODO: O método setChatwoot não existe em WAMonitoringService ou na instância Baileys/Meta.
-     //       A lógica para salvar/atualizar a configuração Chatwoot precisa ser implementada,
-     //       provavelmente usando PrismaRepository.chatwoot.upsert.
-     // await this.waMonitor.waInstances[instance.instanceName]?.setChatwoot(data);
-     const configData = {
-        ...data,
-        instanceId: instance.instanceId // Garante que o ID da instância está presente
+     const configData: Prisma.ChatwootCreateInput | Prisma.ChatwootUpdateInput = {
+        ...(data as any), // Faz cast para any para permitir campos extras temporariamente
+        instance: { connect: { id: instance.instanceId } } // Conecta à instância existente
      };
-     await this.prismaRepository.prisma.chatwoot.upsert({
+     // Remove instanceId do data se ele veio, pois usamos a relação
+     delete (configData as any).instanceId;
+
+     // TODO: Precisa do schema.prisma para confirmar nomes de campos e tipos
+     const savedProvider = await this.prismaRepository.prisma.chatwoot.upsert({
          where: { instanceId: instance.instanceId },
-         update: configData,
-         create: configData,
+         update: configData as Prisma.ChatwootUpdateInput, // Tipagem Prisma
+         create: configData as Prisma.ChatwootCreateInput, // Tipagem Prisma
      });
 
-     // Limpa o cache do provider para forçar a releitura na próxima chamada
+     // Limpa o cache do provider
      const cacheKey = `${instance.instanceName}:chatwootProvider`;
-     await this.cache.delete(cacheKey);
+     await this.cache?.delete?.(cacheKey); // TODO: Precisa de CacheService
      this.provider = null; // Limpa provider interno
 
-     // Lógica de auto-criação do Inbox (mantida do original)
+    // Lógica de auto-criação do Inbox
     if (data.autoCreate) {
       this.logger.log(`Tentando auto-criar inbox Chatwoot para ${instance.instanceName}`);
-      const urlServer = this.configService.get<HttpServer>('SERVER')?.URL; // TODO: Precisa de env.config.ts
+       // TODO: Precisa do tipo HttpServer do env.config.ts
+      const urlServer = this.configService.get<any>('SERVER')?.URL;
       if (!urlServer) {
-          this.logger.error("URL do servidor (SERVER.URL) não configurada, não é possível gerar webhook URL para Chatwoot.");
-          return data; // Retorna os dados salvos, mas sem criar o inbox
+          this.logger.error("URL do servidor (SERVER.URL) não configurada.");
+          // Retorna os dados salvos, mas sem tentar criar inbox
+          return savedProvider as ChatwootDto; // TODO: Precisa do DTO ChatwootDto
       }
       const webhookEndpoint = `${urlServer}/chatwoot/webhook/${encodeURIComponent(instance.instanceName)}`;
-      await this.initInstanceChatwoot(
-        instance,
-        data.nameInbox ?? instance.instanceName.split('-cwId-')[0], // Usa nome da instância como fallback
-        webhookEndpoint,
-        true, // Assume qrcode=true para criar contato bot
-        data.number, // Número associado (se houver)
-        data.organization, // Organização (opcional)
-        data.logo, // Logo (opcional)
-      );
+      try {
+          await this.initInstanceChatwoot(
+            instance,
+            data.nameInbox ?? instance.instanceName.split('-cwId-')[0],
+            webhookEndpoint,
+            true,
+            data.number,
+            data.organization,
+            data.logo,
+          );
+      } catch(initError: any) {
+           this.logger.error(`Falha na auto-criação do inbox para ${instance.instanceName}: ${initError.message}`);
+           // Continua mesmo se a auto-criação falhar, pois a configuração foi salva
+      }
     }
-    return data;
+    return savedProvider as ChatwootDto; // TODO: Precisa do DTO ChatwootDto
   }
 
   // Busca a configuração do Chatwoot para uma instância
-  public async find(instance: InstanceDto): Promise<ChatwootDto | null> {
+  public async find(instance: InstanceDto): Promise<ChatwootDto | null> { // TODO: Precisa do DTO ChatwootDto
     this.logger.debug(`Buscando configuração Chatwoot para ${instance.instanceName}`);
     try {
-      // Busca diretamente no banco, usando o ID da instância DTO
+      // Corrigido: Acesso via .prisma
       const provider = await this.prismaRepository.prisma.chatwoot.findUnique({
           where: { instanceId: instance.instanceId }
       });
-      // Retorna os dados ou um objeto indicando que não foi encontrado/habilitado
-      return provider || { enabled: null, url: '' };
+      // Retorna os dados ou um objeto padrão indicando que não foi encontrado/habilitado
+      return provider || { enabled: false, url: '', token: '', accountId: 0 }; // Retorna um objeto padrão
     } catch(error: any) {
       this.logger.error(`Erro ao buscar configuração Chatwoot para ${instance.instanceName}: ${error.message}`);
-      return { enabled: null, url: '' }; // Retorna um estado padrão em caso de erro
+      return { enabled: false, url: '', token: '', accountId: 0 }; // Retorna um objeto padrão em caso de erro
     }
   }
 
     // --- Métodos de Interação com API Chatwoot ---
-    // (Os métodos getContact, initInstanceChatwoot, createContact, updateContact,
-    //  addLabelToContact, findContact, mergeBrazilianContacts, findContactInContactList,
-    //  getNumbers, getSearchableFields, getFilterPayload, createConversation, getInbox,
-    //  createMessage, getOpenConversationByContact, createBotMessage, sendData,
-    //  createBotQr, sendAttachment, onSendMessageError, receiveWebhook foram mantidos
-    //  praticamente como no original, mas com adições de logs, uso de this.provider
-    //  atualizado por getProvider, e correções/TODOs pontuais)
+    // Mantendo a estrutura geral, mas adicionando TODOs e correções pontuais
 
-    // Exemplo de correção em um método: getContact
-    public async getContact(instance: InstanceDto, id: number): Promise<any> {
-      const client = await this.clientCw(instance); // Usa o método que atualiza this.provider
-      if (!client || !this.provider) {
-        this.logger.warn(`Cliente Chatwoot ou provider não disponível para getContact (ID: ${id})`);
+    public async getContact(instance: InstanceDto, id: number): Promise<any> { // TODO: Tipar retorno (Contact do SDK?)
+      const client = await this.clientCw(instance);
+      // this.provider é atualizado dentro de clientCw se sucesso
+      if (!client || !this.provider || !this.provider.accountId) {
+        this.logger.warn(`Cliente Chatwoot ou provider/accountId não disponível para getContact (ID: ${id})`);
         return null;
       }
       if (!id) {
@@ -233,30 +253,139 @@ export class ChatwootService {
       }
       try {
           const contact = await client.contact.getContactable({
-              // TODO: Confirmar se accountId existe no modelo ChatwootModel do Prisma ou se precisa buscar de outra forma
-              accountId: this.provider.accountId, // Assumindo que accountId existe em this.provider
+              accountId: this.provider.accountId,
               id,
           });
           this.logger.debug(`Contato encontrado (ID: ${id}): ${!!contact}`);
           return contact;
       } catch (error: any) {
-           this.logger.error(`Erro ao buscar contato ${id}: ${error.message}`);
-           return null; // Retorna nulo em caso de erro da API
+           // A API do Chatwoot retorna 404 se não encontrado, o SDK pode lançar erro
+           if (error?.response?.status === 404) {
+               this.logger.warn(`Contato ${id} não encontrado no Chatwoot.`);
+           } else {
+               this.logger.error(`Erro ao buscar contato ${id}: ${error.message}`);
+           }
+           return null; // Retorna nulo em caso de erro ou não encontrado
       }
     }
 
-    // ... (Restante dos métodos: initInstanceChatwoot, createContact, etc.) ...
-    // Aplicar o padrão:
-    // 1. Chamar `client = await this.clientCw(instance)` no início.
-    // 2. Verificar `if (!client || !this.provider) return null;`
-    // 3. Usar `this.provider.accountId` (TODO: verificar se existe no schema).
-    // 4. Adicionar logs e tratamento de erro try/catch.
+    public async initInstanceChatwoot(
+      instance: InstanceDto,
+      inboxName: string,
+      webhookUrl: string,
+      qrcode: boolean, // Usado para decidir se cria contato/conversa do bot
+      number?: string, // Número associado à instância (opcional)
+      organization?: string,
+      logo?: string,
+    ): Promise<boolean | null> {
+      const client = await this.clientCw(instance);
+       if (!client || !this.provider || !this.provider.accountId) {
+         this.logger.error(`Cliente/Provider/AccountId não disponível para initInstanceChatwoot para ${instance.instanceName}`);
+         return null;
+       }
+       const accountId = this.provider.accountId; // Garante que temos o ID
 
-    // --- Métodos de Importação de Histórico ---
-    // (Os métodos startImportHistoryMessages, isImportHistoryAvailable, addHistoryMessages,
-    //  addHistoryContacts, importHistoryMessages, updateContactAvatarInRecentConversations,
-    //  syncLostMessages foram mantidos, mas dependem fortemente de arquivos/configurações
-    //  faltantes como postgresClient, chatwootImport, i18next)
+      try {
+          // 1. Listar Inboxes para verificar se já existe
+          this.logger.debug(`Listando inboxes na conta ${accountId} para verificar ${inboxName}`);
+          const findInbox: any = await client.inboxes.list({ accountId });
+          const existingInbox = findInbox.payload?.find((i: any) => i.name === inboxName);
+          let inboxId: number;
+
+          if (existingInbox) {
+              this.logger.info(`Inbox "${inboxName}" já existe com ID: ${existingInbox.id}`);
+              inboxId = existingInbox.id;
+              // TODO: Opcional - verificar se o webhook URL está correto e atualizar se necessário
+          } else {
+              this.logger.info(`Criando novo inbox "${inboxName}"...`);
+              const channelData = { type: 'api', webhook_url: webhookUrl };
+              const inbox = await client.inboxes.create({
+                  accountId,
+                  data: { name: inboxName, channel: channelData as any }, // 'as any' para contornar tipagem do SDK se necessário
+              });
+              if (!inbox?.id) {
+                  this.logger.error(`Falha ao criar inbox "${inboxName}"`);
+                  return null;
+              }
+              inboxId = inbox.id;
+              this.logger.log(`Inbox "${inboxName}" criado com sucesso - ID: ${inboxId}`);
+          }
+
+          // 2. Criar Contato/Conversa do Bot (se qrcode for true e BOT_CONTACT habilitado)
+          const botContactEnabled = this.configService.get<any>('CHATWOOT')?.BOT_CONTACT; // TODO: Precisa do tipo Chatwoot
+          if (qrcode && botContactEnabled) {
+              this.logger.info('Criando contato/conversa do Bot...');
+              const botIdentifier = '123456'; // Identificador fixo para o bot
+              let contact = await this.findContact(instance, botIdentifier); // Tenta encontrar
+
+              if (!contact) {
+                  this.logger.debug(`Contato do Bot (${botIdentifier}) não encontrado. Criando...`);
+                  contact = await this.createContact(
+                      instance,
+                      botIdentifier,
+                      inboxId,
+                      false, // Não é grupo
+                      organization || 'EvolutionAPI Bot', // Nome do bot
+                      logo || 'https://evolution-api.com/files/evolution-api-favicon.png', // Logo
+                      undefined // Sem JID específico
+                  );
+              }
+
+              if (!contact) {
+                  this.logger.warn('Falha ao encontrar ou criar contato do Bot.');
+                  return false; // Retorna false indicando falha parcial
+              }
+
+              const contactId = contact.payload?.contact?.id ?? contact.payload?.id ?? contact.id;
+              if (!contactId) {
+                   this.logger.warn('Não foi possível obter o ID do contato do Bot.');
+                   return false;
+              }
+               this.logger.debug(`Contato do Bot encontrado/criado - ID: ${contactId}`);
+
+              // Verifica se já existe conversa para este contato no inbox
+              const convList: any = await client.contacts.listConversations({ accountId, id: contactId });
+              let conversation = convList.payload?.find((c: any) => c.inbox_id === inboxId);
+
+              if (!conversation) {
+                  this.logger.debug(`Nenhuma conversa encontrada para o Bot no inbox ${inboxId}. Criando...`);
+                  const convData = { contact_id: contactId.toString(), inbox_id: inboxId.toString() };
+                  conversation = await client.conversations.create({ accountId, data: convData });
+                  if (!conversation?.id) {
+                      this.logger.warn(`Falha ao criar conversa para o Bot.`);
+                      return false;
+                  }
+                   this.logger.debug(`Conversa do Bot criada - ID: ${conversation.id}`);
+              } else {
+                  this.logger.debug(`Conversa do Bot já existe - ID: ${conversation.id}`);
+              }
+
+              // Envia mensagem inicial (pode conter número para pareamento ou apenas 'init')
+              let contentMsg = 'init';
+              if (number) contentMsg = `init:${number}`; // Usado pelo frontend para iniciar pareamento?
+
+               this.logger.info(`Enviando mensagem inicial para conversa do Bot (ID: ${conversation.id}). Conteúdo: ${contentMsg}`);
+              await client.messages.create({
+                  accountId,
+                  conversationId: conversation.id,
+                  data: { content: contentMsg, message_type: 'outgoing' },
+              });
+          } else if (qrcode) {
+               this.logger.info('Criação de contato/conversa do Bot desabilitada nas configurações.');
+          }
+
+          return true; // Indica sucesso na criação/verificação do inbox
+      } catch (error: any) {
+           this.logger.error(`Erro em initInstanceChatwoot para ${instance.instanceName}: ${error.message}`);
+           return null; // Indica falha geral
+      }
+    }
+
+    // ... (Restante dos métodos como createContact, updateContact, addLabelToContact, findContact, etc.) ...
+    // Aplicar o padrão de verificação de client/provider e adicionar logs/try-catch.
+
+    // --- Métodos de Importação ---
+    // Manter a estrutura, mas com TODOs claros sobre as dependências faltantes
 
     public startImportHistoryMessages(instance: InstanceDto): void {
       if (!this.isImportHistoryAvailable()) {
@@ -264,14 +393,22 @@ export class ChatwootService {
           return;
       }
       this.logger.info(`Iniciando importação de histórico para ${instance.instanceName}`);
+      // TODO: Precisa de i18next
       this.createBotMessage(instance, i18next.t('cw.import.startImport'), 'incoming');
     }
 
     public isImportHistoryAvailable(): boolean {
-      // Verifica se a URI de conexão com o banco do Chatwoot está configurada
-      const uri = this.configService.get<Chatwoot>('CHATWOOT')?.IMPORT?.DATABASE?.CONNECTION?.URI;
-      // TODO: Verificar se postgresClient foi inicializado corretamente
-      return !!uri && uri !== 'postgres://user:password@hostname:port/dbname' && !!this.pgClient;
+      // TODO: Precisa do tipo Chatwoot de env.config.ts
+      const uri = this.configService.get<any>('CHATWOOT')?.IMPORT?.DATABASE?.CONNECTION?.URI;
+      const pgClientAvailable = !!this.pgClient?.query; // Verifica se pgClient e query existem
+      if (!pgClientAvailable) {
+          this.logger.warn('pgClient não está disponível ou não tem método query.');
+      }
+      const isUriValid = !!uri && uri !== 'postgres://user:password@hostname:port/dbname';
+      if (!isUriValid) {
+           this.logger.warn('URI de importação do Chatwoot não configurada corretamente.');
+      }
+      return isUriValid && pgClientAvailable;
     }
 
     public addHistoryMessages(instance: InstanceDto, messagesRaw: MessageModel[]): void {
@@ -291,42 +428,51 @@ export class ChatwootService {
     public async importHistoryMessages(instance: InstanceDto): Promise<number | void> {
       if (!this.isImportHistoryAvailable()) return;
       this.logger.info(`Iniciando processo de importação de mensagens para ${instance.instanceName}`);
-      this.createBotMessage(instance, i18next.t('cw.import.importingMessages'), 'incoming'); // TODO: Precisa de i18next
+      // TODO: Precisa de i18next
+      this.createBotMessage(instance, i18next.t('cw.import.importingMessages'), 'incoming');
       try {
           const inbox = await this.getInbox(instance);
+          // Usa this.provider que já foi carregado por getInbox -> clientCw
           if(!inbox || !this.provider) {
                this.logger.error(`Inbox ou Provider não encontrado para importação em ${instance.instanceName}`);
-               this.createBotMessage(instance, i18next.t('cw.import.messagesException'), 'incoming'); // TODO: Precisa de i18next
+                // TODO: Precisa de i18next
+               this.createBotMessage(instance, i18next.t('cw.import.messagesException'), 'incoming');
                return;
           }
           // TODO: Precisa do arquivo chatwoot-import-helper.ts
           const total = await chatwootImport?.importHistoryMessages(
             instance,
-            this, // Passa a instância do serviço atual
+            this,
             inbox,
             this.provider, // Passa o provider carregado
           );
           this.logger.info(`Importação de mensagens concluída para ${instance.instanceName}. Total: ${total}`);
           await this.updateContactAvatarInRecentConversations(instance);
+          // TODO: Precisa de i18next
           const msg = Number.isInteger(total)
-            ? i18next.t('cw.import.messagesImported', { totalMessagesImported: total as number }) // TODO: Precisa de i18next
-            : i18next.t('cw.import.messagesException'); // TODO: Precisa de i18next
+            ? i18next.t('cw.import.messagesImported', { totalMessagesImported: total as number })
+            : i18next.t('cw.import.messagesException');
           this.createBotMessage(instance, msg, 'incoming');
           return total as number;
       } catch (error: any) {
            this.logger.error(`Erro durante importação de mensagens para ${instance.instanceName}: ${error.message}`);
-           this.createBotMessage(instance, i18next.t('cw.import.messagesException'), 'incoming'); // TODO: Precisa de i18next
+           // TODO: Precisa de i18next
+           this.createBotMessage(instance, i18next.t('cw.import.messagesException'), 'incoming');
       }
     }
 
     public async updateContactAvatarInRecentConversations(instance: InstanceDto, limitContacts = 100): Promise<void> {
       this.logger.info(`Atualizando avatares de contatos recentes para ${instance.instanceName}`);
       try {
-        if (!this.isImportHistoryAvailable()) return;
+        if (!this.isImportHistoryAvailable()) {
+             this.logger.warn(`Importação/PG Client não disponível para updateContactAvatar...`);
+             return;
+        };
         const client = await this.clientCw(instance);
         const inbox = await this.getInbox(instance);
-        if (!client || !inbox || !this.provider) {
-          this.logger.warn(`Cliente, Inbox ou Provider Chatwoot não disponível para ${instance.instanceName}`);
+        // this.provider é carregado por clientCw/getInbox
+        if (!client || !inbox || !this.provider || !this.provider.accountId) {
+          this.logger.warn(`Cliente, Inbox ou Provider/AccountId Chatwoot não disponível para ${instance.instanceName}`);
           return;
         }
         // TODO: Precisa do arquivo chatwoot-import-helper.ts
@@ -341,23 +487,40 @@ export class ChatwootService {
         }
 
         const identifiers = recentContacts.map((c: any) => c.identifier).filter(Boolean);
-        // Corrigido: Acesso via .prisma
+        if (identifiers.length === 0) {
+             this.logger.info(`Nenhum identificador encontrado nos contatos recentes.`);
+             return;
+        }
+
+        // Corrigido: Acesso via .prisma e usa remoteJid como chave
         const contactsWithPics = (
           await this.prismaRepository.prisma.contact.findMany({
-            where: { instanceId: instance.instanceId, remoteJid: { in: identifiers }, profilePicUrl: { not: null } }, // Usando remoteJid como identificador
+            where: { instanceId: instance.instanceId, remoteJid: { in: identifiers }, profilePicUrl: { not: null } },
+            select: { remoteJid: true, profilePicUrl: true } // Seleciona só o necessário
           })
-        ).reduce((m, c) => m.set(c.remoteJid, c), new Map<string, ContactModel>()); // Mapeia por remoteJid
+        ).reduce((m, c) => { if(c.remoteJid) m.set(c.remoteJid, c); return m; }, new Map<string, { remoteJid: string | null; profilePicUrl: string | null; }>()); // Mapeia por remoteJid
+
+        if (contactsWithPics.size === 0) {
+             this.logger.info(`Nenhuma foto de perfil encontrada no DB local para os contatos recentes.`);
+             return;
+        }
 
         for (const c of recentContacts) {
-          const pic = contactsWithPics.get(c.identifier); // Busca pelo identificador (remoteJid)
-          if (pic?.profilePicUrl) {
-            this.logger.debug(`Atualizando avatar para contato ID ${c.id} (identifier: ${c.identifier})`);
-            await client.contacts.update({
-              // TODO: Confirmar se accountId existe em this.provider
-              accountId: this.provider.accountId,
-              id: c.id,
-              data: { avatar_url: pic.profilePicUrl },
-            });
+          if (!c.identifier) continue; // Pula se não tiver identificador
+          const picData = contactsWithPics.get(c.identifier); // Busca pelo identificador (remoteJid)
+          // Verifica se a foto existe localmente e se é diferente da atual (se houver thumbnail)
+          if (picData?.profilePicUrl && picData.profilePicUrl !== c.thumbnail) {
+            this.logger.debug(`Atualizando avatar para contato Chatwoot ID ${c.id} (identifier: ${c.identifier})`);
+            try {
+                await client.contacts.update({
+                    accountId: this.provider.accountId,
+                    id: c.id,
+                    data: { avatar_url: picData.profilePicUrl }, // Atualiza avatar
+                });
+            } catch (updateError: any) {
+                 // Loga erro mas continua para os próximos contatos
+                 this.logger.error(`Falha ao atualizar avatar para contato ${c.id}: ${updateError.message}`);
+            }
           }
         }
         this.logger.info(`Atualização de avatares concluída para ${instance.instanceName}`);
@@ -366,20 +529,24 @@ export class ChatwootService {
       }
     }
 
-    // Este método parece específico para Baileys, verificar se é necessário aqui
+    // Este método parece específico de Baileys, verificar se é necessário para Chatwoot
     public async syncLostMessages(
         instance: InstanceDto,
-        chatwootConfig: ChatwootModel, // Usando o tipo Prisma
-        prepareMessage: (message: MessageModel) => any, // Usando o tipo Prisma
+        chatwootConfig: ChatwootModel,
+        prepareMessage: (message: MessageModel) => any,
     ): Promise<void> {
-        this.logger.warn('syncLostMessages chamado em ChatwootService - lógica pode precisar de revisão/adaptação.');
+        this.logger.warn('syncLostMessages chamado em ChatwootService - Verifique se a lógica é aplicável/necessária.');
+        // Manter lógica original por enquanto, mas com ressalvas e TODOs
         try {
           if (!this.isImportHistoryAvailable()) return;
-          // TODO: Verificar se MESSAGE_UPDATE existe na config
+          // TODO: Verificar se config existe e tem SAVE_DATA.MESSAGE_UPDATE
           // if (!this.configService.get<Database>('DATABASE')?.SAVE_DATA?.MESSAGE_UPDATE) return;
 
           const inbox = await this.getInbox(instance);
-          if(!inbox || !chatwootConfig) return;
+          if(!inbox || !chatwootConfig?.accountId) { // Verifica accountId aqui
+               this.logger.warn('Inbox ou AccountId não disponível para syncLostMessages.');
+               return;
+           };
 
           const sqlMessages = `
             SELECT * FROM messages m
@@ -392,11 +559,12 @@ export class ChatwootService {
           const ids = rows.filter((r: any) => !!r.source_id).map((r: any) => r.source_id.replace('WAID:', ''));
 
           // Corrigido: Acesso via .prisma e tipos Prisma
+          const sixHoursAgo = dayjs().subtract(6, 'hours').unix(); // Timestamp numérico
           const saved = await this.prismaRepository.prisma.message.findMany({
             where: {
-              instanceId: instance.instanceId, // Usando instanceId
-              messageTimestamp: { gte: dayjs().subtract(6, 'hours').unix() }, // Usando Unix timestamp (number)
-              NOT: { key: { path: ['id'], in: ids } } // Mensagens cujo ID NÃO está na lista do chatwoot
+              instanceId: instance.instanceId,
+              messageTimestamp: { gte: BigInt(sixHoursAgo) }, // Usa BigInt se schema for BigInt
+              NOT: { key: { path: ['id'], in: ids } }
             },
           });
 
@@ -405,54 +573,48 @@ export class ChatwootService {
           const raw: any[] = [];
           for (const m of filtered) {
             if (!m.message || !m.key || !m.messageTimestamp) continue;
-            // Convertendo BigInt para number antes de passar para prepareMessage, se necessário
-            const messageWithNumberTimestamp = { ...m, messageTimestamp: Number(m.messageTimestamp) };
-            raw.push(prepareMessage(messageWithNumberTimestamp as any)); // Ajuste 'as any' se necessário
+            // Passa o objeto Prisma diretamente, prepareMessage deve lidar com BigInt se necessário
+            raw.push(prepareMessage(m));
           }
           this.addHistoryMessages(instance, raw);
           // TODO: Precisa de chatwootImport e this.provider
           await chatwootImport?.importHistoryMessages(instance, this, inbox, this.provider);
 
-          // Limpar cache do Baileys? Isso parece errado aqui.
+          // TODO: Lógica de limpar cache parece pertencer ao BaileysService, não aqui.
           // const waInstance = this.waMonitor.waInstances[instance.instanceName];
-          // waInstance.clearCacheChatwoot(); // TODO: Este método existe na instância?
+          // waInstance.clearCacheChatwoot();
 
-        } catch (error: any) {
+        } catch(error: any) {
            this.logger.error(`Erro em syncLostMessages: ${error.message}`);
         }
     }
 
-    // --- Helpers Internos (Exemplo: getReplyToIds) ---
-    private async getReplyToIds(messageBody: any, instance: InstanceDto): Promise<{ in_reply_to?: number; in_reply_to_external_id?: string }> {
+    // --- Helpers ---
+     private async getReplyToIds(messageBody: any, instance: InstanceDto): Promise<{ in_reply_to?: number; in_reply_to_external_id?: string }> {
         const contextInfo = messageBody?.contextInfo;
-        if (!contextInfo?.stanzaId) return {};
+        // Garante que temos o ID da mensagem citada
+        const stanzaId = contextInfo?.stanzaId || contextInfo?.quotedMessage?.key?.id;
+        if (!stanzaId) return {};
 
         // Tenta buscar a mensagem original pelo stanzaId no nosso banco
-         // Corrigido: Acesso via .prisma
+        // Corrigido: Acesso via .prisma
+        // TODO: Precisa do schema.prisma para confirmar tipos e campos
         const quotedMsg = await this.prismaRepository.prisma.message.findFirst({
              where: {
                  instanceId: instance.instanceId,
-                 key: { path: ['id'], equals: contextInfo.stanzaId }
+                 key: { path: ['id'], equals: stanzaId } // Busca pelo ID no campo 'key' (assumindo estrutura Baileys)
              }
          });
 
+        // Se encontrou a mensagem no DB e ela tem ID do Chatwoot, usa o ID do Chatwoot
         if (quotedMsg?.chatwootMessageId) {
-             // Se a mensagem original tem ID do Chatwoot, usa ele
-             return { in_reply_to: Number(quotedMsg.chatwootMessageId) };
+             this.logger.debug(`Mensagem citada encontrada no DB com Chatwoot ID: ${quotedMsg.chatwootMessageId}`);
+             return { in_reply_to: Number(quotedMsg.chatwootMessageId) }; // ID interno do Chatwoot
         } else {
-             // Senão, usa o ID externo (stanzaId)
-             return { in_reply_to_external_id: `WAID:${contextInfo.stanzaId}` };
+             // Senão, usa o ID externo (stanzaId) prefixado
+             this.logger.debug(`Mensagem citada não encontrada no DB ou sem Chatwoot ID. Usando ID externo: WAID:${stanzaId}`);
+             return { in_reply_to_external_id: `WAID:${stanzaId}` }; // ID externo do WhatsApp
         }
     }
-
-     // Placeholder para método que não existe mas era chamado
-     // TODO: Implementar a lógica correta para enviar eventos/mensagens para o WhatsApp através da instância correta
-     //       (seja Baileys ou Meta API), baseado no evento Chatwoot.
-     // public async eventWhatsapp(event: string, instanceInfo: any, payload: any, message?: any): Promise<any> {
-     //     this.logger.error(`ERRO FATAL: Método 'eventWhatsapp' chamado em ChatwootService, mas não está implementado! Evento: ${event}`);
-     //     // Lançar um erro ou apenas logar?
-     //     throw new Error("Método 'eventWhatsapp' não implementado em ChatwootService.");
-     // }
-
 
 } // Fim da classe ChatwootService
