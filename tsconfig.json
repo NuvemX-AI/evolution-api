@@ -3,47 +3,49 @@
     /* --------------------------------------------------------- */
     /* transpile / emit                                          */
     /* --------------------------------------------------------- */
-    "target": "ES2020",
-    "module": "CommonJS",
-    "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "removeComments": true,
-    "noEmitOnError": true,
+    "target"              : "ES2020",
+    "module"              : "CommonJS",
+    "declaration"         : true,
+    "outDir"              : "./dist",
+    "rootDir"             : "./src",
+    "removeComments"      : true,
+    "noEmitOnError"       : true,
 
     /* --------------------------------------------------------- */
     /* language & runtime support                                */
     /* --------------------------------------------------------- */
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
+    "experimentalDecorators" : true,
+    "emitDecoratorMetadata"  : true,
+    "esModuleInterop"        : true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule"      : true,
+    "types"                  : ["node"],                 // <- Node typings
 
     /* --------------------------------------------------------- */
     /* type-checking                                             */
     /* --------------------------------------------------------- */
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strict"                 : false,                     // deixe true quando possível
+    "noImplicitAny"          : false,
+    "strictNullChecks"       : false,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
+    "skipLibCheck"           : true,
 
     /* --------------------------------------------------------- */
     /* build perf                                                */
     /* --------------------------------------------------------- */
-    "incremental": true,
+    "incremental"            : true,
 
     /* --------------------------------------------------------- */
     /* module resolution / paths                                 */
     /* --------------------------------------------------------- */
-    "moduleResolution": "Node",
-    "baseUrl": "./src",
+    "moduleResolution" : "Node",
+    "baseUrl"          : "./src",
     "paths": {
       /* raiz API */
       "@api/*"          : ["api/*"],
       "@api"            : ["api"],
 
-      /* módulos de domínio */
+      /* controladores / serviços / repositórios */
       "@controllers/*"  : ["api/controllers/*"],
       "@integrations/*" : ["api/integrations/*"],
       "@repository/*"   : ["repository/*"],
@@ -59,8 +61,8 @@
       "@config/*"       : ["config/*"],
 
       /* exceptions */
-      "@exceptions"     : ["api/exceptions/index.ts"],
-      "@exceptions/*"   : ["api/exceptions/*"],
+      "@exceptions"     : ["exceptions/index.ts"],
+      "@exceptions/*"   : ["exceptions/*"],
 
       /* constantes */
       "@constants"      : ["api/constants/index.ts"],
