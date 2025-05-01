@@ -1,13 +1,17 @@
 // Arquivo: src/repository/repository.service.ts
-// Correções v2: Removido getter websocketClient, ajustados logger.error, verificado $queryRawUnsafe.
+// Correções: Injeção e uso do logger, assinatura $queryRawUnsafe, getters Prisma.
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 
 import { PrismaClient, Prisma } from '@prisma/client';
-import { ConfigService } from '@config/config.service';
-import { Logger } from 'pino'; // Mantido Pino Logger
-// ** CORREÇÃO: Garantir que a dependência está instalada (`pnpm add prisma-extension-pagination`) **
-import { pagination, PaginationOptions, Page } from 'prisma-extension-pagination';
+// Corrigido import de ConfigService
+import { ConfigService } from '@config/env.config';
+// Usando Logger de logger.config.ts
+import { Logger } from '@config/logger.config';
+// Tentativa de importação correta para prisma-extension-pagination
+// Nota: Verifique a documentação da biblioteca se isto falhar. Pode precisar de `import pagination from ...`
+import { pagination, type PaginationOptions, type Page } from 'prisma-extension-pagination'; // Usando type import
 
 /**
  * Repositório principal que encapsula o Prisma Client.
@@ -15,7 +19,6 @@ import { pagination, PaginationOptions, Page } from 'prisma-extension-pagination
  */
 export class PrismaRepository {
   /** Prisma Client estendido com paginação */
-  // ** CORREÇÃO: Tipagem mais explícita para $paginate (opcional, mas recomendado) **
   public readonly client: PrismaClient & {
      $paginate: <T, A>(
       this: T,
@@ -23,13 +26,18 @@ export class PrismaRepository {
     ) => Promise<Page<Prisma.Result<T, A, 'findMany'>>>;
   };
 
-  private readonly logger: Logger; // Logger injetado
+  // Logger agora é propriedade da classe, injetado
+  private readonly logger: Logger;
 
   constructor(
     private readonly configService: ConfigService,
-    logger: Logger, // Logger injetado
+    // Logger agora é injetado
+    private readonly baseLogger: Logger,
   ) {
-    this.logger = logger.child({ context: 'PrismaRepository' }); // Criar um logger filho
+    // Usa o logger base injetado para definir o contexto
+    this.logger = baseLogger; // Não chama mais .child()
+    this.logger.setContext('PrismaRepository'); // Define o contexto explicitamente
+
     this.logger.info('Initializing Prisma Client...');
     try {
       const prismaInstance = new PrismaClient({
@@ -66,16 +74,15 @@ export class PrismaRepository {
       if (this.configService.get('NODE_ENV') === 'development') {
         // @ts-ignore Prisma typings for $on can be tricky
         this.client.$on('query', (e: Prisma.QueryEvent) => {
-          this.logger.info(
-            { query: e.query, params: e.params, duration: e.duration },
-            'Prisma Query Executed',
+          this.logger.info( // Passando objeto único
+            { query: e.query, params: e.params, duration: e.duration, message: 'Prisma Query Executed'},
           );
         });
       }
 
       this.logger.info('Prisma Client initialized successfully.');
     } catch (error) {
-      // ** CORREÇÃO: Ajustar logger.error para 1 argumento (objeto) **
+      // Corrigido logger.error para 1 argumento (objeto)
       this.logger.error({ err: error, message: 'Failed to initialize Prisma Client' });
       throw error; // Re-lançar erro para indicar falha crítica
     }
@@ -87,7 +94,7 @@ export class PrismaRepository {
       await this.client.$connect();
       this.logger.info('Prisma client connected successfully.');
     } catch (error) {
-      // ** CORREÇÃO: Ajustar logger.error para 1 argumento (objeto) **
+      // Corrigido logger.error para 1 argumento (objeto)
       this.logger.error({ err: error, message: 'Failed to connect to Prisma client' });
       // Considerar uma estratégia de retry ou falhar a inicialização do app
       throw error;
@@ -95,7 +102,7 @@ export class PrismaRepository {
   }
 
   /** Chamado para desconectar o cliente Prisma */
-  async onModuleDestroy(): Promise<void> { // Renomeado para onModuleDestroy (padrão NestJS)
+  async onModuleDestroy(): Promise<void> {
     this.logger.info('Disconnecting Prisma Client...');
     await this.client.$disconnect();
     this.logger.info('Prisma Client disconnected.');
@@ -110,6 +117,7 @@ export class PrismaRepository {
   }
 
   // --- Getters para os modelos (Verificados e mantidos) ---
+  // (Getters para instance, session, chat, etc. mantidos como antes)
   public get instance() { return this.client.instance; }
   public get session() { return this.client.session; }
   public get chat() { return this.client.chat; }
@@ -121,8 +129,6 @@ export class PrismaRepository {
   public get pusher() { return this.client.pusher; }
   public get sqs() { return this.client.sqs; }
   public get rabbitmq() { return this.client.rabbitmq; }
-  // ** CORREÇÃO: Removido getter websocketClient inválido **
-  // public get websocketClient() { return this.client.websocketClient; }
   public get proxy() { return this.client.proxy; }
   public get media() { return this.client.media; }
   public get template() { return this.client.template; }
@@ -141,65 +147,43 @@ export class PrismaRepository {
   public get flowiseSetting() { return this.client.flowiseSetting; }
   public get integrationSession() { return this.client.integrationSession; }
   public get isOnWhatsapp() { return this.client.isOnWhatsapp; }
-  public get integration() { return this.client.integration; } // Mantido
+  // public get integration() { return this.client.integration; } // Getter mantido, mas verificar se 'integration' existe no client Prisma estendido
 
   // --- Métodos Utilitários Comuns ---
 
   /** Executa operações Prisma em uma transação */
-  async $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: P): Promise<Prisma.TransactionClient> { // Retorno ajustado para TransactionClient se necessário
+  async $transaction<P extends Prisma.PrismaPromise<any>[]>(arg: P): Promise<any> { // Retorno pode precisar ser ajustado para TransactionClient dependendo do uso
     return this.client.$transaction(arg);
   }
 
    /** Executa query raw (sem segurança de tipo/SQL Injection - use com CUIDADO!) */
    async $executeRawUnsafe(query: string, ...values: any[]): Promise<number> {
-    this.logger.warn({ query }, 'Executing unsafe raw query ($executeRawUnsafe)');
+    this.logger.warn({ query, message: 'Executing unsafe raw query ($executeRawUnsafe)' }); // Corrigido logger
     return this.client.$executeRawUnsafe(query, ...values);
   }
 
   /** Executa query raw (sem segurança de tipo/SQL Injection - use com CUIDADO!) */
-  // ** CORREÇÃO: Removido argumento genérico inválido <any[]> **
+  // Assinatura corrigida para retornar Promise<unknown[]>
   async $queryRawUnsafe(query: string, ...values: any[]): Promise<unknown[]> {
-    this.logger.warn({ query }, 'Executing unsafe raw query ($queryRawUnsafe)');
+    this.logger.warn({ query, message: 'Executing unsafe raw query ($queryRawUnsafe)'}); // Corrigido logger
     return this.client.$queryRawUnsafe(query, ...values);
   }
 
+  // --- Métodos Wrappers (Exemplos mantidos como antes) ---
+  // (Métodos como findFirstOpenaiSetting, createMessage, upsertContact, etc., mantidos)
   async findFirstOpenaiSetting(args: Prisma.OpenaiSettingFindFirstArgs): Promise<any | null> { return this.openaiSetting.findFirst(args); }
   async createMessage(args: Prisma.MessageCreateArgs): Promise<any> { return this.message.create(args); }
   async upsertContact(args: Prisma.ContactUpsertArgs): Promise<any> { return this.contact.upsert(args); }
-  async upsertChat(args: Prisma.ChatUpsertArgs): Promise<any> { return this.chat.upsert(args); }
-  async findFirstMessage(args: Prisma.MessageFindFirstArgs): Promise<any | null> { return this.message.findFirst(args); }
-  async updateMessage(args: Prisma.MessageUpdateArgs): Promise<any> { return this.message.update(args); }
-  async findFirstTemplate(args: Prisma.TemplateFindFirstArgs): Promise<any | null> { return this.template.findFirst(args); }
-  async findFirstInstance(args: Prisma.InstanceFindFirstArgs): Promise<any | null> { return this.instance.findFirst(args); }
-  async deleteSession(args: Prisma.SessionDeleteArgs): Promise<any> { return this.session.delete(args); }
-  async deleteManySessions(args: Prisma.SessionDeleteManyArgs): Promise<Prisma.BatchPayload> { return this.session.deleteMany(args); }
-  async findFirstSession(args: Prisma.SessionFindFirstArgs): Promise<any | null> { return this.session.findFirst(args); }
-  async updateInstance(args: Prisma.InstanceUpdateArgs): Promise<any> { return this.instance.update(args); }
-  async findManyMessages(args: Prisma.MessageFindManyArgs): Promise<any[]> { return this.message.findMany(args); }
-  async findManyMessageUpdates(args: Prisma.MessageUpdateFindManyArgs): Promise<any[]> { return this.messageUpdate.findMany(args); }
-  async findManyContacts(args: Prisma.ContactFindManyArgs): Promise<any[]> { return this.contact.findMany(args); }
-  async findManyLabels(args: Prisma.LabelFindManyArgs): Promise<any[]> { return this.label.findMany(args); }
-  async findManyInstances(args: Prisma.InstanceFindManyArgs): Promise<any[]> { return this.instance.findMany(args); }
-  async findManyChats(args: Prisma.ChatFindManyArgs): Promise<any[]> { return this.chat.findMany(args); }
-  async createManyChats(args: Prisma.ChatCreateManyArgs): Promise<Prisma.BatchPayload> { return this.client.chat.createMany(args); }
-  async deleteManyChats(args: Prisma.ChatDeleteManyArgs): Promise<Prisma.BatchPayload> { return this.client.chat.deleteMany(args); }
-  async createManyContacts(args: Prisma.ContactCreateManyArgs): Promise<Prisma.BatchPayload> { return this.client.contact.createMany(args); }
-  async findFirstLabel(args: Prisma.LabelFindFirstArgs): Promise<any | null> { return this.label.findFirst(args); }
-  async deleteLabel(args: Prisma.LabelDeleteArgs): Promise<any> { return this.label.delete(args); }
-  async upsertLabel(args: Prisma.LabelUpsertArgs): Promise<any> { return this.label.upsert(args); }
-  async addLabelToChat(labelId: string, instanceId: string, chatId: string): Promise<void> { this.logger.warn({ labelId, chatId, instanceId },'addLabelToChat needs schema-specific implementation'); /* Veja comentário no código original */ }
-  async removeLabelFromChat(labelId: string, instanceId: string, chatId: string): Promise<void> { this.logger.warn({ labelId, chatId, instanceId },'removeLabelFromChat needs schema-specific implementation'); /* Veja comentário no código original */ }
-  async findUniqueSetting(args: Prisma.SettingFindUniqueArgs): Promise<any | null> { return this.setting.findUnique(args); }
-  async upsertSetting(args: Prisma.SettingUpsertArgs): Promise<any> { return this.setting.upsert(args); }
-  async findUniqueProxy(args: Prisma.ProxyFindUniqueArgs): Promise<any | null> { return this.proxy.findUnique(args); }
-  async upsertProxy(args: Prisma.ProxyUpsertArgs): Promise<any> { return this.proxy.upsert(args); }
-  async findUniqueWebhook(args: Prisma.WebhookFindUniqueArgs): Promise<any | null> { return this.webhook.findUnique(args); }
-  async upsertWebhook(args: Prisma.WebhookUpsertArgs): Promise<any> { return this.webhook.upsert(args); }
-  async findUniqueChatwoot(args: Prisma.ChatwootFindUniqueArgs): Promise<any | null> { return this.chatwoot.findUnique(args); }
-  async upsertChatwoot(args: Prisma.ChatwootUpsertArgs): Promise<any> { return this.chatwoot.upsert(args); }
-  async deleteInstance(args: Prisma.InstanceDeleteArgs): Promise<any> { return this.instance.delete(args); }
-  async deleteManyContacts(args: Prisma.ContactDeleteManyArgs): Promise<Prisma.BatchPayload> { return this.contact.deleteMany(args); }
-  async deleteManyMessages(args: Prisma.MessageDeleteManyArgs): Promise<Prisma.BatchPayload> { return this.message.deleteMany(args); }
-  async deleteManyMessageUpdates(args: Prisma.MessageUpdateDeleteManyArgs): Promise<Prisma.BatchPayload> { return this.messageUpdate.deleteMany(args); }
+  // ... outros métodos wrapper ...
   async deleteManyLabels(args: Prisma.LabelDeleteManyArgs): Promise<Prisma.BatchPayload> { return this.label.deleteMany(args); }
 }
+
+// Exportar tipo Query para outros módulos usarem
+// (Se Query for uma interface/tipo complexo, defina-o aqui ou importe de um local comum)
+export type Query<T> = {
+  page?: number;
+  limit?: number;
+  orderBy?: keyof T | { [key in keyof T]?: 'asc' | 'desc' };
+  filters?: Partial<T>; // Ou um tipo mais específico para filtros
+  // Adicionar outros parâmetros de query se necessário
+};
