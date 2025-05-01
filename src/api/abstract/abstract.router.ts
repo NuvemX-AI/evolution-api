@@ -19,8 +19,12 @@ import { BadRequestException } from '@exceptions';
 /* -------------------------------------------------------------------------- */
 /*  Tipos auxiliares                                                           */
 /* -------------------------------------------------------------------------- */
-type DataValidate<T> = {
+/**
+ * Estrutura necessária para executar a validação genérica
+ */
+export type DataValidate<T> = {
   request: Request;
+  /** Esquema JSON‑Schema para validar o objeto recebido */
   schema: JSONSchema7;
   /** Classe DTO que tipa/normaliza o corpo recebido */
   ClassRef: new (...args: any[]) => T;
@@ -39,11 +43,20 @@ export abstract class RouterBroker {
     return `/${path}${param ? '/:instanceName' : ''}`;
   }
 
+  /**
+   * Constrói uma mensagem amigável unificando todos os erros apontados
+   * pelo jsonschema.
+   */
   private buildErrorMessage(errors: ValidationError[]): string {
     return errors
-      .map(({ stack, schema }) =>
-        schema?.description ? String(schema.description) : stack.replace('instance.', ''),
-      )
+      .map(({ stack, schema }) => {
+        // Quando o schema possui a propriedade "description" usamos
+        // essa descrição, caso contrário usamos o texto padrão do stack.
+        if (schema && typeof schema === 'object' && 'description' in schema) {
+          return String((schema as JSONSchema7).description);
+        }
+        return stack.replace('instance.', '');
+      })
       .join('\n');
   }
 
