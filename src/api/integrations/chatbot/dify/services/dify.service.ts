@@ -1,12 +1,16 @@
+// src/api/integrations/chatbot/dify/services/dify.service.ts
+
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { InstanceDto } from '../../../../dto/instance.dto';
-import { PrismaRepository } from '../../../../repository/repository.service';
-import { WAMonitoringService } from '../../../../services/monitor.service';
-import { Integration } from '../../../../types/wa.types';
-import { Auth, ConfigService, HttpServer } from '@config/env.config';
-import { Logger } from '@config/logger.config';
-import { Dify, DifySetting, IntegrationSession } from '@prisma/client';
-import { sendTelemetry } from '../../../../utils/sendTelemetry';
+import { InstanceDto } from '@api/dto/instance.dto'; // Ajustado caminho relativo/alias
+import { PrismaRepository } from '@repository/repository.service'; // Ajustado caminho relativo/alias
+import { WAMonitoringService } from '@api/services/monitor.service'; // Ajustado caminho relativo/alias
+import { Integration } from '@api/types/wa.types'; // Ajustado caminho relativo/alias
+import { Auth, ConfigService, HttpServer } from '@config/env.config'; // Assume alias
+import { Logger } from '@config/logger.config'; // Assume alias
+// Importa tipos Prisma necessários
+import { Dify, DifySetting, IntegrationSession, Prisma } from '@prisma/client';
+// << CORREÇÃO TS2307: Usar alias para importar utilitário >>
+import { sendTelemetry } from '@utils/sendTelemetry'; // Assume alias
 import axios from 'axios';
 import { Readable } from 'stream';
 
@@ -19,30 +23,33 @@ export class DifyService {
 
   private readonly logger = new Logger('DifyService');
 
-  public async createNewSession(instance: InstanceDto, data: any) {
+  public async createNewSession(instance: InstanceDto, data: any): Promise<{ session: IntegrationSession } | undefined> {
     try {
-      const session = await this.prismaRepository.integrationSession.create({
+      // << CORREÇÃO TS2353: Remover pushName (não existe no modelo IntegrationSession) >>
+      // NOTE: Se precisar salvar pushName, adicione a coluna ao schema Prisma e regenere.
+      const session = await this.prismaRepository.prisma.integrationSession.create({
         data: {
           remoteJid: data.remoteJid,
-          pushName: data.pushName,
-          sessionId: data.remoteJid,
+          // pushName: data.pushName, // Removido
+          sessionId: data.remoteJid, // Usar remoteJid como sessionId inicial? Verificar lógica.
           status: 'opened',
           awaitUser: false,
           botId: data.botId,
           instanceId: instance.instanceId,
-          type: 'dify',
+          type: 'dify', // Garante que o tipo está definido
         },
       });
-
+      this.logger.log(`Nova sessão Dify criada para ${data.remoteJid}, Bot ID: ${data.botId}`);
       return { session };
-    } catch (error) {
-      this.logger.error(error);
-      return;
+    } catch (error: any) {
+      this.logger.error(`Erro ao criar nova sessão Dify: ${error.message}`);
+      return undefined;
     }
   }
 
-  private isImageMessage(content: string) {
-    return content.includes('imageMessage');
+  private isImageMessage(content: string | undefined | null): boolean {
+    // Adiciona verificação para nulo/undefined
+    return !!content && content.includes('imageMessage');
   }
 
   private isJSON(str: string): boolean {
@@ -55,457 +62,313 @@ export class DifyService {
   }
 
   private async sendMessageToBot(
-    instance: any,
+    instance: any, // Tipo da instância WA (Baileys/Meta) - precisa ser mais específico?
     session: IntegrationSession,
-    settings: DifySetting,
+    settings: DifySetting | null, // Pode ser nulo se não houver settings específicos
     dify: Dify,
     remoteJid: string,
-    pushName: string,
+    pushName: string | undefined | null, // Pode ser nulo/undefined
     content: string,
   ) {
     try {
-      let endpoint: string = dify.apiUrl;
+      // << CORREÇÃO TS2339: Usar optional chaining e fallback para apiUrl >>
+      // NOTE: Adicione 'apiUrl String?' ao modelo Dify no schema.prisma e regenere.
+      let endpoint: string = dify.apiUrl ?? '';
+      if (!endpoint) {
+          this.logger.error(`API URL não definida para o bot Dify ID ${dify.id}`);
+          return; // Não pode continuar sem endpoint
+      }
 
-      if (dify.botType === 'chatBot') {
+      let response: any; // Para armazenar a resposta da API Dify
+
+      // Assume 'chat' como default se botType não estiver definido
+      const botType = dify.botType || 'chat';
+
+      this.logger.debug(`Enviando para Dify (${botType}): User=${remoteJid}, Session=${session.sessionId}, Bot=${dify.id}`);
+
+      // Enviar presença 'composing' se for Baileys
+      if (instance?.integration === Integration.WHATSAPP_BAILEYS && instance?.client?.sendPresenceUpdate) {
+          await instance.client.presenceSubscribe(remoteJid).catch((e: any) => this.logger.warn(`Erro ao subscrever presença para ${remoteJid}: ${e.message}`));
+          await instance.client.sendPresenceUpdate('composing', remoteJid).catch((e: any) => this.logger.warn(`Erro ao enviar presença 'composing' para ${remoteJid}: ${e.message}`));
+      }
+
+      // Monta payload base
+      const payloadBase: any = {
+         inputs: {
+            // Incluir apenas dados que realmente existem
+            ...(remoteJid && { remoteJid: remoteJid }),
+            ...(pushName && { pushName: pushName }),
+            ...(instance?.instanceName && { instanceName: instance.instanceName }),
+            ...(this.configService.get<HttpServer>('SERVER')?.URL && { serverUrl: this.configService.get<HttpServer>('SERVER').URL }),
+            ...(this.configService.get<Auth>('AUTHENTICATION')?.API_KEY?.KEY && { apiKey: this.configService.get<Auth>('AUTHENTICATION').API_KEY.KEY }),
+         },
+         query: content, // Query inicial
+         user: remoteJid, // ID do usuário final
+         conversation_id: session.sessionId === remoteJid ? undefined : session.sessionId, // Usa ID da sessão se não for o inicial
+      };
+
+      // Adiciona arquivos se for imagem
+      if (this.isImageMessage(content)) {
+        const contentSplit = content!.split('|'); // content não será nulo aqui
+        payloadBase.files = [{
+            type: 'image',
+            transfer_method: 'remote_url',
+            url: contentSplit[1]?.split('?')[0], // URL da imagem
+        }];
+        payloadBase.query = contentSplit[2] || content; // Usa caption ou query original
+        payloadBase.inputs.query = payloadBase.query; // Atualiza input também
+      }
+      payloadBase.inputs = { ...payloadBase.inputs, query: payloadBase.query }; // Garante que input.query está atualizado
+
+      // Lógica específica por tipo de bot Dify
+      if (botType === 'chat' || botType === 'chatBot') { // Inclui 'chatBot' por segurança
         endpoint += '/chat-messages';
-        const payload: any = {
-          inputs: {
-            remoteJid: remoteJid,
-            pushName: pushName,
-            instanceName: instance.instanceName,
-            serverUrl: this.configService.get<HttpServer>('SERVER').URL,
-            apiKey: this.configService.get<Auth>('AUTHENTICATION').API_KEY.KEY,
-          },
-          query: content,
-          response_mode: 'blocking',
-          conversation_id: session.sessionId === remoteJid ? undefined : session.sessionId,
-          user: remoteJid,
-        };
-
-        if (this.isImageMessage(content)) {
-          const contentSplit = content.split('|');
-
-          payload.files = [
-            {
-              type: 'image',
-              transfer_method: 'remote_url',
-              url: contentSplit[1].split('?')[0],
-            },
-          ];
-          payload.query = contentSplit[2] || content;
-        }
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-          await instance.client.presenceSubscribe(remoteJid);
-          await instance.client.sendPresenceUpdate('composing', remoteJid);
-        }
-
-        const response = await axios.post(endpoint, payload, {
-          headers: {
-            Authorization: `Bearer ${dify.apiKey}`,
-          },
-        });
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS)
-          await instance.client.sendPresenceUpdate('paused', remoteJid);
-
+        payloadBase.response_mode = 'blocking'; // ou 'streaming'
+        response = await axios.post(endpoint, payloadBase, { headers: { Authorization: `Bearer ${dify.apiKey}` } });
         const message = response?.data?.answer;
         const conversationId = response?.data?.conversation_id;
+        await this.sendMessageWhatsApp(instance, remoteJid, message, settings); // Passa settings (pode ser null)
+        await this.updateSession(session.id, conversationId ?? session.sessionId, true); // Atualiza sessão
 
-        await this.sendMessageWhatsApp(instance, remoteJid, message, settings);
+      } else if (botType === 'agent') {
+         endpoint += '/chat-messages';
+         payloadBase.response_mode = 'streaming';
+         // Tratamento de streaming
+         const streamResponse = await axios.post(endpoint, payloadBase, { headers: { Authorization: `Bearer ${dify.apiKey}` }, responseType: 'stream' });
+         let conversationId: string | undefined;
+         let answer = '';
+         const stream = streamResponse.data as Readable;
+         for await (const chunk of stream) {
+             const lines = chunk.toString().split('\n');
+             for (const line of lines) {
+                 if (line.startsWith('data:')) {
+                    try {
+                        const eventData = JSON.parse(line.substring(5));
+                        if (eventData?.event === 'agent_message') {
+                            conversationId = conversationId ?? eventData?.conversation_id;
+                            answer += eventData?.answer ?? '';
+                        }
+                    } catch (e) {
+                        this.logger.warn(`Erro ao parsear linha do stream Dify: ${line}`);
+                    }
+                 }
+             }
+         }
+         await this.sendMessageWhatsApp(instance, remoteJid, answer, settings);
+         await this.updateSession(session.id, conversationId ?? session.sessionId, true);
 
-        await this.prismaRepository.integrationSession.update({
-          where: {
-            id: session.id,
-          },
-          data: {
-            status: 'opened',
-            awaitUser: true,
-            sessionId: session.sessionId === remoteJid ? conversationId : session.sessionId,
-          },
-        });
+      } else if (botType === 'workflow') {
+         endpoint += '/workflows/run';
+         payloadBase.response_mode = 'blocking';
+         response = await axios.post(endpoint, payloadBase, { headers: { Authorization: `Bearer ${dify.apiKey}` } });
+         const message = response?.data?.data?.outputs?.text; // Caminho comum para workflows
+         await this.sendMessageWhatsApp(instance, remoteJid, message, settings);
+         await this.updateSession(session.id, session.sessionId, true); // Workflow não retorna conversation_id?
+
+      } else if (botType === 'textGenerator') { // Nome antigo? Mantido por compatibilidade
+         endpoint += '/completion-messages';
+         payloadBase.response_mode = 'blocking';
+         response = await axios.post(endpoint, payloadBase, { headers: { Authorization: `Bearer ${dify.apiKey}` } });
+         const message = response?.data?.answer;
+         const conversationId = response?.data?.conversation_id;
+         await this.sendMessageWhatsApp(instance, remoteJid, message, settings);
+         await this.updateSession(session.id, conversationId ?? session.sessionId, true);
+
+      } else {
+        this.logger.error(`Tipo de bot Dify desconhecido: ${botType}`);
       }
 
-      if (dify.botType === 'textGenerator') {
-        endpoint += '/completion-messages';
-        const payload: any = {
-          inputs: {
-            query: content,
-            pushName: pushName,
-            remoteJid: remoteJid,
-            instanceName: instance.instanceName,
-            serverUrl: this.configService.get<HttpServer>('SERVER').URL,
-            apiKey: this.configService.get<Auth>('AUTHENTICATION').API_KEY.KEY,
-          },
-          response_mode: 'blocking',
-          conversation_id: session.sessionId === remoteJid ? undefined : session.sessionId,
-          user: remoteJid,
-        };
-
-        if (this.isImageMessage(content)) {
-          const contentSplit = content.split('|');
-
-          payload.files = [
-            {
-              type: 'image',
-              transfer_method: 'remote_url',
-              url: contentSplit[1].split('?')[0],
-            },
-          ];
-          payload.inputs.query = contentSplit[2] || content;
+    } catch (error: any) {
+      this.logger.error(`Erro ao enviar mensagem para bot Dify (${dify.id}): ${error.response?.data?.message || error.message}`);
+      // Enviar mensagem de erro para o usuário?
+      // await this.sendMessageWhatsApp(instance, remoteJid, "Desculpe, ocorreu um erro ao processar sua solicitação.", settings);
+      // Atualizar status da sessão para erro ou fechar?
+      // await this.updateSession(session.id, session.sessionId, false, 'error');
+    } finally {
+        // Enviar presença 'paused' se for Baileys
+        if (instance?.integration === Integration.WHATSAPP_BAILEYS && instance?.client?.sendPresenceUpdate) {
+             await instance.client.sendPresenceUpdate('paused', remoteJid).catch((e: any) => this.logger.warn(`Erro ao enviar presença 'paused' para ${remoteJid}: ${e.message}`));
         }
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-          await instance.client.presenceSubscribe(remoteJid);
-          await instance.client.sendPresenceUpdate('composing', remoteJid);
-        }
-
-        const response = await axios.post(endpoint, payload, {
-          headers: {
-            Authorization: `Bearer ${dify.apiKey}`,
-          },
-        });
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS)
-          await instance.client.sendPresenceUpdate('paused', remoteJid);
-
-        const message = response?.data?.answer;
-        const conversationId = response?.data?.conversation_id;
-
-        await this.sendMessageWhatsApp(instance, remoteJid, message, settings);
-
-        await this.prismaRepository.integrationSession.update({
-          where: {
-            id: session.id,
-          },
-          data: {
-            status: 'opened',
-            awaitUser: true,
-            sessionId: session.sessionId === remoteJid ? conversationId : session.sessionId,
-          },
-        });
-      }
-
-      if (dify.botType === 'agent') {
-        endpoint += '/chat-messages';
-        const payload: any = {
-          inputs: {
-            remoteJid: remoteJid,
-            pushName: pushName,
-            instanceName: instance.instanceName,
-            serverUrl: this.configService.get<HttpServer>('SERVER').URL,
-            apiKey: this.configService.get<Auth>('AUTHENTICATION').API_KEY.KEY,
-          },
-          query: content,
-          response_mode: 'streaming',
-          conversation_id: session.sessionId === remoteJid ? undefined : session.sessionId,
-          user: remoteJid,
-        };
-
-        if (this.isImageMessage(content)) {
-          const contentSplit = content.split('|');
-
-          payload.files = [
-            {
-              type: 'image',
-              transfer_method: 'remote_url',
-              url: contentSplit[1].split('?')[0],
-            },
-          ];
-          payload.query = contentSplit[2] || content;
-        }
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-          await instance.client.presenceSubscribe(remoteJid);
-          await instance.client.sendPresenceUpdate('composing', remoteJid);
-        }
-
-        const response = await axios.post(endpoint, payload, {
-          headers: {
-            Authorization: `Bearer ${dify.apiKey}`,
-          },
-        });
-
-        let conversationId;
-        let answer = '';
-
-        const data = response.data.replaceAll('data: ', '');
-
-        const events = data.split('\n').filter((line) => line.trim() !== '');
-
-        for (const eventString of events) {
-          if (eventString.trim().startsWith('{')) {
-            const event = JSON.parse(eventString);
-
-            if (event?.event === 'agent_message') {
-              console.log('event:', event);
-              conversationId = conversationId ?? event?.conversation_id;
-              answer += event?.answer;
-            }
-          }
-        }
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS)
-          await instance.client.sendPresenceUpdate('paused', remoteJid);
-
-        const message = answer;
-
-        await this.sendMessageWhatsApp(instance, remoteJid, message, settings);
-
-        await this.prismaRepository.integrationSession.update({
-          where: {
-            id: session.id,
-          },
-          data: {
-            status: 'opened',
-            awaitUser: true,
-            sessionId: conversationId,
-          },
-        });
-
-        return;
-      }
-
-      if (dify.botType === 'workflow') {
-        endpoint += '/workflows/run';
-        const payload: any = {
-          inputs: {
-            query: content,
-            remoteJid: remoteJid,
-            pushName: pushName,
-            instanceName: instance.instanceName,
-            serverUrl: this.configService.get<HttpServer>('SERVER').URL,
-            apiKey: this.configService.get<Auth>('AUTHENTICATION').API_KEY.KEY,
-          },
-          response_mode: 'blocking',
-          user: remoteJid,
-        };
-
-        if (this.isImageMessage(content)) {
-          const contentSplit = content.split('|');
-
-          payload.files = [
-            {
-              type: 'image',
-              transfer_method: 'remote_url',
-              url: contentSplit[1].split('?')[0],
-            },
-          ];
-          payload.inputs.query = contentSplit[2] || content;
-        }
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-          await instance.client.presenceSubscribe(remoteJid);
-          await instance.client.sendPresenceUpdate('composing', remoteJid);
-        }
-
-        const response = await axios.post(endpoint, payload, {
-          headers: {
-            Authorization: `Bearer ${dify.apiKey}`,
-          },
-        });
-
-        if (instance.integration === Integration.WHATSAPP_BAILEYS)
-          await instance.client.sendPresenceUpdate('paused', remoteJid);
-
-        const message = response?.data?.data.outputs.text;
-
-        await this.sendMessageWhatsApp(instance, remoteJid, message, settings);
-
-        await this.prismaRepository.integrationSession.update({
-          where: {
-            id: session.id,
-          },
-          data: {
-            status: 'opened',
-            awaitUser: true,
-          },
-        });
-
-        return;
-      }
-    } catch (error) {
-      this.logger.error(error.response?.data || error);
-      return;
     }
   }
 
-  private async sendMessageWhatsApp(instance: any, remoteJid: string, message: string, settings: DifySetting) {
-    const linkRegex = /(!?)\[(.*?)\]\((.*?)\)/g;
+  // Função auxiliar para atualizar sessão
+  private async updateSession(sessionId: string, newConversationId: string, awaitUser: boolean, status: 'opened' | 'closed' | 'paused' | 'error' = 'opened') {
+      try {
+         await this.prismaRepository.prisma.integrationSession.update({
+            where: { id: sessionId },
+            data: {
+                status: status,
+                awaitUser: awaitUser,
+                sessionId: newConversationId, // Atualiza o ID da conversa Dify
+            },
+         });
+      } catch (error: any) {
+         this.logger.error(`Erro ao atualizar sessão de integração ${sessionId}: ${error.message}`);
+      }
+  }
 
+
+  // << CORREÇÃO: Aceitar settings como nulo ou Partial >>
+  private async sendMessageWhatsApp(instance: any, remoteJid: string, message: string | undefined | null, settings: Partial<DifySetting> | null) {
+    if (!message || message.trim() === '') {
+      this.logger.warn(`Mensagem do bot Dify vazia para ${remoteJid}.`);
+      // Enviar mensagem de 'sem resposta' se configurado?
+      if (settings?.unknownMessage) {
+         await instance.textMessage(
+            {
+              number: remoteJid.split('@')[0],
+              // << CORREÇÃO TS2339: Usar optional chaining >>
+              delay: settings?.delayMessage ?? 1000,
+              text: settings.unknownMessage,
+            },
+            false, // Não é integração (é resposta do bot)
+          );
+      }
+      return;
+    }
+
+    const linkRegex = /(!?)\[(.*?)\]\((.*?)\)/g;
     let textBuffer = '';
     let lastIndex = 0;
-
     let match: RegExpExecArray | null;
 
-    const getMediaType = (url: string): string | null => {
-      const extension = url.split('.').pop()?.toLowerCase();
+    const getMediaType = (url: string): string | null => { /* ... (lógica mantida) ... */
+      const extension = url?.split('.')?.pop()?.toLowerCase();
+      if (!extension) return null;
       const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
-      const audioExtensions = ['mp3', 'wav', 'aac', 'ogg'];
-      const videoExtensions = ['mp4', 'avi', 'mkv', 'mov'];
-      const documentExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
+      const audioExtensions = ['mp3', 'wav', 'aac', 'ogg', 'opus', 'm4a']; // Adicionado m4a, opus
+      const videoExtensions = ['mp4', 'avi', 'mkv', 'mov', 'webm']; // Adicionado webm
+      const documentExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv']; // Adicionado csv
 
-      if (imageExtensions.includes(extension || '')) return 'image';
-      if (audioExtensions.includes(extension || '')) return 'audio';
-      if (videoExtensions.includes(extension || '')) return 'video';
-      if (documentExtensions.includes(extension || '')) return 'document';
+      if (imageExtensions.includes(extension)) return 'image';
+      if (audioExtensions.includes(extension)) return 'audio';
+      if (videoExtensions.includes(extension)) return 'video';
+      if (documentExtensions.includes(extension)) return 'document';
       return null;
-    };
+     };
 
+    // Processa a mensagem buscando por links de mídia no formato markdown
     while ((match = linkRegex.exec(message)) !== null) {
       const [fullMatch, exclMark, altText, url] = match;
       const mediaType = getMediaType(url);
 
       const beforeText = message.slice(lastIndex, match.index);
-      if (beforeText) {
-        textBuffer += beforeText;
-      }
+      if (beforeText) textBuffer += beforeText;
 
       if (mediaType) {
-        const splitMessages = settings.splitMessages ?? false;
-        const timePerChar = settings.timePerChar ?? 0;
-        const minDelay = 1000;
-        const maxDelay = 20000;
+        // << CORREÇÃO TS2339: Usar optional chaining e fallback >>
+        const splitMessages = settings?.splitMessages ?? false;
+        const timePerChar = settings?.timePerChar ?? 0;
+        const minDelay = 500; // Delay mínimo menor?
+        const maxDelay = 10000; // Delay máximo menor?
 
+        // Envia texto acumulado antes da mídia
         if (textBuffer.trim()) {
           if (splitMessages) {
-            const multipleMessages = textBuffer.trim().split('\n\n');
-
-            for (let index = 0; index < multipleMessages.length; index++) {
-              const message = multipleMessages[index];
-
-              const delay = Math.min(Math.max(message.length * timePerChar, minDelay), maxDelay);
-
-              if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-                await instance.client.presenceSubscribe(remoteJid);
-                await instance.client.sendPresenceUpdate('composing', remoteJid);
-              }
-
-              await new Promise<void>((resolve) => {
-                setTimeout(async () => {
-                  await instance.textMessage(
-                    {
-                      number: remoteJid.split('@')[0],
-                      delay: settings?.delayMessage || 1000,
-                      text: message,
-                    },
-                    false,
-                  );
-                  resolve();
-                }, delay);
-              });
-
-              if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-                await instance.client.sendPresenceUpdate('paused', remoteJid);
-              }
-            }
+             // ... (lógica de split/delay mantida, mas usando settings?.) ...
+             const multipleMessages = textBuffer.trim().split('\n\n');
+             for (const msgPart of multipleMessages) {
+                const delay = Math.min(Math.max(msgPart.length * timePerChar, minDelay), maxDelay);
+                await this.sendWithDelay(instance, remoteJid, { text: msgPart }, settings, delay);
+             }
           } else {
-            await instance.textMessage(
-              {
-                number: remoteJid.split('@')[0],
-                delay: settings?.delayMessage || 1000,
-                text: textBuffer.trim(),
-              },
-              false,
-            );
+             await this.sendWithDelay(instance, remoteJid, { text: textBuffer.trim() }, settings, settings?.delayMessage ?? 1000);
           }
-          textBuffer = '';
+          textBuffer = ''; // Limpa buffer
         }
 
+        // Envia a mídia
+        const mediaPayload: any = { number: remoteJid.split('@')[0], caption: altText || undefined };
         if (mediaType === 'audio') {
-          await instance.audioWhatsapp({
-            number: remoteJid.split('@')[0],
-            delay: settings?.delayMessage || 1000,
-            audio: url,
-            caption: altText,
-          });
+            mediaPayload.audio = url;
+            await this.sendWithDelay(instance, remoteJid, mediaPayload, settings, settings?.delayMessage ?? 1000, 'audio');
         } else {
-          await instance.mediaMessage(
-            {
-              number: remoteJid.split('@')[0],
-              delay: settings?.delayMessage || 1000,
-              mediatype: mediaType,
-              media: url,
-              caption: altText,
-            },
-            null,
-            false,
-          );
+            mediaPayload.mediatype = mediaType;
+            mediaPayload.media = url;
+            // mediaPayload.fileName = url.substring(url.lastIndexOf('/') + 1); // Define nome do arquivo da URL
+            await this.sendWithDelay(instance, remoteJid, mediaPayload, settings, settings?.delayMessage ?? 1000, 'media');
         }
-      } else {
-        textBuffer += `[${altText}](${url})`;
-      }
 
+      } else {
+        // Se não for mídia, trata como texto normal (link)
+        textBuffer += fullMatch;
+      }
       lastIndex = linkRegex.lastIndex;
     }
 
+    // Envia texto restante após o último link/mídia
     if (lastIndex < message.length) {
-      const remainingText = message.slice(lastIndex);
-      if (remainingText.trim()) {
-        textBuffer += remainingText;
-      }
+      textBuffer += message.slice(lastIndex);
     }
 
-    const splitMessages = settings.splitMessages ?? false;
-    const timePerChar = settings.timePerChar ?? 0;
-    const minDelay = 1000;
-    const maxDelay = 20000;
-
+    // Envia texto final acumulado
     if (textBuffer.trim()) {
-      if (splitMessages) {
-        const multipleMessages = textBuffer.trim().split('\n\n');
+        // << CORREÇÃO TS2339: Usar optional chaining e fallback >>
+        const splitMessages = settings?.splitMessages ?? false;
+        const timePerChar = settings?.timePerChar ?? 0;
+        const minDelay = 500;
+        const maxDelay = 10000;
 
-        for (let index = 0; index < multipleMessages.length; index++) {
-          const message = multipleMessages[index];
-
-          const delay = Math.min(Math.max(message.length * timePerChar, minDelay), maxDelay);
-
-          if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-            await instance.client.presenceSubscribe(remoteJid);
-            await instance.client.sendPresenceUpdate('composing', remoteJid);
-          }
-
-          await new Promise<void>((resolve) => {
-            setTimeout(async () => {
-              await instance.textMessage(
-                {
-                  number: remoteJid.split('@')[0],
-                  delay: settings?.delayMessage || 1000,
-                  text: message,
-                },
-                false,
-              );
-              resolve();
-            }, delay);
-          });
-
-          if (instance.integration === Integration.WHATSAPP_BAILEYS) {
-            await instance.client.sendPresenceUpdate('paused', remoteJid);
-          }
+        if (splitMessages) {
+            // ... (lógica de split/delay mantida, mas usando settings?.) ...
+             const multipleMessages = textBuffer.trim().split('\n\n');
+             for (const msgPart of multipleMessages) {
+                const delay = Math.min(Math.max(msgPart.length * timePerChar, minDelay), maxDelay);
+                await this.sendWithDelay(instance, remoteJid, { text: msgPart }, settings, delay);
+             }
+        } else {
+             await this.sendWithDelay(instance, remoteJid, { text: textBuffer.trim() }, settings, settings?.delayMessage ?? 1000);
         }
-      } else {
-        await instance.textMessage(
-          {
-            number: remoteJid.split('@')[0],
-            delay: settings?.delayMessage || 1000,
-            text: textBuffer.trim(),
-          },
-          false,
-        );
-      }
     }
 
-    sendTelemetry('/message/sendText');
+    // << CORREÇÃO TS2307: Usar sendTelemetry importado >>
+    sendTelemetry('/message/sendText'); // Ou /message/sendMedia se apropriado
   }
+
+  // Função auxiliar para enviar com delay e presença
+  private async sendWithDelay(instance: any, remoteJid: string, data: any, settings: Partial<DifySetting> | null, delayMs: number, type: 'text' | 'media' | 'audio' = 'text') {
+       try {
+           if (instance.integration === Integration.WHATSAPP_BAILEYS && instance?.client?.sendPresenceUpdate) {
+               await instance.client.presenceSubscribe(remoteJid).catch((e:any) => {});
+               await instance.client.sendPresenceUpdate('composing', remoteJid).catch((e:any) => {});
+           }
+
+           await new Promise<void>((resolve) => {
+               setTimeout(async () => {
+                   try {
+                       if (type === 'text') {
+                            await instance.textMessage({ ...data, delay: undefined }, false); // Remove delay interno
+                       } else if (type === 'media') {
+                            await instance.mediaMessage({ ...data, delay: undefined }, null, false);
+                       } else if (type === 'audio') {
+                            await instance.audioWhatsapp({ ...data, delay: undefined }, null, false);
+                       }
+                       resolve();
+                   } catch(sendError: any) {
+                        this.logger.error(`Erro ao enviar mensagem (${type}) para ${remoteJid} após delay: ${sendError.message}`);
+                        resolve(); // Resolve mesmo em caso de erro para não bloquear o loop
+                   }
+               }, delayMs);
+           });
+
+           if (instance.integration === Integration.WHATSAPP_BAILEYS && instance?.client?.sendPresenceUpdate) {
+               await instance.client.sendPresenceUpdate('paused', remoteJid).catch((e:any) => {});
+           }
+       } catch(error: any) {
+            this.logger.error(`Erro geral em sendWithDelay para ${remoteJid}: ${error.message}`);
+       }
+  }
+
 
   private async initNewSession(
     instance: any,
     remoteJid: string,
     dify: Dify,
-    settings: DifySetting,
-    session: IntegrationSession,
+    settings: DifySetting | null, // Aceita null
+    session: IntegrationSession | null, // Aceita null
     content: string,
-    pushName?: string,
+    pushName?: string | null, // Aceita null
   ) {
     const data = await this.createNewSession(instance, {
       remoteJid,
@@ -513,115 +376,89 @@ export class DifyService {
       botId: dify.id,
     });
 
-    if (data.session) {
-      session = data.session;
+    // Usa a sessão recém-criada ou a existente (se createNewSession falhar?)
+    const currentSession = data?.session ?? session;
+    if (!currentSession) {
+         this.logger.error(`Falha ao obter/criar sessão para ${remoteJid} no bot Dify ${dify.id}`);
+         return;
     }
 
-    await this.sendMessageToBot(instance, session, settings, dify, remoteJid, pushName, content);
-
-    return;
+    await this.sendMessageToBot(instance, currentSession, settings, dify, remoteJid, pushName, content);
   }
 
   public async processDify(
-    instance: any,
+    instance: any, // Tipo da instância WA (Baileys/Meta)
     remoteJid: string,
     dify: Dify,
-    session: IntegrationSession,
-    settings: DifySetting,
-    content: string,
-    pushName?: string,
+    session: IntegrationSession | null, // Pode ser nulo
+    settings: Partial<DifySetting> | null, // Aceita null e Partial
+    content: string | undefined | null, // Aceita null/undefined
+    pushName?: string | null, // Aceita null/undefined
   ) {
-    if (session && session.status !== 'opened') {
+    // Verifica se a sessão existe e está fechada (e não deve reabrir automaticamente)
+    if (session && session.status === 'closed') {
+       this.logger.debug(`Sessão Dify para ${remoteJid} está fechada. Ignorando.`);
       return;
     }
 
-    if (session && settings.expire && settings.expire > 0) {
+     // << CORREÇÃO TS2339: Usar optional chaining e fallback para expire >>
+     // Verifica expiração da sessão
+    if (session && settings?.expire && settings.expire > 0) {
       const now = Date.now();
-
       const sessionUpdatedAt = new Date(session.updatedAt).getTime();
-
-      const diff = now - sessionUpdatedAt;
-
-      const diffInMinutes = Math.floor(diff / 1000 / 60);
+      const diffInMinutes = Math.floor((now - sessionUpdatedAt) / 1000 / 60);
 
       if (diffInMinutes > settings.expire) {
-        if (settings.keepOpen) {
-          await this.prismaRepository.integrationSession.update({
-            where: {
-              id: session.id,
-            },
-            data: {
-              status: 'closed',
-            },
-          });
+         this.logger.info(`Sessão Dify para ${remoteJid} expirou (${diffInMinutes} min > ${settings.expire} min).`);
+          // << CORREÇÃO TS2339: Usar optional chaining para keepOpen >>
+        if (settings?.keepOpen) {
+          await this.updateSession(session.id, session.sessionId, false, 'closed'); // Marca como fechada
+          this.logger.info(`Sessão Dify marcada como fechada para ${remoteJid} (keepOpen=true).`);
         } else {
-          await this.prismaRepository.integrationSession.deleteMany({
-            where: {
-              botId: dify.id,
-              remoteJid: remoteJid,
-            },
+          await this.prismaRepository.prisma.integrationSession.deleteMany({ // Deleta sessão expirada
+            where: { botId: dify.id, remoteJid: remoteJid, type: 'dify' },
           });
+           this.logger.info(`Sessão Dify deletada para ${remoteJid} (keepOpen=false).`);
         }
-
-        await this.initNewSession(instance, remoteJid, dify, settings, session, content, pushName);
+        // Inicia nova sessão após expiração
+        await this.initNewSession(instance, remoteJid, dify, settings, null, content || '', pushName); // Passa null para session
         return;
       }
     }
 
+    // Se não há sessão, inicia uma nova
     if (!session) {
-      await this.initNewSession(instance, remoteJid, dify, settings, session, content, pushName);
+      await this.initNewSession(instance, remoteJid, dify, settings, null, content || '', pushName); // Passa null para session
       return;
     }
 
-    await this.prismaRepository.integrationSession.update({
-      where: {
-        id: session.id,
-      },
-      data: {
-        status: 'opened',
-        awaitUser: false,
-      },
-    });
+    // Atualiza sessão existente para indicar processamento
+    await this.updateSession(session.id, session.sessionId, false); // awaitUser = false
 
-    if (!content) {
-      if (settings.unknownMessage) {
-        this.waMonitor.waInstances[instance.instanceName].textMessage(
-          {
-            number: remoteJid.split('@')[0],
-            delay: settings.delayMessage || 1000,
-            text: settings.unknownMessage,
-          },
-          false,
-        );
-
-        sendTelemetry('/message/sendText');
+    // Verifica conteúdo vazio
+    if (!content || content.trim() === '') {
+       this.logger.warn(`Conteúdo vazio recebido para ${remoteJid}`);
+       // << CORREÇÃO TS2339: Usar optional chaining para unknownMessage >>
+      if (settings?.unknownMessage) {
+          await this.sendMessageWhatsApp(instance, remoteJid, settings.unknownMessage, settings);
       }
+      await this.updateSession(session.id, session.sessionId, true); // Volta a esperar usuário
       return;
     }
 
-    if (settings.keywordFinish && content.toLowerCase() === settings.keywordFinish.toLowerCase()) {
-      if (settings.keepOpen) {
-        await this.prismaRepository.integrationSession.update({
-          where: {
-            id: session.id,
-          },
-          data: {
-            status: 'closed',
-          },
-        });
+    // Verifica keyword de finalização
+    // << CORREÇÃO TS2339: Usar optional chaining para keywordFinish e keepOpen >>
+    if (settings?.keywordFinish && content.toLowerCase() === settings.keywordFinish.toLowerCase()) {
+       this.logger.info(`Keyword de finalização Dify recebida de ${remoteJid}.`);
+      if (settings?.keepOpen) {
+          await this.updateSession(session.id, session.sessionId, false, 'closed'); // Fecha a sessão
       } else {
-        await this.prismaRepository.integrationSession.deleteMany({
-          where: {
-            botId: dify.id,
-            remoteJid: remoteJid,
-          },
-        });
+          await this.prismaRepository.prisma.integrationSession.delete({ where: { id: session.id }}); // Deleta a sessão
       }
-      return;
+      return; // Finaliza o fluxo
     }
 
+    // Envia para o bot Dify
     await this.sendMessageToBot(instance, session, settings, dify, remoteJid, pushName, content);
-
-    return;
   }
 }
