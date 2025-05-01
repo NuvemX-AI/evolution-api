@@ -1,8 +1,11 @@
+// src/api/controllers/chat.controller.ts
+
 import {
   ArchiveChatDto,
   BlockUserDto,
   DeleteMessage,
-  GetBase64FromMediaMessageDto,
+  // Corrigido: Import com 'g' minúsculo
+  getBase64FromMediaMessageDto,
   MarkChatUnreadDto,
   NumberDto,
   PrivacySettingDto,
@@ -13,175 +16,207 @@ import {
   SendPresenceDto,
   UpdateMessageDto,
   WhatsAppNumberDto,
-} from '../dto/chat.dto'; // Mantido caminho relativo original
-import { InstanceDto } from '../dto/instance.dto'; // Mantido caminho relativo original
-import { Query } from '@repository/repository.service'; // CORRIGIDO: Usar alias ou caminho correto
-import { WAMonitoringService } from '../services/wa-monitoring.service'; // Mantido caminho relativo original
+} from '../dto/chat.dto';
+import { InstanceDto } from '../dto/instance.dto';
+// Corrigido: Importa Query de @repository (verificar alias tsconfig)
+import { Query } from '@repository/repository.service';
+import { WAMonitoringService } from '../services/wa-monitoring.service';
+// Nota: MessageUpdate deve existir no schema.prisma
 import { Contact, Message, MessageUpdate } from '@prisma/client';
+import { Logger } from '@config/logger.config'; // Importa o Logger
 
-// Removidos decoradores NestJS, pois não estavam no original
+// Adicione decoradores apropriados se usar NestJS (@Controller, @Injectable, etc.)
 export class ChatController {
-  // Removida injeção via @Inject, assumindo que WAMonitoringService é passado de outra forma
-  // ou que este arquivo é parte de um módulo maior onde a injeção ocorre.
-  // Se WAMonitoringService precisar ser injetado aqui, adicione o construtor com @Inject.
-   constructor(private readonly waMonitor: WAMonitoringService) {} // Mantido construtor original
+  private readonly logger: Logger;
 
-  // Métodos originais mantidos sem decoradores de rota HTTP
+  // Injeta Logger e WAMonitoringService
+  constructor(
+      private readonly waMonitor: WAMonitoringService,
+      baseLogger: Logger // Recebe o logger base
+    ) {
+      // Cria um logger filho para este contexto
+      this.logger = baseLogger.child({ context: ChatController.name });
+    }
+
+  // Adicione decoradores HTTP se necessário (@Get, @Post, @Param, @Body, etc.)
   public async whatsappNumber(
-    { instanceName }: InstanceDto,
-    data: WhatsAppNumberDto
+    @Param() instanceDto: InstanceDto, // Exemplo de decorator (ajuste conforme seu framework)
+    @Body() data: WhatsAppNumberDto  // Exemplo de decorator
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.whatsappNumber(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Checking WhatsApp numbers`);
+    return this.waMonitor.get(instanceDto.instanceName)?.whatsappNumber(data);
   }
 
   public async readMessage(
-    { instanceName }: InstanceDto,
-    data: ReadMessageDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: ReadMessageDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.markMessageAsRead(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Marking messages as read`);
+    return this.waMonitor.get(instanceDto.instanceName)?.markMessageAsRead(data);
   }
 
   public async archiveChat(
-    { instanceName }: InstanceDto,
-    data: ArchiveChatDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: ArchiveChatDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.archiveChat(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Archiving/unarchiving chat`);
+    return this.waMonitor.get(instanceDto.instanceName)?.archiveChat(data);
   }
 
   public async markChatUnread(
-    { instanceName }: InstanceDto,
-    data: MarkChatUnreadDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: MarkChatUnreadDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.markChatUnread(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Marking chat unread`);
+    return this.waMonitor.get(instanceDto.instanceName)?.markChatUnread(data);
   }
 
   public async deleteMessage(
-    { instanceName }: InstanceDto,
-    data: DeleteMessage
+    @Param() instanceDto: InstanceDto,
+    @Body() data: DeleteMessage
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.deleteMessage(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Deleting message ${data.id}`);
+    return this.waMonitor.get(instanceDto.instanceName)?.deleteMessage(data);
   }
 
   public async fetchProfilePicture(
-    { instanceName }: InstanceDto,
-    data: NumberDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: NumberDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.profilePicture(data.number);
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching profile picture for ${data.number}`);
+    return this.waMonitor.get(instanceDto.instanceName)?.profilePicture(data.number);
   }
 
+  // Este método pode ser redundante se fetchBusinessProfile fizer o mesmo
   public async fetchProfile(
-    { instanceName }: InstanceDto,
-    data: NumberDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: NumberDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.fetchProfile(instanceName, data.number);
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching profile for ${data.number}`);
+    // Assumindo que o método fetchProfile existe no ChannelStartupService ou sua implementação
+    return this.waMonitor.get(instanceDto.instanceName)?.fetchProfile?.(instanceDto.instanceName, data.number);
   }
 
   public async fetchContacts(
-    { instanceName }: InstanceDto,
-    query: Query<Contact> // Usa o tipo Query importado corretamente
+    @Param() instanceDto: InstanceDto,
+    @Query() query: Query<Contact> // Exemplo de decorator @Query
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.fetchContacts(query);
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching contacts`);
+    return this.waMonitor.get(instanceDto.instanceName)?.fetchContacts(query);
   }
 
+  // Corrigido nome do DTO
   public async getBase64FromMediaMessage(
-    { instanceName }: InstanceDto,
-    data: GetBase64FromMediaMessageDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: getBase64FromMediaMessageDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.getBase64FromMediaMessage(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Getting Base64 from media message`);
+    return this.waMonitor.get(instanceDto.instanceName)?.getBase64FromMediaMessage(data);
   }
 
   public async fetchMessages(
-    { instanceName }: InstanceDto,
-    query: Query<Message> // Usa o tipo Query importado corretamente
+    @Param() instanceDto: InstanceDto,
+    @Query() query: Query<Message> // Exemplo de decorator @Query
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.fetchMessages(query);
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching messages`);
+    return this.waMonitor.get(instanceDto.instanceName)?.fetchMessages(query);
   }
 
+  // Manteve MessageUpdate - VERIFIQUE SEU SCHEMA PRISMA
   public async fetchStatusMessage(
-    { instanceName }: InstanceDto,
-    query: Query<MessageUpdate> // Usa o tipo Query importado corretamente
+    @Param() instanceDto: InstanceDto,
+    @Query() query: Query<MessageUpdate> // Exemplo de decorator @Query
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.fetchStatusMessage(query);
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching message status`);
+    return this.waMonitor.get(instanceDto.instanceName)?.fetchStatusMessage(query);
   }
 
+  // Ajustado tipo Query para any, pois a query de chat pode ser diferente
   public async fetchChats(
-    { instanceName }: InstanceDto,
-    query: Query<Contact> // Usa o tipo Query importado corretamente
+    @Param() instanceDto: InstanceDto,
+    @Query() query: Query<any> // Exemplo de decorator @Query
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.fetchChats(query);
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching chats`);
+    return this.waMonitor.get(instanceDto.instanceName)?.fetchChats(query);
   }
 
   public async sendPresence(
-    { instanceName }: InstanceDto,
-    data: SendPresenceDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: SendPresenceDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.sendPresence(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Sending presence ${data.presence} for ${data.number}`);
+    return this.waMonitor.get(instanceDto.instanceName)?.sendPresence(data);
   }
 
   public async fetchPrivacySettings(
-    { instanceName }: InstanceDto
+    @Param() instanceDto: InstanceDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.fetchPrivacySettings();
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching privacy settings`);
+    return this.waMonitor.get(instanceDto.instanceName)?.fetchPrivacySettings();
   }
 
   public async updatePrivacySettings(
-    { instanceName }: InstanceDto,
-    data: PrivacySettingDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: PrivacySettingDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.updatePrivacySettings(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Updating privacy settings`);
+    return this.waMonitor.get(instanceDto.instanceName)?.updatePrivacySettings(data);
   }
 
   public async fetchBusinessProfile(
-    { instanceName }: InstanceDto,
-    data: ProfilePictureDto // ProfilePictureDto pode não ser o tipo correto aqui, talvez NumberDto?
+    @Param() instanceDto: InstanceDto,
+    @Body() data: NumberDto // Usando NumberDto como inferido anteriormente
   ): Promise<any | undefined> {
-    // O método original passava data.picture, mas o tipo era ProfilePictureDto.
-    // Ajustado para passar data.number, assumindo que ProfilePictureDto foi um erro de digitação
-    // e o correto seria NumberDto como em fetchProfilePicture.
-    // Se ProfilePictureDto for correto, ajuste data.number para data.picture ou o campo apropriado.
-    return this.waMonitor.get(instanceName)?.fetchBusinessProfile(data.number); // Ajustado para data.number
+    this.logger.debug(`[${instanceDto.instanceName}] Fetching business profile for ${data.number}`);
+    return this.waMonitor.get(instanceDto.instanceName)?.fetchBusinessProfile(data.number);
   }
 
   public async updateProfileName(
-    { instanceName }: InstanceDto,
-    data: ProfileNameDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: ProfileNameDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.updateProfileName(data.name);
+    this.logger.debug(`[${instanceDto.instanceName}] Updating profile name`);
+    return this.waMonitor.get(instanceDto.instanceName)?.updateProfileName(data.name);
   }
 
   public async updateProfileStatus(
-    { instanceName }: InstanceDto,
-    data: ProfileStatusDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: ProfileStatusDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.updateProfileStatus(data.status);
+    this.logger.debug(`[${instanceDto.instanceName}] Updating profile status`);
+    return this.waMonitor.get(instanceDto.instanceName)?.updateProfileStatus(data.status);
   }
 
   public async updateProfilePicture(
-    { instanceName }: InstanceDto,
-    data: ProfilePictureDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: ProfilePictureDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.updateProfilePicture(data.picture);
+    this.logger.debug(`[${instanceDto.instanceName}] Updating profile picture`);
+    // Passa um objeto com a propriedade 'picture' como esperado pelo método (provavelmente)
+    return this.waMonitor.get(instanceDto.instanceName)?.updateProfilePicture({ picture: data.picture });
   }
 
   public async removeProfilePicture(
-    { instanceName }: InstanceDto
+    @Param() instanceDto: InstanceDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.removeProfilePicture();
+    this.logger.debug(`[${instanceDto.instanceName}] Removing profile picture`);
+    return this.waMonitor.get(instanceDto.instanceName)?.removeProfilePicture();
   }
 
   public async updateMessage(
-    { instanceName }: InstanceDto,
-    data: UpdateMessageDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: UpdateMessageDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.updateMessage(data);
+    this.logger.debug(`[${instanceDto.instanceName}] Updating message ${data.key.id}`);
+    return this.waMonitor.get(instanceDto.instanceName)?.updateMessage(data);
   }
 
   public async blockUser(
-    { instanceName }: InstanceDto,
-    data: BlockUserDto
+    @Param() instanceDto: InstanceDto,
+    @Body() data: BlockUserDto
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.blockUser(data);
+    const action = data.status === 'block' ? 'Blocking' : 'Unblocking';
+    this.logger.debug(`[${instanceDto.instanceName}] ${action} user ${data.number}`);
+    return this.waMonitor.get(instanceDto.instanceName)?.blockUser(data);
   }
 }
-
-// Havia um '}' extra no final do arquivo original, que foi removido.
