@@ -1,78 +1,36 @@
+// Arquivo: tsconfig.json
 {
   "compilerOptions": {
-    /* --------------------------------------------------------- */
-    /* transpile / emit                                          */
-    /* --------------------------------------------------------- */
-    "target"              : "ES2020",
-    "module"              : "CommonJS",
-    "declaration"         : true,
-    "outDir"              : "./dist",
-    "rootDir"             : "./src",
-    "removeComments"      : true,
-    "noEmitOnError"       : true,
-
-    /* --------------------------------------------------------- */
-    /* language & runtime support                                */
-    /* --------------------------------------------------------- */
-    "experimentalDecorators" : true,
-    "emitDecoratorMetadata"  : true,
-    "esModuleInterop"        : true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule"      : true,
-    "types"                  : ["node"],                 // <- Node typings
-
-    /* --------------------------------------------------------- */
-    /* type-checking                                             */
-    /* --------------------------------------------------------- */
-    "strict"                 : false,                     // deixe true quando possível
-    "noImplicitAny"          : false,
-    "strictNullChecks"       : false,
+    "target": "ES2021", // Ou outra versão do ECMAScript compatível
+    "module": "CommonJS", // Mantido conforme original, mas considere "NodeNext" ou "ESNext" para projetos modernos
+    "moduleResolution": "Node", // Ou "NodeNext" se mudar o module
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true, // Recomendado manter true
+    "esModuleInterop": true,
+    "skipLibCheck": true, // Mantido conforme original
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck"           : true,
-
-    /* --------------------------------------------------------- */
-    /* build perf                                                */
-    /* --------------------------------------------------------- */
-    "incremental"            : true,
-
-    /* --------------------------------------------------------- */
-    /* module resolution / paths                                 */
-    /* --------------------------------------------------------- */
-    "moduleResolution" : "Node",
-    "baseUrl"          : "./src",
-    "paths": {
-      /* raiz API */
-      "@api/*"          : ["api/*"],
-      "@api"            : ["api"],
-
-      /* controladores / serviços / repositórios */
-      "@controllers/*"  : ["api/controllers/*"],
-      "@integrations/*" : ["api/integrations/*"],
-      "@repository/*"   : ["repository/*"],
-      "@services/*"     : ["api/services/*"],
-
-      /* utilidades & libs */
-      "@utils/*"        : ["utils/*"],
-      "@utils"          : ["utils/index.ts"],
-      "@validate/*"     : ["validate/*"],
-      "@libs/*"         : ["libs/*"],
-      "@cache/*"        : ["cache/*"],
-      "@provider/*"     : ["provider/*"],
-      "@config/*"       : ["config/*"],
-
-      /* exceptions */
-      "@exceptions"     : ["exceptions/index.ts"],
-      "@exceptions/*"   : ["exceptions/*"],
-
-      /* constantes */
-      "@constants"      : ["api/constants/index.ts"],
-      "@constants/*"    : ["api/constants/*"]
-    }
+    "resolveJsonModule": true,
+    "sourceMap": true, // Habilita source maps
+    "declaration": true, // Gera arquivos .d.ts
+    "declarationMap": true, // Gera source maps para .d.ts
+    "experimentalDecorators": true, // Necessário para decorators
+    "emitDecoratorMetadata": true, // Necessário para metadados de decorators (usado por NestJS/TypeORM etc)
+    "baseUrl": "./src", // Define a base para resolução de paths absolutos
+    "paths": { // Define os aliases
+      "@api/*": ["api/*"],
+      "@config/*": ["config/*"],
+      "@repository/*": ["repository/*"], // Certifique-se que este é o caminho canônico
+      "@utils/*": ["utils/*"],
+      "@cache/*": ["cache/*"],
+      "@exceptions/*": ["exceptions/*"],
+      "@integrations/*": ["integrations/*"],
+      "@provider/*": ["provider/*"],
+      "@validate/*": ["validate/*"],
+      // Adicione outros aliases conforme necessário
+    },
+    "lib": ["ES2021"] // Bibliotecas padrão a serem incluídas
   },
-
-  /* arquivos que entram na compilação ------------------------ */
-  "include": ["src/**/*", "src/**/*.json"],
-
-  /* pastas ignoradas ----------------------------------------- */
-  "exclude": ["node_modules", "dist", "test", "prisma"]
+  "include": ["src/**/*"], // Inclui todos os arquivos dentro de src
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"] // Exclui node_modules, dist e arquivos de teste
 }
