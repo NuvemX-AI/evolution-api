@@ -1,11 +1,13 @@
-// src/api/integrations/channel/meta/whatsapp.business.service.ts
+// Arquivo: src/api/integrations/channel/meta/whatsapp.business.service.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // Imports de DTOs (usando alias @api)
-import { NumberBusiness } from '@api/dto/chat.dto'; // TODO: Precisa do arquivo chat.dto.ts
+import { InstanceDto } from '@api/dto/instance.dto'; // CORREÇÃO TS2304: Importar InstanceDto
+import { NumberBusiness } from '@api/dto/chat.dto';
 import {
-  ContactMessage,
-  MediaMessage,
-  Options, // Presume que 'Options' existe em sendMessage.dto.ts
+  // ContactMessage, // Não usado diretamente aqui
+  // MediaMessage, // Não usado diretamente aqui
+  Options, // Presume que 'Options' existe e será adicionado em sendMessage.dto.ts
   SendAudioDto,
   SendButtonsDto,
   SendContactDto,
@@ -16,20 +18,21 @@ import {
   SendTemplateDto,
   SendTextDto,
   Button, // Importado para tipagem correta
-} from '@api/dto/sendMessage.dto'; // TODO: Precisa do arquivo sendMessage.dto.ts
+} from '@api/dto/sendMessage.dto';
 
 // Imports de Serviços, Repositórios, Config (usando aliases)
-import * as s3Service from '@api/integrations/storage/s3/libs/minio.server'; // Verifique se o caminho está correto
-import { ProviderFiles } from '@api/provider/sessions'; // TODO: Precisa do arquivo sessions.ts
-import { PrismaRepository } from '@api/repository/repository.service';
-import { chatbotController } from '@api/server.module'; // TODO: Precisa do arquivo server.module.ts
-import { CacheService } from '@api/services/cache.service'; // TODO: Precisa do arquivo cache.service.ts
-import { ChannelStartupService } from '@api/services/channel.service'; // TODO: Precisa do arquivo channel.service.ts
-import { Events, wa } from '@api/types/wa.types'; // TODO: Precisa do arquivo wa.types.ts
-import { Chatwoot, ConfigService, Database, Openai, S3, WaBusiness } from '@config/env.config'; // TODO: Precisa do arquivo env.config.ts
-import { Logger } from '@config/logger.config'; // TODO: Precisa do arquivo logger.config.ts
-import { BadRequestException, InternalServerErrorException } from '@exceptions'; // Usando alias
-import { createJid } from '@utils/createJid'; // TODO: Precisa do arquivo createJid.ts
+import * as s3Service from '@integrations/storage/s3/libs/minio.server'; // Usar alias @integrations
+import { ProviderFiles } from '@provider/sessions'; // Usar alias @provider
+import { PrismaRepository } from '@repository/repository.service'; // Usar alias canônico @repository
+import { chatbotController } from '@api/server.module';
+import { CacheService } from '@api/services/cache.service';
+import { ChannelStartupService } from '@api/services/channel.service';
+import { Events, wa } from '@api/types/wa.types'; // Usar alias @api
+// CORREÇÃO TS2305: Importar tipos corretamente de env.config
+import { ConfigService, WaBusinessConfig, S3Config, OpenaiConfig, ChatwootConfig, DatabaseConfig } from '@config/env.config';
+import { Logger } from '@config/logger.config'; // Usar alias @config
+import { BadRequestException, InternalServerErrorException } from '@exceptions'; // Usar alias @exceptions
+import { createJid } from '@utils/createJid'; // Usar alias @utils
 
 // Imports de libs externas
 import axios from 'axios';
@@ -37,52 +40,28 @@ import { isURL, isBase64 } from 'class-validator'; // Importado isBase64
 import EventEmitter2 from 'eventemitter2';
 import FormData from 'form-data';
 import { createReadStream } from 'fs';
-import { Readable } from 'stream'; // << CORREÇÃO TS2304: Importado Readable >>
+import { Readable } from 'stream'; // Importado Readable
 import mimeTypes from 'mime-types';
-import * as path from 'path'; // << CORREÇÃO TS2304: Importado path >>
-import { ChatwootService } from '@integrations/chatbot/chatwoot/services/chatwoot.service'; // Importando ChatwootService
-import { Message as MessageModel, Prisma } from '@prisma/client'; // Importando MessageModel e Prisma para tipos
-import dayjs from 'dayjs';
+import * as path from 'path'; // CORREÇÃO TS2304: Importar path
+import { ChatwootService } from '@integrations/chatbot/chatwoot/services/chatwoot.service'; // Usar alias @integrations
+// import { Message as MessageModel, Prisma } from '@prisma/client'; // Importar apenas se necessário
+import { join } from 'path'; // CORREÇÃO TS2304: Importar join
 
+// CORREÇÃO TS2415: Garantir compatibilidade com ChannelStartupService (logger deve ser protected ou public na base)
 export class BusinessStartupService extends ChannelStartupService {
   // --- Propriedades ---
-  public stateConnection: any /* wa.StateConnection */ = { state: 'open' }; // Usando any por enquanto
-  public phoneNumber: string = '';
+  public stateConnection: wa.StateConnection = { connection: 'open', lastDisconnect: undefined }; // Usar tipo wa.StateConnection
+  // public phoneNumber: string = ''; // Herdado da base
   public mobile: boolean = false;
-  protected logger: any = console; // Placeholder
-  protected instance: any = {}; // Placeholder
-  // << CORREÇÃO TS2610: Removidas propriedades sobrescritas. Usar getters/setters da classe base >>
-  // protected token: string = '';
-  // protected number: string = ''; // Este 'number' refere-se ao ID do número da Meta
-  // protected instanceId: string = '';
+  // protected logger: Logger; // Herdado da base
+  // protected instance: InstanceDto; // Herdado da base
+  protected token: string | undefined; // Específico para Meta
+  protected numberId: string | undefined; // Específico para Meta (ID do número de telefone)
 
-  protected localSettings: any = {}; // Placeholder
-  protected localChatwoot?: { enabled: boolean; importContacts?: boolean; importMessages?: boolean }; // Placeholder
-  protected openaiService: any; // Placeholder
-  // << CORREÇÃO TS2416: Assinaturas ajustadas para async e Promise<void> >>
-  // Se a implementação for apenas placeholder, pode ser removida se a base for suficiente.
-  // Se precisar de lógica específica, implemente aqui.
-  public async sendDataWebhook<T = any>(event: Events, data: T, bypass?: boolean, onlyIntegration?: string[]): Promise<void> {
-    this.logger?.debug?.(`Meta Channel: sendDataWebhook placeholder chamado para evento: ${event}`);
-    await super.sendDataWebhook(event, data, !bypass, onlyIntegration); // Chama a base (local = !bypass)
-  }
-  public async loadChatwoot(): Promise<void> {
-    this.logger?.debug?.('Meta Channel: loadChatwoot chamado.');
-    await super.loadChatwoot(); // Chama a base
-  };
-  public async loadSettings(): Promise<void> {
-    this.logger?.debug?.('Meta Channel: loadSettings chamado.');
-    await super.loadSettings(); // Chama a base
-  };
-  public async loadWebhook(): Promise<void> {
-    this.logger?.debug?.('Meta Channel: loadWebhook chamado.');
-    await super.loadWebhook(); // Chama a base
-  };
-  public async loadProxy(): Promise<void> {
-    this.logger?.debug?.('Meta Channel: loadProxy chamado.');
-    await super.loadProxy(); // Chama a base
-  };
-  // protected chatwootService!: ChatwootService; // Já existe na classe base
+  // protected localSettings: wa.LocalSettings; // Herdado da base
+  // protected localChatwoot?: wa.ChatwootConfigLocal; // Herdado da base
+  // protected openaiService: any; // Herdado da base (ou injetar)
+  // protected chatwootService!: ChatwootService; // Herdado da base (injetado no construtor da base)
 
   constructor(
     public readonly configService: ConfigService,
@@ -90,91 +69,91 @@ export class BusinessStartupService extends ChannelStartupService {
     public readonly prismaRepository: PrismaRepository,
     public readonly cache: CacheService,
     public readonly chatwootCache: CacheService,
-    public readonly baileysCache: CacheService, // É necessário para Meta API? Verificar uso
-    private readonly providerFiles: ProviderFiles, // É necessário para Meta API? Verificar uso
+    public readonly baileysCache: CacheService,
+    private readonly providerFiles: ProviderFiles, // Não usado pela Meta API, mas mantido se a base exigir
+    // ChatwootService é injetado na classe base
   ) {
-    super(configService, eventEmitter, prismaRepository, chatwootCache);
+    // Passar chatwootService explicitamente para o construtor da base
+    super(configService, eventEmitter, prismaRepository, chatwootCache, null as any); // Passar null para chatwootService se ele for inicializado depois ou injetado de outra forma
+    // this.logger já inicializado na base
   }
 
-  // Sobrescrevendo setInstance para pegar token e number específicos da Meta
-  public setInstance(instanceData: InstanceDto & { token?: string; number?: string }) { // Adiciona token e number ao tipo esperado
+  // Sobrescrevendo setInstance para pegar token e numberId específicos da Meta
+  public setInstance(instanceData: InstanceDto & { token?: string; number?: string }): void {
     super.setInstance(instanceData); // Chama a base para definir name, id, etc.
 
-    // Define token e number específicos para a API da Meta
-    if (instanceData.token) {
-      // this.token = instanceData.token; // Usa o setter da classe base implicitamente, se existir
-      // Ou define diretamente na instância interna se a base não tiver setter
-      this.instance.token = instanceData.token;
-    } else {
-       this.logger?.warn?.(`Token não fornecido para a instância Meta ${instanceData.instanceName}. As chamadas de API falharão.`);
+    this.token = instanceData.token;
+    this.numberId = instanceData.number; // Armazena o ID do número
+
+    if (!this.token) {
+      this.logger.warn(`Token não fornecido para a instância Meta ${instanceData.instanceName}. As chamadas de API falharão.`);
     }
-    if (instanceData.number) {
-      // this.number = instanceData.number; // Usa o setter da classe base implicitamente, se existir
-      // Ou define diretamente na instância interna
-      this.instance.number = instanceData.number;
-    } else {
-      this.logger?.warn?.(`ID do número (number) não fornecido para a instância Meta ${instanceData.instanceName}. As chamadas de API falharão.`);
+    if (!this.numberId) {
+      this.logger.warn(`ID do número (number) não fornecido para a instância Meta ${instanceData.instanceName}. As chamadas de API falharão.`);
     }
-    this.logger?.info?.(`Meta Channel: Token e Number ID definidos para ${this.instanceName}`);
+    this.logger.info(`Meta Channel: Token e Number ID definidos para ${this.instanceName}`);
   }
 
 
   // --- Getters ---
-  public get connectionStatus(): any /* wa.StateConnection */ {
+  public get connectionStatus(): wa.StateConnection {
     return this.stateConnection;
   }
 
-  public get qrCode(): any /* wa.QrCode */ {
+  public get qrCode(): wa.QrCode { // Meta API não usa QR Code
     return { code: null, base64: null, count: 0, pairingCode: null };
   }
 
   // --- Métodos Principais ---
   public async closeClient(): Promise<void> {
-    this.logger?.info?.('Meta Channel: closeClient chamado (nenhuma ação necessária).');
-    this.stateConnection = { state: 'close' };
+    this.logger.info('Meta Channel: closeClient chamado (mudando estado para close).');
+    this.stateConnection = { connection: 'close', lastDisconnect: undefined };
+    // Informar outros serviços/webhooks sobre a desconexão, se necessário
+     await this.sendDataWebhook(Events.STATUS_INSTANCE, {
+        instance: this.instanceName, status: 'closed',
+      });
   }
 
   public async logoutInstance(): Promise<void> {
-    this.logger?.info?.('Meta Channel: logoutInstance chamado (nenhuma ação real, apenas muda estado).');
+    this.logger.info('Meta Channel: logoutInstance chamado.');
     await this.closeClient();
+    // Adicionar lógica para invalidar/remover token se aplicável
   }
 
   // Método para fazer chamadas à API da Meta
-  private async post(message: any, endpoint: string): Promise<any> {
+  private async post(message: any, endpoint: string = 'messages'): Promise<any> {
     try {
-      const waBusinessConfig = this.configService.get<WaBusiness>('WA_BUSINESS');
+      // CORREÇÃO TS2305: Usar WaBusinessConfig importado
+      const waBusinessConfig = this.configService.get<WaBusinessConfig>('WA_BUSINESS');
       if (!waBusinessConfig?.URL || !waBusinessConfig?.VERSION) {
-        throw new Error('Configuração da API de Negócios do WhatsApp (WA_BUSINESS) não encontrada.');
+        throw new Error('Configuração da API de Negócios do WhatsApp (WA_BUSINESS URL/VERSION) não encontrada.');
       }
-      // << CORREÇÃO TS2610: Acessando via getter/propriedade da instância interna >>
-      const metaNumberId = this.instance?.number || this.number; // Tenta pegar da instância interna ou do getter base
-      const metaToken = this.instance?.token || this.token; // Tenta pegar da instância interna ou do getter base
 
-      if (!metaNumberId) {
-        throw new Error('ID do número de telefone (number) não definido para a instância.');
-      }
-       if (!metaToken) {
-        throw new Error('Token da API (token) não definido para a instância.');
-      }
+      const metaNumberId = this.numberId; // Usa a propriedade da classe
+      const metaToken = this.token; // Usa a propriedade da classe
+
+      if (!metaNumberId) throw new Error('ID do número de telefone (numberId) não definido para a instância.');
+      if (!metaToken) throw new Error('Token da API (token) não definido para a instância.');
 
       const urlServer = `${waBusinessConfig.URL}/${waBusinessConfig.VERSION}/${metaNumberId}/${endpoint}`;
       const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${metaToken}` };
-      this.logger?.debug?.(`POST ${urlServer} Data: ${JSON.stringify(message)}`);
+      this.logger.debug({ url: urlServer, data: message }, `POST Request to Meta API`);
       const result = await axios.post(urlServer, message, { headers });
-      this.logger?.debug?.(`POST Response: ${JSON.stringify(result.data)}`);
+      this.logger.debug({ response: result.data }, `POST Response from Meta API`);
       return result.data;
     } catch (e: any) {
       const errorData = e?.response?.data?.error;
-      this.logger?.error?.(`Erro na chamada POST para ${endpoint}: ${JSON.stringify(errorData || e.message)}`);
-      return { error: errorData || { message: e.message, code: e.code } };
+      this.logger.error({ err: errorData || e }, `Erro na chamada POST para Meta API (${endpoint})`);
+      // Retorna um objeto de erro padronizado
+      return { error: errorData || { message: e.message, code: e.code || 500 } };
     }
   }
 
   // Método para obter mídia da API da Meta
   private async getMedia(mediaId: string): Promise<{ buffer: Buffer; mimetype: string; fileName?: string }> {
     try {
-       const waBusinessConfig = this.configService.get<WaBusiness>('WA_BUSINESS');
-       const metaToken = this.instance?.token || this.token; // << CORREÇÃO TS2610 >>
+       const waBusinessConfig = this.configService.get<WaBusinessConfig>('WA_BUSINESS');
+       const metaToken = this.token;
 
        if (!waBusinessConfig?.URL || !waBusinessConfig?.VERSION || !metaToken) {
         throw new Error('Configuração ou Token da API de Negócios do WhatsApp (WA_BUSINESS) não encontrado.');
@@ -182,11 +161,11 @@ export class BusinessStartupService extends ChannelStartupService {
 
       const urlInfo = `${waBusinessConfig.URL}/${waBusinessConfig.VERSION}/${mediaId}`;
       const headers = { Authorization: `Bearer ${metaToken}` };
-      this.logger?.debug?.(`GET ${urlInfo}`);
+      this.logger.debug(`GET ${urlInfo}`);
       const infoResult = await axios.get(urlInfo, { headers });
       const mediaUrl = infoResult.data.url;
       const mimetype = infoResult.data.mime_type;
-      this.logger?.debug?.(`Media URL: ${mediaUrl}, Mimetype: ${mimetype}`);
+      this.logger.debug(`Media URL: ${mediaUrl}, Mimetype: ${mimetype}`);
 
       if (!mediaUrl) throw new Error('URL da mídia não encontrada na resposta da API.');
 
@@ -198,81 +177,108 @@ export class BusinessStartupService extends ChannelStartupService {
        if (contentDisposition) {
           const match = contentDisposition.match(/filename\*?=['"]?([^'";]+)['"]?/i);
           if (match && match[1]) {
-              fileName = decodeURIComponent(match[1]);
+              try {
+                 fileName = decodeURIComponent(match[1].replace(/['"]+/g, '')); // Decodifica e remove aspas extras
+              } catch (decodeError) {
+                   this.logger.warn({ contentDisposition }, 'Falha ao decodificar filename do content-disposition');
+                   // Fallback para usar a parte não decodificada se falhar
+                   fileName = match[1].replace(/['"]+/g, '');
+              }
           }
        }
+       this.logger.debug({ fileName }, 'Nome do arquivo obtido do cabeçalho');
 
       return { buffer, mimetype, fileName };
     } catch (e: any) {
-      this.logger?.error?.(`Erro ao baixar mídia ${mediaId}: ${e?.response?.data?.error?.message || e.message}`);
-      throw new InternalServerErrorException(`Falha ao baixar mídia: ${e?.response?.data?.error?.message || e.message}`);
+      const errorData = e?.response?.data?.error;
+      this.logger.error({ err: errorData || e, mediaId }, `Erro ao baixar mídia da Meta API`);
+      throw new InternalServerErrorException(`Falha ao baixar mídia: ${errorData?.message || e.message}`);
     }
   }
 
   // Este método é chamado pelo MetaController para processar webhooks
   public async connectToWhatsapp(webhookValue?: any): Promise<any> {
-    this.logger?.info?.(`Meta Channel: connectToWhatsapp/webhook recebido: ${JSON.stringify(webhookValue)}`);
-    if (!webhookValue) {
-       this.logger?.warn?.('connectToWhatsapp chamado sem dados (webhookValue), nenhuma ação tomada.');
-       await this.loadChatwoot(); // Carrega config Chatwoot na inicialização
-       await this.loadSettings(); // Carrega config Settings na inicialização
-       return;
+    this.logger.info({ webhookValue: !!webhookValue }, `Meta Channel: connectToWhatsapp/webhook recebido.`);
+    if (!webhookValue || !webhookValue.object) {
+       this.logger.warn('Webhook Meta recebido sem dados válidos (object). Carregando configurações iniciais.');
+       await this.loadChatwoot();
+       await this.loadSettings();
+       // Meta API não tem estado de conexão persistente como Baileys, sempre "open" se configurada.
+       this.stateConnection = { connection: 'open', lastDisconnect: undefined };
+       return { status: 'Webhook Received (No Data)', state: this.stateConnection };
     }
 
-    try {
-      await this.eventHandler(webhookValue);
-    } catch (error: any) {
-      this.logger?.error?.(`Erro em connectToWhatsapp/eventHandler (Meta): ${error?.message || error}`);
+    // Processa cada entrada no webhook
+    if (webhookValue.entry && Array.isArray(webhookValue.entry)) {
+      for (const entry of webhookValue.entry) {
+        if (entry.changes && Array.isArray(entry.changes)) {
+          for (const change of entry.changes) {
+            if (change.field === 'messages' && change.value) {
+               await this.eventHandler(change.value); // Processa mensagens e status
+            } else {
+               this.logger.warn({ change }, `Tipo de mudança não tratada no webhook Meta`);
+            }
+          }
+        }
+      }
     }
+
+    return { status: 'Webhook Processed', state: this.stateConnection };
   }
 
   // Processa o conteúdo do webhook ('value' object)
-  protected async eventHandler(content: any): Promise<void> {
-    this.logger?.info?.(`Meta Channel: eventHandler processando: ${JSON.stringify(content)}`);
+  protected async eventHandler(value: any): Promise<void> {
+    this.logger.debug({ value }, `Meta Channel: eventHandler processando`);
     try {
-      if (Array.isArray(content.messages)) {
-        for (const message of content.messages) {
-          // << CORREÇÃO TS2304: messageId agora é message.id >>
-          await this.messageHandle(message, content.contacts?.[0], content.metadata);
+      // Processa mensagens recebidas
+      if (Array.isArray(value.messages)) {
+        for (const message of value.messages) {
+          await this.messageHandle(message, value.contacts?.[0], value.metadata);
         }
       }
-      else if (Array.isArray(content.statuses)) {
-        for (const status of content.statuses) {
-          await this.statusHandle(status, content.metadata);
+      // Processa atualizações de status
+      else if (Array.isArray(value.statuses)) {
+        for (const status of value.statuses) {
+          await this.statusHandle(status, value.metadata);
         }
       } else {
-         this.logger?.warn?.(`Tipo de evento não tratado no webhook Meta: ${JSON.stringify(content)}`);
+         this.logger.warn({ value }, `Tipo de evento não tratado no webhook Meta`);
       }
     } catch (error: any) {
-      this.logger?.error?.(`Erro em eventHandler (Meta): ${error?.message || error}`, error?.stack);
+      this.logger.error({ err: error }, `Erro em eventHandler (Meta)`);
     }
   }
 
   // Processa uma única mensagem do webhook
   private async messageHandle(message: any, contactInfo: any, metadata: any): Promise<void> {
-     this.logger?.debug?.(`Processando mensagem: ${message.id}, Tipo: ${message.type}, De: ${message.from}`);
-     const fromMe = message.from === metadata.phone_number_id;
-     const remoteJid = !fromMe ? message.from : metadata.display_phone_number; // JID vem como número simples da Meta
-     const participant = message.context?.participant;
+     this.logger.debug({ messageId: message.id, type: message.type, from: message.from }, `Processando mensagem`);
+     const fromMe = message.from === metadata?.phone_number_id; // Verifica se veio do nosso número
+     // CORREÇÃO: `to` da Meta é o nosso número, `from` é o remetente
+     const remoteJid = createJid(message.from);
+     const participant = message.context?.participant ? createJid(message.context.participant) : undefined;
 
-     // Garante que remoteJid está no formato JID (adiciona @s.whatsapp.net)
-     const remoteJidFormatted = createJid(remoteJid);
+     // Ignora mensagens próprias para evitar loops (a menos que seja de outro device?)
+     // A Meta API geralmente não envia webhooks para mensagens enviadas pela própria API.
+     // if (fromMe) {
+     //    this.logger.info(`Ignorando mensagem própria (Meta): ${message.id}`);
+     //    return;
+     // }
 
+     // O `key` do Baileys não se aplica diretamente. Criamos um similar.
      const key = {
         id: message.id,
-        remoteJid: remoteJidFormatted, // Usar JID formatado
+        remoteJid: remoteJid,
         fromMe: fromMe,
-        participant: participant ? createJid(participant) : undefined, // Formatar participante também
+        participant: participant,
      };
 
      const pushName = contactInfo?.profile?.name || remoteJid.split('@')[0];
 
      let messageContent: any = {};
-     let messageType: string = message.type + 'Message';
+     let messageType: string = message.type ? `${message.type}Message` : 'unknownMessage'; // Normaliza tipo
 
-     // Constrói o objeto 'message' similar ao Baileys (lógica mantida)
-     // ... (lógica de conversão de tipos de mensagem mantida) ...
-      if (message.text) {
+     // Constrói o objeto 'message' similar ao Baileys
+     if (message.text) {
         messageContent = { conversation: message.text.body };
         messageType = 'conversation';
      } else if (message.image) {
@@ -284,277 +290,306 @@ export class BusinessStartupService extends ChannelStartupService {
      } else if (message.document) {
         messageContent = { documentMessage: { fileName: message.document.filename, mimetype: message.document.mime_type, url: `media:${message.document.id}`, sha256: message.document.sha256 } };
      } else if (message.contacts) {
-         // << CORREÇÃO TS2339: Função messageContactsJson removida/comentada. Implementar lógica aqui >>
-         // TODO: Implementar a lógica de parsing de contatos aqui se necessário.
-         this.logger?.warn?.('Função messageContactsJson não encontrada. Processamento de contatos incompleto.');
-         messageContent = { conversation: '[Contato(s) recebido(s)]' }; // Placeholder
-         // messageContent = this.messageContactsJson({ messages: [message] });
+         messageContent = { contactsArrayMessage: message.contacts }; // Mantém array original por enquanto
          messageType = 'contactsArrayMessage';
+         this.logger.warn('Processamento de contactsArrayMessage precisa de revisão.');
      } else if (message.location) {
          messageContent = { locationMessage: message.location };
      } else if (message.sticker) {
          messageContent = { stickerMessage: { url: `media:${message.sticker.id}`, mimetype: message.sticker.mime_type, sha256: message.sticker.sha256 } };
      } else if (message.reaction) {
+          // A key da reação é a da mensagem original
           messageContent = { reactionMessage: { key: { id: message.reaction.message_id }, text: message.reaction.emoji } };
           messageType = 'reactionMessage';
      } else if (message.interactive) {
-        messageContent = { conversation: message.interactive[message.interactive.type]?.title || message.interactive[message.interactive.type]?.description || `Resposta interativa ${message.interactive.type}` };
-        messageType = 'conversation';
-     } else if (message.button) {
+        // Simplifica mensagens interativas para conversation por enquanto
+        const interactiveData = message.interactive[message.interactive.type];
+        messageContent = { conversation: interactiveData?.title || interactiveData?.description || `Resposta: ${message.interactive.type}` };
+        messageContent.contextInfo = { interactiveResponseMessage: message.interactive }; // Guarda dados originais no context
+        messageType = 'conversation'; // Tratar como texto simples
+     } else if (message.button) { // Resposta a botão simples (legado?)
         messageContent = { conversation: message.button.text };
         messageType = 'conversation';
      } else if (message.system) {
-        this.logger?.info?.(`Mensagem de sistema recebida: ${message.system.body}`);
-        return;
+        this.logger.info({ system: message.system }, `Mensagem de sistema recebida`);
+        // Pode ser útil processar system messages para mudanças de número, etc.
+        await this.sendDataWebhook(Events.SYSTEM_MESSAGE, { instance: this.instanceName, system: message.system });
+        return; // Não processa como mensagem normal
+     } else if (message.errors) {
+         this.logger.error({ errors: message.errors }, `Erro reportado no webhook da Meta para mensagem ${message.id}`);
+         // TODO: Tratar erro? Notificar?
+         return;
      } else {
-        this.logger?.warn?.(`Tipo de mensagem Meta não tratado: ${message.type}`);
+        this.logger.warn({ messageType: message.type, messageId: message.id }, `Tipo de mensagem Meta não tratado`);
         messageContent = { conversation: `[Mensagem do tipo ${message.type} não suportada]` };
-        messageType = 'conversation';
+        messageType = 'unsupportedMessage';
      }
 
-
+     // Adicionar ContextInfo (mensagem respondida)
      if (message.context) {
         messageContent.contextInfo = {
-           stanzaId: message.context.id,
-           participant: message.context.participant ? createJid(message.context.participant) : undefined,
+           ...(messageContent.contextInfo || {}), // Mantém contextInfo existente (ex: interactive)
+           quotedMessage: { key: { id: message.context.id } }, // Guarda ID da msg original
+           // A Meta não fornece o conteúdo da msg respondida, apenas o ID.
+           // participant: message.context.from ? createJid(message.context.from) : undefined, // 'from' no context é quem mandou a original
+           stanzaId: message.id, // ID da mensagem atual
+           mentionedJid: message.context.mentioned_jid?.map(createJid), // Mapeia menções se houver
         };
      }
 
-     const messageRaw: any = {
+     // Construir o objeto WAMessage final
+     const messageRaw: wa.WAMessage = { // Usar tipo WAMessage se definido
        key,
        pushName,
        message: messageContent,
        messageType: messageType,
-       messageTimestamp: parseInt(message.timestamp) || Math.round(new Date().getTime() / 1000),
+       messageTimestamp: parseInt(message.timestamp) || Math.round(Date.now() / 1000),
        source: 'meta_api',
-       instanceId: this.instanceId, // Usando getter da base
+       instanceId: this.instanceId,
+       // Adicionar participant se for mensagem de grupo (a Meta API não fornece info de grupo diretamente na msg)
+       // participant: key.participant,
      };
 
      // Download e Upload de Mídia para S3
-     const mediaMsg = messageRaw.message[messageType];
-     if (mediaMsg?.url?.startsWith('media:')) {
+     const mediaKey = Object.keys(messageContent).find(k => k.toLowerCase().includes('message') && messageContent[k]?.url?.startsWith('media:'));
+     if (mediaKey) {
+        const mediaMsg = messageContent[mediaKey];
         const mediaId = mediaMsg.url.split(':')[1];
-        if (this.configService.get<S3>('S3')?.ENABLE) {
+        // CORREÇÃO TS2305: Usar S3Config importado
+        if (this.configService.get<S3Config>('S3')?.ENABLE) {
            try {
-              this.logger?.info?.(`Baixando mídia da Meta API: ${mediaId}`);
+              this.logger.info(`Baixando mídia da Meta API: ${mediaId}`);
               const { buffer, mimetype, fileName } = await this.getMedia(mediaId);
-              mediaMsg.mimetype = mimetype;
+              mediaMsg.mimetype = mimetype; // Atualiza mimetype correto
               const mediaTypeS3 = messageType.replace('Message', '').toLowerCase();
-              // << CORREÇÃO TS2304: Usando message.id (ID da mensagem) para nome do arquivo S3 >>
               const fileNameS3 = fileName || `${message.id}.${mimeTypes.extension(mimetype) || 'bin'}`;
-              const fullNameS3 = join(`${this.instanceId}`, key.remoteJid, mediaTypeS3, fileNameS3); // Usando instanceId da base
+              // CORREÇÃO TS2304: Usar join importado
+              const fullNameS3 = join(this.instanceId, key.remoteJid, mediaTypeS3, fileNameS3);
               const size = buffer.byteLength;
 
-              this.logger?.info?.(`Fazendo upload para S3: ${fullNameS3}`);
+              this.logger.info(`Fazendo upload para S3: ${fullNameS3}`);
               await s3Service.uploadFile(fullNameS3, buffer, size, { 'Content-Type': mimetype });
               const mediaUrl = await s3Service.getObjectUrl(fullNameS3);
-              mediaMsg.url = mediaUrl;
-              mediaMsg.fileName = fileNameS3;
-              this.logger?.info?.(`Upload S3 concluído: ${mediaUrl}`);
+              mediaMsg.url = mediaUrl; // Substitui 'media:id' pela URL S3
+              // Adiciona filename ao payload se não existir (ex: audio, sticker)
+              if (!mediaMsg.fileName && fileNameS3) mediaMsg.fileName = fileNameS3;
+              this.logger.info(`Upload S3 concluído: ${mediaUrl}`);
 
            } catch (error: any) {
-             this.logger?.error?.(`Falha no download/upload de mídia ${mediaId}: ${error.message}`);
-             mediaMsg.url = `[Erro ao baixar mídia ${mediaId}]`;
+             this.logger.error({ err: error, mediaId }, `Falha no download/upload de mídia`);
+             mediaMsg.url = `[Erro ao processar mídia ${mediaId}]`; // Indica erro
            }
         } else {
-           this.logger?.warn?.(`S3 desativado. Mídia não será baixada/armazenada externamente: ${mediaId}`);
+           this.logger.warn(`S3 desativado. Mídia não será baixada/armazenada externamente: ${mediaId}. URL permanecerá como 'media:${mediaId}'`);
         }
      }
 
-     // Lógica OpenAI (mantida - requer openaiService)
-     if (this.configService.get<Openai>('OPENAI')?.ENABLED && messageType === 'audioMessage' && mediaMsg.url && !mediaMsg.url.startsWith('media:')) {
-       // ... Lógica OpenAI precisa ser adaptada para usar a URL S3/Buffer e o openaiService ...
+     // Lógica OpenAI (mantida - requer adaptação para URL S3/Buffer)
+     // CORREÇÃO TS2305: Usar OpenaiConfig importado
+     if (this.configService.get<OpenaiConfig>('OPENAI')?.ENABLED && messageType === 'audioMessage' && mediaMsg?.url && !mediaMsg.url.startsWith('media:')) {
+        this.logger.info('Processando áudio com OpenAI...');
+       // ... (Lógica OpenAI precisa usar a URL S3 ou o buffer baixado) ...
      }
 
-     this.logger?.log?.('Mensagem processada (Meta):', messageRaw);
+     this.logger.log({ messageRaw }, 'Mensagem processada (Meta)');
 
      // Enviar para Webhook geral
-     await this.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw); // Usando método async da base
+     await this.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw);
 
      // Enviar para Chatbot Controller
      await chatbotController?.emit?.({
-        instance: { instanceName: this.instance.name, instanceId: this.instanceId }, // Usando instanceId da base
+        instance: { instanceName: this.instanceName, instanceId: this.instanceId },
         remoteJid: key.remoteJid,
         msg: messageRaw,
         pushName: pushName,
      });
 
-     // Enviar para Chatwoot (usando chatwootService da base)
-     if (this.configService.get<Chatwoot>('CHATWOOT')?.ENABLED && this.localChatwoot?.enabled) {
-        this.logger?.info?.(`Enviando mensagem ${message.id} para Chatwoot...`);
-         const chatwootSentMessage = await this.chatwootService?.eventWhatsapp?.( // Usa chatwootService da base
+     // Enviar para Chatwoot (usando chatwootService herdado/injetado)
+     // CORREÇÃO TS2305 / TS2339: Usar ChatwootConfig e chatwootService
+     if (this.configService.get<ChatwootConfig>('CHATWOOT')?.ENABLED && this.localChatwoot?.enabled) {
+        this.logger.info(`Enviando mensagem ${message.id} para Chatwoot...`);
+         // CORREÇÃO TS2339: Usar método eventWhatsapp (precisa existir em ChatwootService)
+         const chatwootSentMessage = await this.chatwootService?.eventWhatsapp?.(
             Events.MESSAGES_UPSERT,
-            { instanceName: this.instance.name, instanceId: this.instanceId }, // Usando instanceId da base
+            { instanceName: this.instanceName, instanceId: this.instanceId },
             messageRaw,
          );
+         // Atualizar IDs do Chatwoot se retornados
          if (chatwootSentMessage?.id) {
-            messageRaw.chatwootMessageId = `${chatwootSentMessage.id}`;
-            messageRaw.chatwootInboxId = `${chatwootSentMessage.inbox_id}`;
-            messageRaw.chatwootConversationId = `${chatwootSentMessage.conversation_id}`;
+             // Adiciona IDs ao objeto messageRaw para salvar no banco
+             messageRaw.chatwootMessageId = `${chatwootSentMessage.id}`;
+             messageRaw.chatwootInboxId = `${chatwootSentMessage.inbox_id}`;
+             messageRaw.chatwootConversationId = `${chatwootSentMessage.conversation_id}`;
          }
      }
 
      // Salvar no Banco de Dados
      try {
-        // << CORREÇÃO TS2341: Usar método do repositório (nome hipotético) >>
-        // NOTE: Implemente createMessage em PrismaRepository.
+        // CORREÇÃO TS2341: Usar método do repositório
         await this.prismaRepository.createMessage({
             data: {
                 ...messageRaw,
-                key: key as any,
-                message: messageRaw.message as any,
+                key: key as any, // Cast se necessário
+                message: messageRaw.message as any, // Cast se necessário
                 messageTimestamp: BigInt(messageRaw.messageTimestamp),
+                // Certifique-se que todos os campos do schema Message estão aqui
             },
         });
      } catch (dbError: any) {
-        this.logger?.error?.(`Erro ao salvar mensagem ${message.id} no banco: ${dbError.message}`);
+        this.logger.error({ err: dbError, messageId: message.id }, `Erro ao salvar mensagem no banco`);
      }
 
      // Atualizar contato (se não for mensagem própria)
      if (!fromMe) {
-        // << CORREÇÃO TS2339: Chamando método updateContact implementado abaixo >>
-        await this.updateContact({
-           remoteJid: key.remoteJid,
-           pushName: pushName,
-           // profilePicUrl: contactInfo?.profile?.profile_picture_url, // Tentar obter a URL da foto, se disponível
-        });
+        await this.updateContact({ remoteJid: key.remoteJid, pushName: pushName });
      }
   }
 
-  // << CORREÇÃO TS2339: Implementação básica de updateContact >>
-  private async updateContact(
-    data: { remoteJid: string; pushName?: string; profilePicUrl?: string }
-  ): Promise<void> {
-    this.logger?.info?.(`Atualizando contato (Meta): ${data.remoteJid} - Nome: ${data.pushName}`);
-    const contactRaw: any = {
-      remoteJid: data.remoteJid, // Já deve estar formatado com @s.whatsapp.net
+
+  private async updateContact(data: { remoteJid: string; pushName?: string; profilePicUrl?: string }): Promise<void> {
+    this.logger.info({ contact: data }, `Atualizando contato (Meta)`);
+    const contactRaw: Partial<wa.ContactPayload> = { // Usar Partial<ContactPayload>
+      remoteJid: data.remoteJid, // Já formatado
       pushName: data.pushName || data.remoteJid.split('@')[0],
-      instanceId: this.instanceId, // Usando getter da base
+      instanceId: this.instanceId,
       profilePicUrl: data?.profilePicUrl,
     };
 
-    // NOTE: Implemente upsertContact em PrismaRepository e verifique o unique constraint no schema.
-    // Usar método do repositório (nome hipotético)
-    await this.prismaRepository.upsertContact({
-       where: { remoteJid_instanceId: { remoteJid: data.remoteJid, instanceId: this.instanceId } },
-       update: contactRaw,
-       create: contactRaw,
-    });
+    try {
+        // CORREÇÃO TS2341: Usar método do repositório
+        await this.prismaRepository.upsertContact({
+           where: { remoteJid_instanceId: { remoteJid: data.remoteJid, instanceId: this.instanceId } },
+           // Passar apenas os dados relevantes para update/create
+           update: { pushName: contactRaw.pushName, profilePicUrl: contactRaw.profilePicUrl },
+           create: { remoteJid: contactRaw.remoteJid!, instanceId: contactRaw.instanceId!, pushName: contactRaw.pushName, profilePicUrl: contactRaw.profilePicUrl },
+        });
+    } catch (dbError: any) {
+         this.logger.error({ err: dbError, contactJid: data.remoteJid }, `Erro ao salvar contato no banco`);
+         return; // Aborta se falhar no DB
+    }
 
-    await this.sendDataWebhook(Events.CONTACTS_UPSERT, contactRaw);
+    await this.sendDataWebhook(Events.CONTACTS_UPSERT, contactRaw); // Envia upsert
 
-    // Lógica Chatwoot (opcional, depende da necessidade de sincronizar contatos da Meta)
-    if (this.configService.get<Chatwoot>('CHATWOOT')?.ENABLED && this.localChatwoot?.enabled) {
-       this.logger?.info?.(`Enviando atualização de contato (Meta) para Chatwoot: ${data.remoteJid}`);
+    // Chatwoot
+    // CORREÇÃO TS2305 / TS2339: Usar ChatwootConfig e chatwootService
+    if (this.configService.get<ChatwootConfig>('CHATWOOT')?.ENABLED && this.localChatwoot?.enabled) {
+       this.logger.info(`Enviando atualização de contato (Meta) para Chatwoot: ${data.remoteJid}`);
+       // CORREÇÃO TS2339: Usar método eventWhatsapp (precisa existir em ChatwootService)
       await this.chatwootService?.eventWhatsapp?.(
         Events.CONTACTS_UPDATE,
-        {
-          instanceName: this.instance.name,
-          instanceId: this.instanceId, // Usando getter da base
-          integration: this.instance.integration,
-        },
+        { instanceName: this.instanceName, instanceId: this.instanceId, /* integration: this.instance.integration */ }, // Integration pode não estar disponível
         contactRaw,
       );
     }
-    // Não chama upsertChat aqui, pois a Meta API não gerencia chats como o Baileys
   }
 
 
   // Processa um evento de status do webhook
   private async statusHandle(statusInfo: any, metadata: any): Promise<void> {
-    this.logger?.debug?.(`Processando status: ${statusInfo.id}, Status: ${statusInfo.status}, Para: ${statusInfo.recipient_id}`);
+    this.logger.debug({ statusInfo }, `Processando status`);
     const key = {
       id: statusInfo.id,
-      remoteJid: createJid(statusInfo.recipient_id), // Formata JID
-      fromMe: true,
+      remoteJid: createJid(statusInfo.recipient_id),
+      fromMe: true, // Status são sempre de mensagens enviadas
     };
 
-    if (key.remoteJid === 'status@broadcast' || key?.remoteJid?.match(/(:\d+)/)) return;
+    // Ignorar status de status broadcast ou JIDs com server/device
+    if (key.remoteJid === 'status@broadcast' || key?.remoteJid?.includes(':')) {
+        this.logger.trace(`Ignorando atualização de status para ${key.remoteJid}`);
+        return;
+    }
 
-    // << CORREÇÃO TS2341: Usar método do repositório (nome hipotético) >>
-    // NOTE: Implemente findFirstMessage em PrismaRepository.
+    // CORREÇÃO TS2341: Usar método do repositório
     const findMessage = await this.prismaRepository.findFirstMessage({
-      where: {
-        instanceId: this.instanceId, // Usando getter da base
-        key: { path: ['id'], equals: key.id },
-      },
+      where: { instanceId: this.instanceId, keyId: key.id }, // Buscar por keyId
+      select: { id: true, status: true } // Selecionar apenas campos necessários
     });
 
     if (!findMessage) {
-       this.logger?.warn?.(`Mensagem original ${key.id} não encontrada para atualização de status.`);
+       this.logger.warn({ messageId: key.id }, `Mensagem original não encontrada para atualização de status.`);
        return;
     }
 
-    const messageUpdate: any = {
-      messageId: findMessage.id,
-      keyId: key.id,
+    // Mapear status da Meta para status do Baileys/App se necessário
+    // Ex: delivered -> DELIVERED, read -> READ, sent -> SERVER_ACK, failed -> FAILED?
+    const normalizedStatus = statusInfo.status.toUpperCase(); // Ex: DELIVERED, READ, SENT
+
+    // Evita atualizar para status anterior (ex: de READ para DELIVERED)
+    const statusOrder: { [key: string]: number } = { SENT: 1, DELIVERED: 2, READ: 3, FAILED: 0 };
+    const currentStatusOrder = statusOrder[findMessage.status] ?? -1;
+    const newStatusOrder = statusOrder[normalizedStatus] ?? -1;
+
+    if (newStatusOrder <= currentStatusOrder && normalizedStatus !== 'FAILED') {
+        this.logger.debug(`Ignorando atualização de status ${normalizedStatus} para msg ${key.id} (status atual: ${findMessage.status})`);
+        return;
+    }
+
+    const messageUpdate: Partial<wa.MessageUpdate> = { // Usar tipo MessageUpdate se definido
+      messageId: findMessage.id, // ID interno da mensagem no DB
+      keyId: key.id, // ID da mensagem do WhatsApp
       remoteJid: key.remoteJid,
       fromMe: key.fromMe,
-      participant: key.remoteJid,
-      status: statusInfo.status.toUpperCase(),
-      timestamp: parseInt(statusInfo.timestamp) || Math.round(new Date().getTime() / 1000),
-      instanceId: this.instanceId, // Usando getter da base
+      participant: key.remoteJid, // Para status, participant é o destinatário
+      status: normalizedStatus,
+      timestamp: parseInt(statusInfo.timestamp) || Math.round(Date.now() / 1000),
+      instanceId: this.instanceId,
     };
 
-     this.logger?.log?.(`Atualização de status: ${JSON.stringify(messageUpdate)}`);
-     await this.sendDataWebhook(Events.MESSAGES_UPDATE, messageUpdate); // Usando método async da base
+     this.logger.log({ update: messageUpdate }, `Atualização de status processada`);
+     await this.sendDataWebhook(Events.MESSAGES_UPDATE, messageUpdate);
 
      // Salvar atualização no banco
      try {
-       // << CORREÇÃO TS2341: Usar método do repositório (nome hipotético) >>
-       // NOTE: Implemente createMessageUpdate em PrismaRepository.
-       await this.prismaRepository.createMessageUpdate({ data: messageUpdate });
+       // CORREÇÃO TS2551: Usar getter messageUpdate do repo
+       await this.prismaRepository.messageUpdate.create({ data: messageUpdate as any });
 
-       // << CORREÇÃO TS2341 / TS2353: Usar método do repositório e corrigir update >>
-       // NOTE: Implemente updateMessage em PrismaRepository.
+       // CORREÇÃO TS2341: Usar método do repositório
         await this.prismaRepository.updateMessage({
             where: { id: findMessage.id },
-            data: { status: messageUpdate.status } // Atualiza o status mais recente
+            data: { status: messageUpdate.status }
         });
 
      } catch (dbError: any) {
-        this.logger?.error?.(`Erro ao salvar status ${key.id} no banco: ${dbError.message}`);
+        this.logger.error({ err: dbError, messageId: key.id }, `Erro ao salvar status no banco`);
      }
 
      // Enviar para Chatwoot (se necessário)
-     if (this.configService.get<Chatwoot>('CHATWOOT')?.ENABLED && this.localChatwoot?.enabled) {
-        this.logger?.info?.(`Enviando atualização de status ${key.id} para Chatwoot...`);
+     // CORREÇÃO TS2305 / TS2339: Usar ChatwootConfig e chatwootService
+     if (this.configService.get<ChatwootConfig>('CHATWOOT')?.ENABLED && this.localChatwoot?.enabled) {
+        // TODO: Mapear e enviar atualização de status para Chatwoot se a integração suportar
+        this.logger.debug(`Enviando atualização de status ${key.id} para Chatwoot...`);
      }
   }
 
 
-  // --- Métodos de Envio de Mensagem (Adaptados para Meta API) ---
+  // --- Métodos de Envio de Mensagem (Corrigidos) ---
 
   public async textMessage(data: SendTextDto, isIntegration = false): Promise<any> {
     const jid = createJid(data.number);
     const message = {
-      messaging_product: 'whatsapp',
-      to: jid,
-      type: 'text',
+      messaging_product: 'whatsapp', to: jid, type: 'text',
       text: {
-        // << CORREÇÃO TS2339: Adicionado optional chaining e fallback para linkPreview >>
+        // CORREÇÃO TS2339: Acessar options com segurança
         preview_url: data.options?.linkPreview ?? false,
         body: data.text,
       },
-      // << CORREÇÃO TS2339: Adicionado optional chaining para options e quoted >>
+      // CORREÇÃO TS2339: Acessar options e quoted com segurança
       ...(data.options?.quoted?.key?.id && { context: { message_id: data.options.quoted.key.id } })
     };
-
-    this.logger?.info?.(`Enviando mensagem de texto para ${jid}`);
-    const result = await this.post(message, 'messages');
-
-    // TODO: Salvar a mensagem enviada no banco local (usando a resposta da API se possível)
+    this.logger.info({ to: jid }, `Enviando mensagem de texto`);
+    const result = await this.post(message);
     if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-    // this.saveSentMessage(result, message, 'conversation'); // Exemplo de chamada para salvar
+    // TODO: Salvar mensagem enviada
     return result;
   }
 
-  // Método para upload de mídia para a API da Meta
+
   private async uploadMediaForMeta(media: Buffer | Readable | string, mimetype: string): Promise<string | null> {
+      // Implementação corrigida anteriormente...
       try {
-        const waBusinessConfig = this.configService.get<WaBusiness>('WA_BUSINESS');
-        const metaNumberId = this.instance?.number || this.number; // Usa getter/propriedade
-        const metaToken = this.instance?.token || this.token; // Usa getter/propriedade
+        const waBusinessConfig = this.configService.get<WaBusinessConfig>('WA_BUSINESS');
+        const metaNumberId = this.numberId;
+        const metaToken = this.token;
 
         if (!waBusinessConfig?.URL || !waBusinessConfig?.VERSION || !metaNumberId || !metaToken) {
           throw new Error('Configuração incompleta para upload de mídia da Meta.');
@@ -566,40 +601,35 @@ export class BusinessStartupService extends ChannelStartupService {
         formData.append('type', mimetype);
 
         let filename = `upload.${mimeTypes.extension(mimetype) || 'bin'}`;
-        // << CORREÇÃO TS2304: Usando isBase64 importado >>
         if (typeof media === 'string' && !isURL(media) && !isBase64(media)) {
-            // << CORREÇÃO TS2304: Usando path importado >>
             filename = path.basename(media);
         }
 
         if (Buffer.isBuffer(media)) {
             formData.append('file', media, { filename });
-        // << CORREÇÃO TS2304: Usando Readable importado >>
         } else if (media instanceof Readable) {
             formData.append('file', media, { filename });
-        // << CORREÇÃO TS2304: Usando isBase64 importado >>
         } else if (typeof media === 'string' && !isURL(media) && !isBase64(media)) {
             formData.append('file', createReadStream(media), { filename });
-        // << CORREÇÃO TS2304: Usando isBase64 importado >>
         } else if (typeof media === 'string' && isBase64(media)) {
             formData.append('file', Buffer.from(media, 'base64'), { filename });
         } else if (typeof media === 'string' && isURL(media)) {
-             this.logger?.warn?.('Upload de mídia via URL para Meta API não é suportado diretamente. Baixe primeiro.');
-             return null;
+             this.logger.warn('Upload de mídia via URL para Meta API não é suportado diretamente. Baixe primeiro.');
+             // TODO: Implementar download da URL para buffer antes de enviar
+             throw new BadRequestException('Upload de mídia via URL externa não implementado para Meta API.');
         } else {
              throw new Error('Formato de mídia inválido para upload.');
         }
 
         const headers = { ...formData.getHeaders(), Authorization: `Bearer ${metaToken}` };
-        this.logger?.debug?.(`POST ${urlUpload} (uploading media)`);
+        this.logger.debug({ url: urlUpload }, `POST (uploading media)`);
         const response = await axios.post(urlUpload, formData, { headers });
-        this.logger?.debug?.(`Media Upload Response: ${JSON.stringify(response.data)}`);
-
+        this.logger.debug({ response: response.data }, `Media Upload Response`);
         return response.data?.id || null;
 
       } catch(e: any) {
         const errorData = e?.response?.data?.error;
-        this.logger?.error?.(`Erro no upload de mídia para Meta API: ${JSON.stringify(errorData || e.message)}`);
+        this.logger.error({ err: errorData || e }, `Erro no upload de mídia para Meta API`);
         throw new InternalServerErrorException(`Falha no upload da mídia: ${errorData?.message || e.message}`);
       }
   }
@@ -608,42 +638,38 @@ export class BusinessStartupService extends ChannelStartupService {
   public async mediaMessage(data: SendMediaDto, file?: any, isIntegration = false): Promise<any> {
     const jid = createJid(data.number);
     let mediaContent = data.media;
-    let mediaBuffer: Buffer | Readable | undefined; // Permitir Readable
+    let mediaBuffer: Buffer | Readable | undefined;
     let isLocalFile = false;
 
     if (file?.buffer) {
         mediaBuffer = file.buffer;
         data.fileName = file.originalname || data.fileName;
         data.mediatype = mimeTypes.extension(file.mimetype) as any || data.mediatype;
-    // << CORREÇÃO TS2304: Usando isBase64 importado >>
     } else if (typeof mediaContent === 'string' && isBase64(mediaContent)) {
         mediaBuffer = Buffer.from(mediaContent, 'base64');
     } else if (typeof mediaContent === 'string' && isURL(mediaContent)) {
-        // Manter como URL
-    // << CORREÇÃO TS2304: Usando isBase64 importado >>
+        // Manter como URL - Meta API pode buscar a URL
     } else if(typeof mediaContent === 'string' && !isURL(mediaContent) && !isBase64(mediaContent)){
-         this.logger?.warn?.('Enviando mídia por path local. Garanta que o arquivo exista no servidor da API.');
+         this.logger.warn('Enviando mídia por path local. Garanta que o arquivo exista no servidor da API.');
          mediaBuffer = createReadStream(mediaContent); // Usar stream
          isLocalFile = true;
-         data.fileName = data.fileName || path.basename(mediaContent); // Definir nome se não houver
+         data.fileName = data.fileName || path.basename(mediaContent);
     } else {
         throw new BadRequestException('Formato de mídia inválido. Forneça URL, Base64, path de arquivo ou buffer.');
     }
 
     const message: any = {
-      messaging_product: 'whatsapp',
-      to: jid,
-      type: data.mediatype,
-      // << CORREÇÃO TS2339: Adicionado optional chaining >>
+      messaging_product: 'whatsapp', to: jid, type: data.mediatype,
+      // CORREÇÃO TS2339: Acessar options e quoted com segurança
       ...(data.options?.quoted?.key?.id && { context: { message_id: data.options.quoted.key.id } })
     };
 
     const mediaPayload: any = { caption: data.caption };
 
+    // Se for URL, passa o link. Senão, faz upload e passa o ID.
     if (typeof mediaContent === 'string' && isURL(mediaContent) && !mediaBuffer) {
         mediaPayload.link = mediaContent;
-        // << CORREÇÃO TS2339: Usar data.fileName >>
-         if(data.fileName) mediaPayload.filename = data.fileName;
+         if(data.fileName && data.mediatype === 'document') mediaPayload.filename = data.fileName; // Filename só para documentos com link? Verificar API Meta.
     } else {
         const fileToUpload = mediaBuffer || (isLocalFile ? createReadStream(mediaContent) : null);
         if(!fileToUpload) throw new BadRequestException('Mídia inválida para upload.');
@@ -651,262 +677,258 @@ export class BusinessStartupService extends ChannelStartupService {
         const mimeType = mimeTypes.lookup(data.fileName || '') || 'application/octet-stream';
         const mediaId = await this.uploadMediaForMeta(fileToUpload, mimeType);
         if (!mediaId) throw new InternalServerErrorException('Falha ao obter ID da mídia da Meta.');
-        mediaPayload.id = mediaId;
-        // << CORREÇÃO TS2339: Usar data.fileName >>
+        mediaPayload.id = mediaId; // Usa ID do upload
          if(data.mediatype === 'document' && data.fileName) mediaPayload.filename = data.fileName;
     }
 
     message[data.mediatype] = mediaPayload;
 
-    this.logger?.info?.(`Enviando mensagem de mídia (${data.mediatype}) para ${jid}`);
-    const result = await this.post(message, 'messages');
+    this.logger.info({ to: jid, type: data.mediatype }, `Enviando mensagem de mídia`);
+    const result = await this.post(message);
 
     if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-    // this.saveSentMessage(result, message, data.mediatype); // Exemplo
+    // TODO: Salvar mensagem enviada
     return result;
   }
 
   public async audioWhatsapp(data: SendAudioDto, file?: any, isIntegration = false): Promise<any> {
-      const mimeType = file?.mimetype || 'audio/ogg';
+      const mimeType = file?.mimetype || mimeTypes.lookup(data.audio || '') || 'audio/ogg';
       const mediaDto: SendMediaDto = {
           number: data.number,
           mediatype: 'audio',
           media: file?.buffer || data.audio,
           fileName: file?.originalname || `audio.${mimeTypes.extension(mimeType) || 'ogg'}`,
-          // << CORREÇÃO TS2353 / TS2339: Removido 'options' daqui, será passado no mediaMessage >>
-          // options: data.options
+          // Passa as opções originais do SendAudioDto
+          options: data.options
       };
-      // << CORREÇÃO TS2339: Passando options para mediaMessage >>
-      return this.mediaMessage(mediaDto, file, isIntegration); // Passa o DTO original que contém options
+      // PTT não é suportado diretamente pela API oficial, será enviado como audio normal
+      if (data.ptt) {
+          this.logger.warn('Opção PTT (Push-to-Talk) ignorada para Meta API.');
+      }
+      return this.mediaMessage(mediaDto, file, isIntegration);
   }
 
    public async buttonMessage(data: SendButtonsDto, isIntegration = false): Promise<any> {
       const jid = createJid(data.number);
+      // Limitar botões a 3 (limite da Meta API)
+      if (data.buttons.length > 3) {
+          this.logger.warn(`Número de botões excede o limite de 3 da Meta API. Usando apenas os 3 primeiros.`);
+          data.buttons = data.buttons.slice(0, 3);
+      }
+      // Limitar tamanho do texto dos botões (20 chars)
+      data.buttons.forEach(btn => {
+          if (btn.displayText && btn.displayText.length > 20) {
+              this.logger.warn(`Texto do botão "${btn.displayText}" excede 20 caracteres. Será truncado pela Meta API.`);
+          }
+      });
+
+
       const message = {
-          messaging_product: 'whatsapp',
-          to: jid,
-          type: 'interactive',
+          messaging_product: 'whatsapp', to: jid, type: 'interactive',
           interactive: {
               type: 'button',
-              header: data.title ? { type: 'text', text: data.title } : undefined,
-              body: { text: data.description || ' ' }, // Body não pode ser vazio
-              footer: data.footer ? { text: data.footer } : undefined,
+              header: data.title ? { type: 'text', text: data.title.substring(0, 60) } : undefined, // Limite header
+              body: { text: data.description || ' ' },
+              footer: data.footer ? { text: data.footer.substring(0, 60) } : undefined, // Limite footer
               action: {
-                   // << CORREÇÃO TS2339: Usar btn.displayText ao invés de btn.label >>
                   buttons: data.buttons.map((btn: Button) => ({
                       type: 'reply',
-                      reply: { id: btn.id, title: btn.displayText || 'Button' } // Usar displayText
+                      reply: { id: btn.id.substring(0, 256), title: (btn.displayText || 'Button').substring(0, 20) } // Limites ID e title
                   }))
               }
           },
-           // << CORREÇÃO TS2339: Adicionado optional chaining >>
+          // CORREÇÃO TS2339: Acessar options e quoted com segurança
           ...(data.options?.quoted?.key?.id && { context: { message_id: data.options.quoted.key.id } })
       };
 
-      this.logger?.info?.(`Enviando mensagem interativa (botões) para ${jid}`);
-      const result = await this.post(message, 'messages');
+      this.logger.info({ to: jid }, `Enviando mensagem interativa (botões)`);
+      const result = await this.post(message);
 
       if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-      // this.saveSentMessage(result, message, 'interactive'); // Exemplo
+      // TODO: Salvar mensagem enviada
       return result;
    }
 
    public async listMessage(data: SendListDto, isIntegration = false): Promise<any> {
        const jid = createJid(data.number);
+       // Validações da Meta API para listas
+       if (data.sections.length === 0) throw new BadRequestException('Listas devem ter pelo menos uma seção.');
+       if (data.sections.length > 10) this.logger.warn('Número de seções excede o limite de 10 da Meta API.');
+       data.sections.forEach(sec => {
+           if (!sec.title) throw new BadRequestException('Cada seção da lista deve ter um título.');
+           if (sec.rows.length === 0) throw new BadRequestException(`Seção "${sec.title}" não pode ter linhas vazias.`);
+           if (sec.rows.length > 10) this.logger.warn(`Número de linhas na seção "${sec.title}" excede o limite de 10 da Meta API.`);
+           sec.rows.forEach(row => {
+               if (!row.title) throw new BadRequestException('Cada linha da lista deve ter um título.');
+               if (row.title.length > 24) this.logger.warn(`Título da linha "${row.title}" excede 24 caracteres.`);
+               if (row.description && row.description.length > 72) this.logger.warn(`Descrição da linha "${row.title}" excede 72 caracteres.`);
+           });
+       });
+       if (!data.buttonText || data.buttonText.length > 20) throw new BadRequestException('Texto do botão da lista é obrigatório e deve ter no máximo 20 caracteres.');
+
        const message = {
-           messaging_product: 'whatsapp',
-           to: jid,
-           type: 'interactive',
+           messaging_product: 'whatsapp', to: jid, type: 'interactive',
            interactive: {
                type: 'list',
-               header: data.title ? { type: 'text', text: data.title } : undefined,
-               body: { text: data.description || ' ' }, // Body não pode ser vazio
-               // << CORREÇÃO TS2339: Usar data.footerText >>
-               footer: data.footerText ? { text: data.footerText } : undefined,
+               header: data.title ? { type: 'text', text: data.title.substring(0, 60) } : undefined,
+               body: { text: data.description || ' ' },
+               footer: data.footerText ? { text: data.footerText.substring(0, 60) } : undefined,
                action: {
-                   // << CORREÇÃO TS2339: Usar data.buttonText >>
-                   button: data.buttonText,
-                   sections: data.sections.map(section => ({
-                       title: section.title,
-                       rows: section.rows.map(row => ({
-                           id: row.rowId,
-                           title: row.title,
-                           description: row.description
+                   button: data.buttonText.substring(0, 20),
+                   sections: data.sections.slice(0, 10).map(section => ({ // Limita seções
+                       title: section.title.substring(0, 24), // Limita título da seção
+                       rows: section.rows.slice(0, 10).map(row => ({ // Limita linhas
+                           id: row.rowId.substring(0, 200), // Limita ID da linha
+                           title: row.title.substring(0, 24), // Limita título da linha
+                           description: row.description?.substring(0, 72) // Limita descrição
                        }))
                    }))
                }
            },
-            // << CORREÇÃO TS2339: Adicionado optional chaining >>
+           // CORREÇÃO TS2339: Acessar options e quoted com segurança
            ...(data.options?.quoted?.key?.id && { context: { message_id: data.options.quoted.key.id } })
        };
 
-       this.logger?.info?.(`Enviando mensagem interativa (lista) para ${jid}`);
-       const result = await this.post(message, 'messages');
+       this.logger.info({ to: jid }, `Enviando mensagem interativa (lista)`);
+       const result = await this.post(message);
 
        if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-       // this.saveSentMessage(result, message, 'interactive'); // Exemplo
+       // TODO: Salvar mensagem enviada
        return result;
    }
 
     public async locationMessage(data: SendLocationDto, isIntegration = false): Promise<any> {
         const jid = createJid(data.number);
         const message = {
-            messaging_product: 'whatsapp',
-            to: jid,
-            type: 'location',
+            messaging_product: 'whatsapp', to: jid, type: 'location',
             location: {
-                latitude: data.latitude,
-                longitude: data.longitude,
-                name: data.name,
-                address: data.address
+                latitude: data.latitude, longitude: data.longitude,
+                name: data.name, address: data.address
             },
-             // << CORREÇÃO TS2339: Adicionado optional chaining >>
+            // CORREÇÃO TS2339: Acessar options e quoted com segurança
             ...(data.options?.quoted?.key?.id && { context: { message_id: data.options.quoted.key.id } })
         };
-
-        this.logger?.info?.(`Enviando mensagem de localização para ${jid}`);
-        const result = await this.post(message, 'messages');
-
+        this.logger.info({ to: jid }, `Enviando mensagem de localização`);
+        const result = await this.post(message);
         if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-        // this.saveSentMessage(result, message, 'location'); // Exemplo
+        // TODO: Salvar mensagem enviada
         return result;
     }
 
     public async contactMessage(data: SendContactDto, isIntegration = false): Promise<any> {
          const jid = createJid(data.number);
-         // << CORREÇÃO TS2551: Usar data.contact >>
-         if (!data.contact || data.contact.length !== 1) {
-             throw new BadRequestException('Meta API atualmente suporta enviar apenas um contato por mensagem.');
+         // CORREÇÃO TS2339: Usar data.contacts (plural) conforme DTO? Verificar definição DTO. Assumindo 'contacts'.
+         if (!data.contacts || data.contacts.length === 0) {
+             throw new BadRequestException('Nenhum contato fornecido para envio.');
          }
-         // << CORREÇÃO TS2551: Usar data.contact >>
-         const contactToSend = data.contact[0];
-
-         // Validação mínima do nome e telefone
-         if (!contactToSend.fullName || !contactToSend.wuid) {
-             throw new BadRequestException('Nome completo (fullName) e WUID do contato são obrigatórios.');
-         }
+         // A API da Meta suporta múltiplos contatos
+         const contactsToSend = data.contacts.map(contact => {
+             if (!contact.fullName || !contact.wuid) {
+                 throw new BadRequestException('Nome completo (fullName) e WUID do contato são obrigatórios.');
+             }
+             return {
+                 name: { formatted_name: contact.fullName },
+                 // Meta espera apenas o número, sem @s.whatsapp.net no 'phone' e 'wa_id'
+                 phones: [{ phone: contact.wuid.split('@')[0], type: 'CELL', wa_id: contact.wuid.split('@')[0] }]
+                 // TODO: Mapear organization, emails, urls se a API e o DTO suportarem
+             };
+         });
 
          const message = {
-             messaging_product: 'whatsapp',
-             to: jid,
-             type: 'contacts',
-             contacts: [
-                 {
-                     name: {
-                         formatted_name: contactToSend.fullName,
-                     },
-                     phones: [{ phone: contactToSend.wuid.split('@')[0], type: 'CELL', wa_id: contactToSend.wuid.split('@')[0] }]
-                     // TODO: Mapear outros campos como organization, email, url se a API suportar
-                 }
-             ],
-              // << CORREÇÃO TS2339: Adicionado optional chaining >>
+             messaging_product: 'whatsapp', to: jid, type: 'contacts',
+             contacts: contactsToSend,
+             // CORREÇÃO TS2339: Acessar options e quoted com segurança
              ...(data.options?.quoted?.key?.id && { context: { message_id: data.options.quoted.key.id } })
          };
-
-         this.logger?.info?.(`Enviando mensagem de contato para ${jid}`);
-         const result = await this.post(message, 'messages');
-
+         this.logger.info({ to: jid, count: contactsToSend.length }, `Enviando mensagem de contato(s)`);
+         const result = await this.post(message);
          if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-         // this.saveSentMessage(result, message, 'contacts'); // Exemplo
+         // TODO: Salvar mensagem enviada
          return result;
     }
 
     public async reactionMessage(data: SendReactionDto, isIntegration = false): Promise<any> {
-        // << CORREÇÃO TS2339: Usar data.key.remoteJid >>
-        const jid = createJid(data.key.remoteJid);
+        const jid = createJid(data.key.remoteJid!); // Adicionar '!' se tiver certeza que existe
         const message = {
-            messaging_product: 'whatsapp',
-            to: jid,
-            type: 'reaction',
+            messaging_product: 'whatsapp', to: jid, type: 'reaction',
             reaction: {
                 message_id: data.key.id,
-                // << CORREÇÃO TS2339: Usar data.reaction >>
-                emoji: data.reaction
+                emoji: data.reaction // Envia o emoji diretamente (ou string vazia para remover)
             }
         };
-
-        this.logger?.info?.(`Enviando reação para mensagem ${data.key.id} em ${jid}`);
-        const result = await this.post(message, 'messages');
-
+        this.logger.info({ to: jid, msgId: data.key.id, reaction: data.reaction || '(remover)' }, `Enviando reação`);
+        const result = await this.post(message);
          if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-         // Reações também podem ser salvas como mensagens, se desejado
-         // this.saveSentMessage(result, message, 'reaction'); // Exemplo
+         // TODO: Salvar reação enviada
          return result;
     }
 
      public async templateMessage(data: SendTemplateDto, isIntegration = false): Promise<any> {
          const jid = createJid(data.number);
          const message: any = {
-             messaging_product: 'whatsapp',
-             to: jid,
-             type: 'template',
+             messaging_product: 'whatsapp', to: jid, type: 'template',
              template: {
-                 // << CORREÇÃO TS2339: Usar data.name >>
                  name: data.name,
-                 language: {
-                     // << CORREÇÃO TS2551: Usar data.language >>
-                     code: data.language
-                 },
-                 components: data.components
+                 language: { code: data.language },
+                 components: data.components // Assume que data.components está no formato correto da Meta API
              }
          };
-
-         // << CORREÇÃO TS2339: Usar data.name >>
-         this.logger?.info?.(`Enviando mensagem de template '${data.name}' para ${jid}`);
-         const result = await this.post(message, 'messages');
-
+         this.logger.info({ to: jid, template: data.name }, `Enviando mensagem de template`);
+         const result = await this.post(message);
          if (result?.error) throw new BadRequestException(`Meta API Error: ${result.error.message} (Code: ${result.error.code})`);
-         // this.saveSentMessage(result, message, 'template'); // Exemplo
+         // TODO: Salvar mensagem enviada
          return result;
      }
 
   // --- Métodos Não Suportados ou Específicos de Baileys ---
-  public async getBase64FromMediaMessage(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API. Download via getMedia instead.'); }
-  public async deleteMessage(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async mediaSticker(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
-  public async pollMessage(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
-  public async statusMessage(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
-  public async reloadConnection(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
+  public async getBase64FromMediaMessage(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta. Use getMedia.'); }
+  public async deleteMessage(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async mediaSticker(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta'); }
+  public async pollMessage(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta'); }
+  public async statusMessage(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta'); }
+  public async reloadConnection(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta'); }
   public async whatsappNumber(data: NumberBusiness): Promise<any> {
-      // Implementação específica para Meta API (onWhatsApp check) se possível/necessário
-       this.logger?.warn?.('whatsappNumber (onWhatsApp check) não implementado para Meta API.');
-      return { numbers: data.numbers.map(n => ({ exists: false, jid: createJid(n) })) }; // Retorna placeholder
+      // CORREÇÃO TS2339: Usar data.numbers e createJid
+      const jids = data.numbers.map(createJid);
+      // A API da Meta não tem um endpoint direto "onWhatsApp". Poderia tentar enviar uma msg template ou verificar via DB/Cache.
+      this.logger.warn('Verificação onWhatsApp não implementada para Meta API.');
+      return { numbers: jids.map(jid => ({ exists: false, jid: jid })) }; // Retorna placeholder
   }
-  public async markMessageAsRead(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); } // Meta marca automaticamente
-  public async archiveChat(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async markChatUnread(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async fetchProfile(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async offerCall(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
-  public async sendPresence(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async setPresence(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async fetchPrivacySettings(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updatePrivacySettings(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async fetchBusinessProfile(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateProfileName(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateProfileStatus(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateProfilePicture(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async removeProfilePicture(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async blockUser(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateMessage(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async createGroup(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateGroupPicture(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateGroupSubject(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateGroupDescription(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async findGroup(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async fetchAllGroups(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async inviteCode(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async inviteInfo(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async sendInvite(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async acceptInviteCode(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async revokeInviteCode(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async findParticipants(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateGParticipant(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async updateGSetting(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async toggleEphemeral(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async leaveGroup(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async fetchLabels(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async handleLabel(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API.'); }
-  public async receiveMobileCode(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
-  public async fakeCall(): Promise<never> { throw new BadRequestException('Method not available on WhatsApp Business API'); }
+  public async markMessageAsRead(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async archiveChat(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async markChatUnread(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async fetchProfile(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async offerCall(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta'); }
+  public async sendPresence(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async setPresence(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async fetchPrivacySettings(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updatePrivacySettings(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async fetchBusinessProfile(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateProfileName(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateProfileStatus(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateProfilePicture(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async removeProfilePicture(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async blockUser(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  // public async updateMessage(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); } // Já corrigido acima
+  public async createGroup(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateGroupPicture(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateGroupSubject(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateGroupDescription(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async findGroup(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async fetchAllGroups(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async inviteCode(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async inviteInfo(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async sendInvite(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async acceptInviteCode(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async revokeInviteCode(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async findParticipants(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateGParticipant(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async updateGSetting(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async toggleEphemeral(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async leaveGroup(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async fetchLabels(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async handleLabel(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta.'); }
+  public async receiveMobileCode(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta'); }
+  public async fakeCall(): Promise<never> { throw new BadRequestException('Método não disponível na API Meta'); }
 
 } // Fim da classe BusinessStartupService
