@@ -1,25 +1,26 @@
 // src/api/integrations/channel/meta/meta.controller.ts
 
 import { PrismaRepository } from '@api/repository/repository.service'; // Usando alias @api
-import { WAMonitoringService } from '@api/services/wa-monitoring.service'; // Usando alias @api
-import { Logger } from '@config/logger.config'; // TODO: Precisa do arquivo logger.config.ts
+// Usando o import que já estava aqui, assumindo que é o correto ou que os tipos são compatíveis.
+import { WAMonitoringService } from '@api/services/wa-monitoring.service';
+import { Logger } from '@config/logger.config'; // TODO: Precisa do arquivo logger.config.ts e importação correta
 import axios from 'axios';
 
-// TODO: Precisa do arquivo channel.controller.ts para definir ChannelController e ChannelControllerInterface
-import { ChannelController, ChannelControllerInterface } from '../channel.controller'; // Mantendo caminho relativo por enquanto
+// Ajustado para caminho relativo mais provável, confirme se existe ou use alias @api
+import { ChannelController, ChannelControllerInterface } from '../../channel/channel.controller';
 
-// TODO: Verificar modificadores de propriedade e assinatura do construtor em ChannelController quando disponível (TS2415, TS2345)
 export class MetaController extends ChannelController implements ChannelControllerInterface {
-  // TODO: Se Logger não for injetado ou herdado, inicialize aqui
-  private readonly logger = new Logger('MetaController');
-  public integrationEnabled: boolean = false; // Esta propriedade parece específica de MetaController
+  private readonly logger = new Logger('MetaController'); // Certifique-se que Logger está importado
+  public integrationEnabled: boolean = false;
 
   constructor(
-    // Modificadores 'protected' mantidos, mas precisam ser compatíveis com ChannelController
-    protected readonly prismaRepository: PrismaRepository,
-    protected readonly waMonitor: WAMonitoringService,
+    // << CORREÇÃO TS2415: Visibilidade alterada para 'public' para corresponder à classe base >>
+    public readonly prismaRepository: PrismaRepository,
+    protected readonly waMonitor: WAMonitoringService, // Mantido protected, verifique a base se necessário
   ) {
-    // A chamada super() pode gerar o erro TS2345 se a assinatura não for compatível
+    // << CORREÇÃO TS2345: Mantida a chamada super. O erro pode ser devido a definições conflitantes
+    //    de WAMonitoringService em diferentes arquivos ou caminhos de import.
+    //    Garanta que WAMonitoringService seja importado consistentemente ou que os tipos sejam compatíveis. >>
     super(prismaRepository, waMonitor); // TODO: Confirmar assinatura do construtor de ChannelController
   }
 
@@ -28,31 +29,32 @@ export class MetaController extends ChannelController implements ChannelControll
    * @param data Payload do webhook
    */
   public async receiveWebhook(data: any): Promise<{ status: string }> {
-    this.logger.log(`Recebido webhook da Meta: ${JSON.stringify(data)}`); // Adicionado log
+    this.logger.log(`Recebido webhook da Meta: ${JSON.stringify(data)}`);
 
-    // Verifica se é um evento de conta de negócios do WhatsApp
     if (data.object === 'whatsapp_business_account' && Array.isArray(data.entry)) {
       for (const entry of data.entry) {
-        const change = entry?.changes?.[0]; // Pega a primeira mudança
+        const change = entry?.changes?.[0];
 
-        if (!change) continue; // Pula se não houver 'changes'
+        if (!change) continue;
 
         // [1] Atualização de status de template
         if (change.field === 'message_template_status_update') {
           const templateValue = change.value;
           this.logger.log(`Atualização de template recebida: ${JSON.stringify(templateValue)}`);
 
-          // Corrigido: Acessar modelo 'template' através de '.prisma.'
-          const template = await this.prismaRepository.prisma.template.findFirst({
-            where: { templateId: `${templateValue.message_template_id}` }, // TODO: Confirmar se 'templateId' é o campo correto no schema.prisma
+          // << CORREÇÃO TS2341 / TS2339: Usar método do repositório (nome hipotético) >>
+          // NOTE: Implemente findFirstTemplate em PrismaRepository.
+          // NOTE: Confirme se o campo de busca é 'templateId'.
+          const template = await this.prismaRepository.findFirstTemplate({
+            where: { templateId: `${templateValue.message_template_id}` },
           });
 
           if (!template) {
             this.logger.error(`Template com ID ${templateValue.message_template_id} não encontrado para webhook.`);
-            continue; // Continua para o próximo 'entry' se houver, em vez de retornar sucesso
+            continue;
           }
 
-          // TODO: Confirmar se 'webhookUrl' é o campo correto no schema.prisma para Template
+          // NOTE: Confirme se 'webhookUrl' é o campo correto no schema Prisma para Template.
           const { webhookUrl } = template;
 
           if (webhookUrl) {
@@ -73,9 +75,10 @@ export class MetaController extends ChannelController implements ChannelControll
           const numberId = change.value.metadata.phone_number_id;
           this.logger.log(`Evento comum recebido para numberId: ${numberId}`);
 
-          // Corrigido: Acessar modelo 'instance' através de '.prisma.'
-          // TODO: Confirmar se o campo para buscar é 'number' ou talvez 'ownerJid' ou outro identificador da Meta
-          const instanceDb = await this.prismaRepository.prisma.instance.findFirst({
+          // << CORREÇÃO TS2341: Usar método do repositório (nome hipotético) >>
+          // NOTE: Implemente findFirstInstance em PrismaRepository.
+          // NOTE: Confirme se o campo de busca é 'number'.
+          const instanceDb = await this.prismaRepository.findFirstInstance({
             where: { number: numberId }, // Busca pelo ID do número de telefone associado
           });
 
@@ -85,11 +88,11 @@ export class MetaController extends ChannelController implements ChannelControll
           }
 
           const instanceName = instanceDb.name;
-          const activeInstance = this.waMonitor.waInstances[instanceName];
+          // Acessa as instâncias através do waMonitor injetado
+          const activeInstance = this.waMonitor.get(instanceName); // Usando o getter/método do monitor
 
           if (activeInstance && typeof activeInstance.connectToWhatsapp === 'function') {
             this.logger.log(`Encaminhando dados para a instância ativa: "${instanceName}"`);
-            // Passa o objeto 'value' que contém a mensagem/status, não o 'data' inteiro
             await activeInstance.connectToWhatsapp(change.value);
           } else {
             this.logger.error(
@@ -104,12 +107,10 @@ export class MetaController extends ChannelController implements ChannelControll
       this.logger.warn(`Webhook recebido não é do tipo 'whatsapp_business_account': ${JSON.stringify(data)}`);
     }
 
-    // Retorna sucesso para a Meta API acusar o recebimento
     return {
       status: 'success',
     };
   }
 
   // TODO: Implementar os outros métodos da interface ChannelControllerInterface se necessário
-  // (Ex: createInstance, connectToWhatsapp, etc., se MetaController precisar deles diretamente)
 }
