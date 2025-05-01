@@ -1,6 +1,7 @@
-import { wa } from '@api/types/wa.types';
+import { StatusMessage } from '@api/types/wa.types';
 
-export const status: Record<number, wa.StatusMessage> = {
+/** Mapeia códigos de recibo do WhatsApp para rótulos legíveis */
+export const status: Record<number, StatusMessage> = {
   0: 'ERROR',
   1: 'PENDING',
   2: 'SERVER_ACK',
