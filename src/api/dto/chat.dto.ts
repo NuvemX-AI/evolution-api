@@ -1,3 +1,4 @@
+// src/api/dto/chat.dto.ts
 import {
   proto,
   WAPresence,
@@ -5,10 +6,10 @@ import {
   WAPrivacyOnlineValue,
   WAPrivacyValue,
   WAReadReceiptsValue,
-} from 'baileys';
+} from '@whiskeysockets/baileys'; // Corrected import source
 
 /* -------------------------------------------------------------------------- */
-/*  Checagem de número                                                        */
+/* Checagem de número                                                        */
 /* -------------------------------------------------------------------------- */
 export class OnWhatsAppDto {
   constructor(
@@ -20,18 +21,20 @@ export class OnWhatsAppDto {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Media → Base64                                                            */
+/* Media → Base64                                                            */
 /* -------------------------------------------------------------------------- */
-export class GetBase64FromMediaMessageDto {
+// Exported with lowercase 'g'
+export class getBase64FromMediaMessageDto {
   message: proto.WebMessageInfo;
   convertToMp4?: boolean;
 }
 
-/* -------- Alias opcional de compatibilidade: remova quando não precisar --- */
-export { GetBase64FromMediaMessageDto as getBase64FromMediaMessageDto };
+/* -------- Optional compatibility alias: exports lowercase class as uppercase name -------- */
+// Corrected alias export direction
+export { getBase64FromMediaMessageDto as GetBase64FromMediaMessageDto };
 
 /* -------------------------------------------------------------------------- */
-/*  Diversos DTOs                                                             */
+/* Diversos DTOs                                                             */
 /* -------------------------------------------------------------------------- */
 export class WhatsAppNumberDto {
   numbers: string[];
@@ -73,7 +76,7 @@ export class ProfilePictureDto {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Chats & mensagens                                                         */
+/* Chats & mensagens                                                         */
 /* -------------------------------------------------------------------------- */
 class Key {
   id: string;
@@ -102,7 +105,7 @@ export class MarkChatUnreadDto {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Privacidade                                                               */
+/* Privacidade                                                               */
 /* -------------------------------------------------------------------------- */
 export class PrivacySettingDto {
   readreceipts: WAReadReceiptsValue;
@@ -114,7 +117,7 @@ export class PrivacySettingDto {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Exclusão                                                                  */
+/* Exclusão                                                                  */
 /* -------------------------------------------------------------------------- */
 export class DeleteMessage {
   id: string;
@@ -124,15 +127,18 @@ export class DeleteMessage {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Utilidades                                                                */
+/* Utilidades                                                                */
 /* -------------------------------------------------------------------------- */
 export class Options {
   delay?: number;
   presence?: WAPresence;
+  // Added quoted for potential use based on other files
+  quoted?: proto.WebMessageInfo;
+  webhookUrl?: string;
 }
 
 class OptionsMessage {
-  options: Options;
+  options?: Options; // Made optional
 }
 
 export class Metadata extends OptionsMessage {
@@ -140,15 +146,15 @@ export class Metadata extends OptionsMessage {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Presença / Atualizações                                                   */
+/* Presença / Atualizações                                                   */
 /* -------------------------------------------------------------------------- */
 export class SendPresenceDto extends Metadata {
   presence: WAPresence;
-  delay: number;
+  delay?: number; // Made optional
 }
 
 export class UpdateMessageDto extends Metadata {
-  number: string;
+  // Removed duplicate number declaration
   key: proto.IMessageKey;
   text: string;
 }
