@@ -3,11 +3,10 @@
 // -------------------------------------------------------------
 generator client {
   provider = "prisma-client-js"
-  // output   = "../node_modules/.prisma/client" // Descomente se necessário
 }
 
 datasource db {
-  provider = "postgresql" // ou seu provider (mysql, sqlite)
+  provider = "postgresql" // ou seu provider
   url      = env("DATABASE_URL")
 }
 
@@ -16,7 +15,6 @@ datasource db {
 // -------------------------------------------------------------
 // NOTE: Se usar string literals no código ('all', 'keyword'), defina como string no schema.
 // Se usar Enum no código ($Enums.TriggerType.keyword), mantenha o Enum aqui.
-// Mantendo Enum como na versão anterior, ajuste o CÓDIGO TS para usar os membros do Enum.
 enum TriggerType {
   keyword
   schedule
@@ -66,29 +64,39 @@ model Instance {
   updatedAt               DateTime  @updatedAt
 
   // --- Relações ---
+  // Configurações (1-1)
   webhook             Webhook?
   proxy               Proxy?
   rabbitmq            Rabbitmq?
   sqs                 Sqs?
   websocket           Websocket?
   setting             Setting?
-  pusher              Pusher? // Nome minúsculo
+  pusher              Pusher?
+  chatwoot            Chatwoot? // Relação 1-1 inversa
+  difySetting         DifySetting? // Relação 1-1 inversa
+  evolutionBotSetting EvolutionBotSetting? // Relação 1-1 inversa
+  flowiseSetting      FlowiseSetting? // Relação 1-1 inversa
+  openaiSetting       OpenaiSetting? // Relação 1-1 inversa
+  typebotSetting      TypebotSetting? // Relação 1-1 inversa
 
+  // Dados WA (1-N)
   sessions            Session[]
   chats               Chat[]
   contacts            Contact[]
   messages            Message[]
   messageUpdates      MessageUpdate[]
   labels              Label[]
-  isOnWhatsappChecks  IsOnWhatsapp[]
+  isOnWhatsappChecks  IsOnWhatsapp[] // Relação 1-N inversa
 
+  // Bots (1-N)
   difyBots            Dify[]
   evolutionBots       EvolutionBot[]
   flowiseBots         Flowise[]
   openaiBots          OpenaiBot[]
   typebots            Typebot[]
-  integrationSessions IntegrationSession[]
+  integrationSessions IntegrationSession[] // Relação 1-N inversa
 
+  // Outras Relações (1-N)
   whatsappIntegrations WhatsappIntegration[]
   media               Media[]
   templates           Template[]
@@ -116,7 +124,7 @@ model Chat {
   instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   remoteJid      String
   name           String?
-  labels         Json? // Pode ser String[] se preferir armazenar array de IDs
+  labels         Json?
   unreadMessages Int?     @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -134,7 +142,7 @@ model Contact {
   remoteJid     String
   pushName      String?
   profilePicUrl String?
-  identifier    String? // Identificador Chatwoot
+  identifier    String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -148,18 +156,18 @@ model Message {
   id                       String    @id @default(uuid())
   instanceId               String
   instance                 Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  keyId                    String?   @unique // ID da mensagem Baileys
+  keyId                    String?   @unique
   key                      Json?
   message                  Json?
   messageTimestamp         BigInt?   @db.BigInt
   messageType              String?
-  status                   String? // PENDING, SENT, DELIVERED, READ, FAILED
-  participant              String? // JID do participante (grupos)
+  status                   String?
+  participant              String?
   webhookUrl               String?
   source                   String?
   contextInfo              Json?
-  sessionId                String? // ID da sessão de integração ativa
-  integrationSession       IntegrationSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  integrationSessionId     String? // Chave estrangeira para IntegrationSession
+  integrationSession       IntegrationSession? @relation(fields: [integrationSessionId], references: [id], onDelete: SetNull) // Relação corrigida
 
   chatwootIsRead           Boolean?
   chatwootMessageId        String?
@@ -168,10 +176,11 @@ model Message {
   chatwootContactInboxSourceId String?
 
   updates                  MessageUpdate[]
-  media                    Media? // Uma mensagem pode ter uma mídia associada? Ou busca por keyId?
+  mediaId                  String?   @unique // Chave estrangeira para Media (1-1)
+  media                    Media?    @relation(fields: [mediaId], references: [id], onDelete: SetNull) // Relação corrigida
 
   @@index([instanceId])
-  @@index([sessionId])
+  @@index([integrationSessionId])
   @@index([keyId])
   @@index([messageTimestamp])
 }
@@ -181,12 +190,12 @@ model MessageUpdate {
   id             String   @id @default(uuid())
   instanceId     String
   instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  messageId      String   // ID da mensagem no NOSSO banco
+  messageId      String   // ID da nossa Message
   message        Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  keyId          String?  // ID da mensagem no WhatsApp
+  keyId          String?  // ID da Baileys Message Key
   remoteJid      String?
   participant    String?
-  status         String? // delivered, read, played
+  status         String?
   timestamp      BigInt?  @db.BigInt
   createdAt      DateTime @default(now())
 
@@ -200,10 +209,10 @@ model MessageUpdate {
 model Webhook {
   id             String   @id @default(uuid())
   instanceId     String   @unique
-  instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance       Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   enabled        Boolean? @default(false)
   url            String?
-  webhookBase64  Boolean? @default(false) // Enviar mídia como base64? (era String)
+  webhookBase64  Boolean? @default(false)
   headers        Json?
   events         String[] @default([])
 
@@ -213,13 +222,13 @@ model Webhook {
 model Chatwoot {
   id                      String   @id @default(uuid())
   instanceId              String   @unique
-  instance                Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance                Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   enabled                 Boolean? @default(false)
-  accountId               String?  // Manter String, converter no código
+  accountId               String?
   token                   String?
   url                     String?
   nameInbox               String?
-  signMsg                 Boolean? @default(false) // Alterado para Boolean?
+  signMsg                 Boolean? @default(false)
   signDelimiter           String?  @default("\\n")
   number                  String?
   reopenConversation      Boolean? @default(false)
@@ -238,7 +247,7 @@ model Chatwoot {
 model Proxy {
   id         String   @id @default(uuid())
   instanceId String   @unique
-  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance   Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   enabled    Boolean? @default(false)
   host       String?
   port       Int?
@@ -252,7 +261,7 @@ model Proxy {
 model Rabbitmq {
   id          String   @id @default(uuid())
   instanceId  String   @unique
-  instance    Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance    Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   url         String?
   exchange    String?
   enabled     Boolean? @default(false)
@@ -264,7 +273,7 @@ model Rabbitmq {
 model Sqs {
   id              String   @id @default(uuid())
   instanceId      String   @unique
-  instance        Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance        Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   region          String?
   queueUrl        String?
   accessKeyId     String?
@@ -278,7 +287,7 @@ model Sqs {
 model Websocket {
   id         String   @id @default(uuid())
   instanceId String   @unique
-  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance   Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   enabled    Boolean? @default(false)
   events     String[] @default([])
 
@@ -288,11 +297,11 @@ model Websocket {
 model Setting {
   id               String   @id @default(uuid())
   instanceId       String   @unique
-  instance         Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance         Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   rejectCall       Boolean? @default(false)
   msgCall          String?
-  groupsIgnore     Boolean? @default(false) // Ignorar todos os grupos?
-  ignoredGroupJids String[] @default([]) // JIDs específicos de grupo a ignorar
+  groupsIgnore     Boolean? @default(false)
+  ignoredGroupJids String[] @default([])
   alwaysOnline     Boolean? @default(false)
   readMessages     Boolean? @default(false)
   readStatus       Boolean? @default(false)
@@ -305,7 +314,7 @@ model Setting {
 model Pusher {
   id         String   @id @default(uuid())
   instanceId String   @unique
-  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance   Instance @relation(fields: [instanceId], references: [id]) // Relação inversa adicionada
   enabled    Boolean? @default(false)
   appId      String?
   key        String?
@@ -320,24 +329,29 @@ model Pusher {
 // --- Modelos de Integração (Bots) ---
 
 model IntegrationSession {
-  id         String   @id @default(uuid())
-  instanceId String
-  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  botId      String? // ID do bot associado (Dify, EvolutionBot, etc.)
-  remoteJid  String   // JID do usuário/chat
-  sessionId  String?  // ID da sessão específica da integração (ex: conversation_id Dify)
-  pushName   String?  // Nome do usuário
-  status     String?  // Ex: 'opened', 'closed', 'paused', 'error'
-  awaitUser  Boolean? @default(false)
-  type       String?  // Tipo de integração ('dify', 'evolution', 'openai', etc.)
-  context    Json?    // Contexto adicional da sessão (JSON)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id                        String    @id @default(uuid())
+  instanceId                String
+  instance                  Instance  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  botId                     String?   // ID do bot associado
+  remoteJid                 String
+  integrationSpecificSessionId String?   // ID da sessão específica da integração (ex: conversation_id Dify) - Renomeado de sessionId
+  pushName                  String?   // Adicionado
+  status                    String?
+  awaitUser                 Boolean?  @default(false)
+  type                      String?   // 'dify', 'evolution', 'openai', 'typebot', 'flowise'
+  context                   Json?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
-  // Relações explícitas (opcional, Prisma infere via botId)
-  // dify           Dify?         @relation(fields: [botId], references: [id]) // Precisa nomear relação
-  // evolutionBot   EvolutionBot? @relation(fields: [botId], references: [id]) // Precisa nomear relação
-  // ... outros bots
+  // Relações inversas explícitas (opcional)
+  difyBot                   Dify?      @relation(fields: [botId], references: [id]) // Precisa de nome diferente se botId for usado por múltiplos tipos
+  evolutionBot              EvolutionBot? @relation(fields: [botId], references: [id])
+  flowiseBot                Flowise?   @relation(fields: [botId], references: [id])
+  openaiBot                 OpenaiBot? @relation(fields: [botId], references: [id])
+  typebot                   Typebot?   @relation(fields: [botId], references: [id])
+
+  // Relação inversa para Message (1-N)
+  messages                  Message[]
 
   @@index([instanceId, remoteJid, type])
   @@index([instanceId])
@@ -352,11 +366,10 @@ model Dify {
   instance      Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   description   String?
   apiKey        String?
-  apiUrl        String?  // Adicionado
+  apiUrl        String?
   botType       DifyBotType?
   enabled       Boolean? @default(true)
 
-  // Configurações de comportamento
   expire          Int?     @default(0)
   keywordFinish   String?
   delayMessage    Int?     @default(1000)
@@ -369,27 +382,26 @@ model Dify {
   splitMessages   Boolean? @default(false)
   timePerChar     Int?     @default(0)
 
-  // Configurações de Gatilho
   triggerType     TriggerType?
   triggerOperator TriggerOperator?
   triggerValue    String?
 
-  // Relação com Fallback (via DifySetting)
+  // Relação com Fallback
   fallbackSetting DifySetting[] @relation("DifyFallback")
 
-  // Relação com Sessões (REMOVIDA DESTE LADO)
-  // sessions        IntegrationSession[] // Removido @relation(fields: [botId], references: [id])
+  // Relação inversa com Sessões
+  sessions        IntegrationSession[] // Removida a definição explícita com fields/references
 
   @@index([instanceId])
   @@index([enabled])
 }
 
-// Tabela de configurações GLOBAIS para Dify por instância (Fallback)
+// Configurações Globais/Fallback Dify por Instância
 model DifySetting {
   id             String   @id @default(uuid())
   instanceId     String   @unique
-  instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  difyIdFallback String?  @unique // Garante que só há um fallback por setting
+  instance       Instance @relation(fields: [instanceId], references: [id]) // Relação inversa
+  difyIdFallback String?  @unique
   Fallback       Dify?    @relation("DifyFallback", fields: [difyIdFallback], references: [id], onDelete: SetNull)
 
   expire          Int?     @default(0)
@@ -413,12 +425,11 @@ model EvolutionBot {
   instanceId     String
   instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   description    String?
-  apiKey         String? // API Key opcional?
-  apiUrl         String? // Adicionado
+  apiKey         String?
+  apiUrl         String?
   model          String?
   enabled        Boolean? @default(true)
 
-  // Configurações de comportamento
   expire          Int?     @default(0)
   keywordFinish   String?
   delayMessage    Int?     @default(1000)
@@ -431,26 +442,22 @@ model EvolutionBot {
   splitMessages   Boolean? @default(false)
   timePerChar     Int?     @default(0)
 
-  // Configurações de Gatilho
   triggerType     TriggerType?
   triggerOperator TriggerOperator?
   triggerValue    String?
 
-  // Relação com Fallback (via EvolutionBotSetting)
   fallbackSetting EvolutionBotSetting[] @relation("EvolutionBotFallback")
-
-  // Relação com Sessões (REMOVIDA DESTE LADO)
-  // sessions        IntegrationSession[] // Removido
+  sessions        IntegrationSession[] // Relação inversa implícita
 
   @@index([instanceId])
   @@index([enabled])
 }
 
-// Tabela de configurações GLOBAIS para EvolutionBot por instância (Fallback)
+// Configurações Globais/Fallback EvolutionBot por Instância
 model EvolutionBotSetting {
   id              String      @id @default(uuid())
   instanceId      String      @unique
-  instance        Instance    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance        Instance    @relation(fields: [instanceId], references: [id]) // Relação inversa
   botIdFallback   String?     @unique
   Fallback        EvolutionBot? @relation("EvolutionBotFallback", fields: [botIdFallback], references: [id], onDelete: SetNull)
 
@@ -476,10 +483,9 @@ model Flowise {
   instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   description    String?
   url            String
-  apiKey         String? // Renomeado de 'token' para consistência
+  apiKey         String?
   enabled        Boolean? @default(true)
 
-  // Configurações de comportamento
   expire          Int?     @default(0)
   keywordFinish   String?
   delayMessage    Int?     @default(1000)
@@ -492,26 +498,22 @@ model Flowise {
   splitMessages   Boolean? @default(false)
   timePerChar     Int?     @default(0)
 
-  // Configurações de Gatilho
   triggerType     TriggerType?
   triggerOperator TriggerOperator?
   triggerValue    String?
 
-  // Relação com Fallback (via FlowiseSetting)
   fallbackSetting FlowiseSetting[] @relation("FlowiseFallback")
-
-   // Relação com Sessões (REMOVIDA DESTE LADO)
-  // sessions        IntegrationSession[] // Removido
+  sessions        IntegrationSession[] // Relação inversa implícita
 
   @@index([instanceId])
   @@index([enabled])
 }
 
-// Tabela de configurações GLOBAIS para Flowise por instância (Fallback)
+// Configurações Globais/Fallback Flowise por Instância
 model FlowiseSetting {
   id             String   @id @default(uuid())
   instanceId     String   @unique
-  instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance       Instance @relation(fields: [instanceId], references: [id]) // Relação inversa
   botIdFallback  String?  @unique
   Fallback       Flowise? @relation("FlowiseFallback", fields: [botIdFallback], references: [id], onDelete: SetNull)
 
@@ -535,21 +537,19 @@ model OpenaiBot {
   id              String   @id @default(uuid())
   instanceId      String
   instance        Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  name            String // Nome do Bot/Assistente
+  name            String
   description     String?
   enabled         Boolean? @default(true)
 
-  // Configurações específicas OpenAI
   botType         OpenaiBotType?
-  model           String? // Modelo (gpt-4, etc.)
-  assistantId     String? // ID do Assistente OpenAI
+  model           String?
+  assistantId     String?
   maxTokens       Int?
   temperature     Float?
-  prompt          String? // Prompt base (completion)
-  functionUrl     String? // URL para OpenAI Functions
+  prompt          String?
+  functionUrl     String?
   speechToText    Boolean? @default(false)
 
-  // Configurações de comportamento
   expire          Int?     @default(0)
   keywordFinish   String?
   delayMessage    Int?     @default(1000)
@@ -562,45 +562,39 @@ model OpenaiBot {
   splitMessages   Boolean? @default(false)
   timePerChar     Int?     @default(0)
 
-  // Configurações de Gatilho
   triggerType     TriggerType?
   triggerOperator TriggerOperator?
   triggerValue    String?
 
-   // Relação com Credenciais
-  credsId         String? // Manteve opcional, mas deveria ser obrigatório?
+  credsId         String?  // FK para OpenaiCreds
   creds           OpenaiCreds? @relation(fields: [credsId], references: [id])
 
-  // Relação com Fallback (via OpenaiSetting)
   fallbackSetting OpenaiSetting[] @relation("OpenaiBotFallback")
-
-  // Relação com Sessões (REMOVIDA DESTE LADO)
-  // sessions        IntegrationSession[] // Removido
+  sessions        IntegrationSession[] // Relação inversa implícita
 
   @@index([instanceId])
   @@index([enabled])
   @@index([credsId])
 }
 
-// Credenciais OpenAI (podem ser compartilhadas)
+// Credenciais OpenAI
 model OpenaiCreds {
   id         String      @id @default(uuid())
-  name       String?     // Nome da credencial
-  apiKey     String      // API Key da OpenAI
+  name       String?
+  apiKey     String      @unique // API Key deve ser única? Ou permitir a mesma chave em vários registros? Removido unique por precaução.
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
-  openaiBots OpenaiBot[] // Bots que usam esta credencial
+  openaiBots OpenaiBot[] // Relação inversa
 }
 
-// Tabela de configurações GLOBAIS para OpenaiBot por instância (Fallback)
+// Configurações Globais/Fallback OpenAI por Instância
 model OpenaiSetting {
    id             String     @id @default(uuid())
    instanceId     String     @unique
-   instance       Instance   @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+   instance       Instance   @relation(fields: [instanceId], references: [id]) // Relação inversa
    botIdFallback  String?    @unique
    Fallback       OpenaiBot? @relation("OpenaiBotFallback", fields: [botIdFallback], references: [id], onDelete: SetNull)
 
-   // Configurações padrão que podem ser herdadas pelos bots OpenaiBot desta instância
    expire          Int?     @default(0)
    keywordFinish   String?
    delayMessage    Int?     @default(1000)
@@ -612,11 +606,11 @@ model OpenaiSetting {
    ignoreJids      String[] @default([])
    splitMessages   Boolean? @default(false)
    timePerChar     Int?     @default(0)
-   speechToText    Boolean? @default(false) // Pode definir padrão speechToText aqui
-   model           String?  // Modelo padrão
-   maxTokens       Int?     // Tokens padrão
-   temperature     Float?   // Temperatura padrão
-   prompt          String?  // Prompt padrão
+   speechToText    Boolean? @default(false)
+   model           String?
+   maxTokens       Int?
+   temperature     Float?
+   prompt          String?
 
    @@index([instanceId])
 }
@@ -627,11 +621,10 @@ model Typebot {
   instanceId     String
   instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   description    String?
-  url            String // URL pública do fluxo
-  typebot        String? // Nome/ID interno do fluxo Typebot
+  url            String
+  typebot        String? // Nome/ID do fluxo
   enabled        Boolean? @default(true)
 
-  // Configurações de comportamento
   expire          Int?     @default(0)
   keywordFinish   String?
   delayMessage    Int?     @default(1000)
@@ -644,26 +637,22 @@ model Typebot {
   splitMessages   Boolean? @default(false)
   timePerChar     Int?     @default(0)
 
-  // Configurações de Gatilho
   triggerType     TriggerType?
   triggerOperator TriggerOperator?
   triggerValue    String?
 
-  // Relação com Fallback (via TypebotSetting)
   fallbackSetting TypebotSetting[] @relation("TypebotFallback")
-
-   // Relação com Sessões (REMOVIDA DESTE LADO)
-  // sessions        IntegrationSession[] // Removido
+  sessions        IntegrationSession[] // Relação inversa implícita
 
   @@index([instanceId])
   @@index([enabled])
 }
 
-// Tabela de configurações GLOBAIS para Typebot por instância (Fallback)
+// Configurações Globais/Fallback Typebot por Instância
 model TypebotSetting {
   id             String   @id @default(uuid())
   instanceId     String   @unique
-  instance       Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  instance       Instance @relation(fields: [instanceId], references: [id]) // Relação inversa
   botIdFallback  String?  @unique
   Fallback       Typebot? @relation("TypebotFallback", fields: [botIdFallback], references: [id], onDelete: SetNull)
 
@@ -688,12 +677,11 @@ model Label {
   id            String   @id @default(uuid())
   instanceId    String
   instance      Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  labelId       String // ID da label no WhatsApp
+  labelId       String   // ID da label no WhatsApp
   name          String
   color         String?
   predefinedId  String?
 
-  // Garante que labelId seja único por instância
   @@unique([instanceId, labelId])
   @@index([instanceId])
 }
@@ -715,12 +703,13 @@ model Media {
   id            String   @id @default(uuid())
   instanceId    String
   instance      Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  messageId     String?  // ID da mensagem associada (opcional)
-  message       Message? @relation(fields: [messageId], references: [id], onDelete: SetNull) // Relação opcional
-  keyId         String?  // ID da chave Baileys (pode não ser único se houver erro/retry)
+  // Relação com Message movida para Message
+  // messageId     String?
+  // message       Message? ...
+  keyId         String?  // ID da chave Baileys da mensagem original
   remoteJid     String?
   mediaKey      String?
-  url           String?  // URL (S3 ou externa)
+  url           String?
   directPath    String?
   mimetype      String
   fileEncSha256 String?
@@ -731,18 +720,18 @@ model Media {
 
   @@index([instanceId])
   @@index([keyId])
-  @@index([messageId])
+  // @@index([messageId]) // Remover se messageId for removido
 }
 
 model Template {
   id         String   @id @default(uuid())
   instanceId String
   instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
-  name       String   // Nome do template na Meta
-  templateId String?  @unique // ID do template na Meta
+  name       String
+  templateId String?  @unique
   language   String
   category   String?
-  components Json?    // Estrutura JSON dos componentes
+  components Json?
   status     String?
   webhookUrl String?
   createdAt  DateTime @default(now())
@@ -753,13 +742,14 @@ model Template {
 }
 
 model IsOnWhatsapp {
-  id        String   @id @default(uuid())
-  remoteJid String   @unique
-  isOnWa    Boolean
-  checkedAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  remoteJid  String   @unique
+  isOnWa     Boolean
+  checkedAt  DateTime @default(now())
+  instanceId String? // A qual instância pertence esta verificação? (Opcional)
+  instance   Instance? @relation(fields: [instanceId], references: [id], onDelete: SetNull) // Relação inversa adicionada
 
   @@index([remoteJid])
   @@index([checkedAt])
+  @@index([instanceId]) // Adicionado índice
 }
-
-// -------------------------------------------------------------
