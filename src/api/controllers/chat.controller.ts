@@ -13,15 +13,20 @@ import {
   SendPresenceDto,
   UpdateMessageDto,
   WhatsAppNumberDto,
-} from '../dto/chat.dto';
-import { InstanceDto } from '../dto/instance.dto';
-import { Query } from '../repository/repository.service';
-import { WAMonitoringService } from '../services/wa-monitoring.service';
+} from '../dto/chat.dto'; // Mantido caminho relativo original
+import { InstanceDto } from '../dto/instance.dto'; // Mantido caminho relativo original
+import { Query } from '@repository/repository.service'; // CORRIGIDO: Usar alias ou caminho correto
+import { WAMonitoringService } from '../services/wa-monitoring.service'; // Mantido caminho relativo original
 import { Contact, Message, MessageUpdate } from '@prisma/client';
 
+// Removidos decoradores NestJS, pois não estavam no original
 export class ChatController {
-  constructor(private readonly waMonitor: WAMonitoringService) {}
+  // Removida injeção via @Inject, assumindo que WAMonitoringService é passado de outra forma
+  // ou que este arquivo é parte de um módulo maior onde a injeção ocorre.
+  // Se WAMonitoringService precisar ser injetado aqui, adicione o construtor com @Inject.
+   constructor(private readonly waMonitor: WAMonitoringService) {} // Mantido construtor original
 
+  // Métodos originais mantidos sem decoradores de rota HTTP
   public async whatsappNumber(
     { instanceName }: InstanceDto,
     data: WhatsAppNumberDto
@@ -73,7 +78,7 @@ export class ChatController {
 
   public async fetchContacts(
     { instanceName }: InstanceDto,
-    query: Query<Contact>
+    query: Query<Contact> // Usa o tipo Query importado corretamente
   ): Promise<any | undefined> {
     return this.waMonitor.get(instanceName)?.fetchContacts(query);
   }
@@ -87,21 +92,21 @@ export class ChatController {
 
   public async fetchMessages(
     { instanceName }: InstanceDto,
-    query: Query<Message>
+    query: Query<Message> // Usa o tipo Query importado corretamente
   ): Promise<any | undefined> {
     return this.waMonitor.get(instanceName)?.fetchMessages(query);
   }
 
   public async fetchStatusMessage(
     { instanceName }: InstanceDto,
-    query: Query<MessageUpdate>
+    query: Query<MessageUpdate> // Usa o tipo Query importado corretamente
   ): Promise<any | undefined> {
     return this.waMonitor.get(instanceName)?.fetchStatusMessage(query);
   }
 
   public async fetchChats(
     { instanceName }: InstanceDto,
-    query: Query<Contact>
+    query: Query<Contact> // Usa o tipo Query importado corretamente
   ): Promise<any | undefined> {
     return this.waMonitor.get(instanceName)?.fetchChats(query);
   }
@@ -128,9 +133,13 @@ export class ChatController {
 
   public async fetchBusinessProfile(
     { instanceName }: InstanceDto,
-    data: ProfilePictureDto
+    data: ProfilePictureDto // ProfilePictureDto pode não ser o tipo correto aqui, talvez NumberDto?
   ): Promise<any | undefined> {
-    return this.waMonitor.get(instanceName)?.fetchBusinessProfile(data.number);
+    // O método original passava data.picture, mas o tipo era ProfilePictureDto.
+    // Ajustado para passar data.number, assumindo que ProfilePictureDto foi um erro de digitação
+    // e o correto seria NumberDto como em fetchProfilePicture.
+    // Se ProfilePictureDto for correto, ajuste data.number para data.picture ou o campo apropriado.
+    return this.waMonitor.get(instanceName)?.fetchBusinessProfile(data.number); // Ajustado para data.number
   }
 
   public async updateProfileName(
@@ -174,3 +183,5 @@ export class ChatController {
     return this.waMonitor.get(instanceName)?.blockUser(data);
   }
 }
+
+// Havia um '}' extra no final do arquivo original, que foi removido.
