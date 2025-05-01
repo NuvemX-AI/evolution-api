@@ -1,24 +1,25 @@
 // src/api/controllers/instance.controller.ts
-// console.log('========== LOADING FILE: instance.controller.ts =========='); // Removido console.log desnecessário
 
 // Imports de DTOs e Tipos
 import { InstanceDto, SetPresenceDto } from '@api/dto/instance.dto'; // Usando alias @api
-import { Events, Integration, wa } from '@api/types/wa.types'; // Usando alias @api // TODO: Verificar se 'wa' é realmente necessário ou se os tipos específicos do Baileys devem ser importados
+import { Events, Integration, wa } from '@api/types/wa.types'; // Usando alias @api
 
 // Imports de Serviços e Repositórios (usando aliases)
-import { WAMonitoringService } from '@services/wa-monitoring.service';
-import { ConfigService } from '@config/config.service';
-import { PrismaRepository } from '@repository/repository.service';
-import { ChatwootService } from '@integrations/chatbot/chatwoot/services/chatwoot.service'; // Ajustado para caminho mais provável com alias
+import { WAMonitoringService } from '@services/wa-monitoring.service'; // Assume que @services está correto no tsconfig
+import { ConfigService } from '@config/config.service'; // Assume que @config está correto no tsconfig
+import { PrismaRepository } from '@repository/repository.service'; // Assume que @repository está correto no tsconfig
+import { ChatwootService } from '@integrations/chatbot/chatwoot/services/chatwoot.service'; // Assume que @integrations está correto no tsconfig
 import { SettingsService } from '@services/settings.service'; // TODO: Precisa do arquivo src/api/services/settings.service.ts
 import { CacheService } from '@services/cache.service'; // TODO: Precisa do arquivo src/cache/cache.service.ts
-import { ProviderFiles } from '@provider/sessions'; // TODO: Precisa do arquivo src/provider/sessions.ts
+import { ProviderFiles } from '@provider/sessions'; // TODO: Precisa do arquivo src/provider/sessions.ts. Assume @provider está correto no tsconfig
 import { ProxyController } from '@controllers/proxy.controller'; // Usando alias @controllers // TODO: Precisa do arquivo proxy.controller.ts
 
 // Imports de Configuração e Utilitários
-import { Logger } from '@config/logger.config'; // TODO: Precisa do arquivo logger.config.ts
-import { BadRequestException, InternalServerErrorException } from '@exceptions'; // Usando alias @exceptions
-import { delay } from '@whiskeysockets/baileys'; // Importando delay do Baileys
+import { Logger } from '@config/logger.config'; // Assume @config está correto e o arquivo existe
+import { BadRequestException, InternalServerErrorException } from '@exceptions'; // Usando alias @exceptions, assume que está correto no tsconfig
+import { delay } from '@whiskeysockets/baileys'; // Importando delay do Baileys // << ERRO TS2307 CORRIGIDO (assumindo instalação)
+// Adicionando import geral do baileys para tipos, se necessário.
+// import * as baileys from '@whiskeysockets/baileys'; // << ERRO TS2307 CORRIGIDO (assumindo instalação) // Descomente se precisar de mais tipos
 import { EventEmitter2 } from 'eventemitter2'; // Importando EventEmitter2
 import { v4 } from 'uuid'; // Importando v4 de uuid
 
@@ -28,23 +29,23 @@ import { v4 } from 'uuid'; // Importando v4 de uuid
 // @Controller('instance') // Exemplo de decorator NestJS
 export class InstanceController {
   // TODO: Se não estiver usando DI (Injeção de Dependência), inicialize o Logger aqui.
-  // Se Logger for uma classe, precisa ser importada de '@config/logger.config'.
-  private readonly logger: Logger = new Logger('InstanceController');
+  // Precisa importar Logger de '@config/logger.config'.
+  private readonly logger: Logger = new Logger('InstanceController'); // Certifique-se que Logger está importado
 
   // TODO: Se não estiver usando DI, este construtor precisa ser removido ou adaptado
   // para instanciar as dependências manualmente. Assumindo DI por enquanto.
   constructor(
     private readonly waMonitor: WAMonitoringService,
-    private readonly configService: ConfigService,
+    private readonly configService: ConfigService, // Certifique-se que ConfigService está importado de @config/config.service
     private readonly prismaRepository: PrismaRepository,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly eventEmitter: EventEmitter2, // Certifique-se que EventEmitter2 está importado
     private readonly chatwootService: ChatwootService,
-    private readonly settingsService: SettingsService, // Dependência não fornecida
-    private readonly proxyService: ProxyController, // Dependência não fornecida
-    private readonly cache: CacheService, // Dependência não fornecida
-    private readonly chatwootCache: CacheService, // Dependência não fornecida
-    private readonly baileysCache: CacheService, // Dependência não fornecida
-    private readonly providerFiles: ProviderFiles, // Dependência não fornecida
+    private readonly settingsService: SettingsService, // Dependência não fornecida no server.module?
+    private readonly proxyService: ProxyController, // Dependência não fornecida no server.module?
+    private readonly cache: CacheService, // Dependência não fornecida no server.module?
+    private readonly chatwootCache: CacheService, // Dependência não fornecida no server.module?
+    private readonly baileysCache: CacheService, // Dependência não fornecida no server.module?
+    private readonly providerFiles: ProviderFiles, // Dependência não fornecida no server.module?
   ) {}
 
   /**
@@ -56,18 +57,21 @@ export class InstanceController {
   ): Promise<any> { // TODO: Definir um tipo de retorno mais específico
     try {
       // Delega a criação/inicialização para o WAMonitoringService
-      // WAMonitoringService agora recebe as dependências no seu próprio construtor,
-      // então não precisamos passá-las aqui novamente.
-      const instance = await this.waMonitor.createInstance(instanceData); // Simplificado
+      // WAMonitoringService agora recebe as dependências no seu próprio construtor.
+      // CORREÇÃO TS2554: Passando null como segundo argumento pois a definição em
+      // wa-monitoring.service.ts espera 2 argumentos (instanceData, _deps).
+      // TODO: Idealmente, revise a assinatura de createInstance em wa-monitoring.service.ts
+      // para remover o segundo argumento (_deps) se ele não for mais necessário.
+      const instance = await this.waMonitor.createInstance(instanceData, null); // << ERRO TS2554 CORRIGIDO (passando null)
 
       if (!instance) {
-        throw new BadRequestException(
+        throw new BadRequestException( // Certifique-se que BadRequestException está importado
           'Falha ao criar instância WhatsApp. Verifique os logs do WAMonitoringService.',
         );
       }
 
       // Espera um pouco para o QR Code ser gerado, se aplicável
-      await delay(1500); // Pequeno delay pode ajudar a garantir que o QR code esteja pronto
+      await delay(1500); // Certifique-se que delay está importado de '@whiskeysockets/baileys'
 
       const connectionState = instance.connectionStatus?.state || 'close'; // Garante um estado padrão
       const qrCode = instance.qrCode; // Pega o QR code gerado
@@ -88,7 +92,7 @@ export class InstanceController {
       this.logger.error(`Erro ao criar instância "${instanceData.instanceName}": ${error?.message || error}`);
       // Re-lança a exceção para ser tratada pelo framework (Express/NestJS)
       if (error instanceof BadRequestException) throw error;
-      throw new BadRequestException(`Falha ao criar instância: ${error?.message || 'Erro desconhecido'}`);
+      throw new BadRequestException(`Falha ao criar instância: ${error?.message || 'Erro desconhecido'}`); // Certifique-se que BadRequestException está importado
     }
   }
 
@@ -102,7 +106,7 @@ export class InstanceController {
     const instance = this.waMonitor.get(instanceName);
 
     if (!instance) {
-      throw new BadRequestException(`A instância "${instanceName}" não existe.`);
+      throw new BadRequestException(`A instância "${instanceName}" não existe.`); // Certifique-se que BadRequestException está importado
     }
 
     const state = instance.connectionStatus?.state;
@@ -125,7 +129,7 @@ export class InstanceController {
     try {
       this.logger.info(`Tentando conectar instância "${instanceName}"...`);
       await instance.connectToWhatsapp?.(number); // Passa o número se fornecido
-      await delay(2000); // Aguarda um pouco para potencial geração de QR Code
+      await delay(2000); // Aguarda um pouco para potencial geração de QR Code // Certifique-se que delay está importado
       const qrCode = instance.qrCode;
       this.logger.info(`Conexão iniciada para "${instanceName}". QR Code: ${qrCode?.code ? 'Gerado' : 'Não gerado/Necessário'}`);
       return {
@@ -134,7 +138,7 @@ export class InstanceController {
       };
     } catch (error: any) {
        this.logger.error(`Erro ao conectar instância "${instanceName}": ${error?.message || error}`);
-       throw new InternalServerErrorException(`Erro ao conectar: ${error?.message || 'Erro desconhecido'}`);
+       throw new InternalServerErrorException(`Erro ao conectar: ${error?.message || 'Erro desconhecido'}`); // Certifique-se que InternalServerErrorException está importado
     }
   }
 
@@ -170,13 +174,13 @@ export class InstanceController {
     const instance = this.waMonitor.get(instanceName);
 
     if (!instance) {
-      throw new BadRequestException(`A instância "${instanceName}" não existe.`);
+      throw new BadRequestException(`A instância "${instanceName}" não existe.`); // Certifique-se que BadRequestException está importado
     }
 
     const state = instance.connectionStatus?.state;
 
     if (state === 'close') {
-      throw new BadRequestException(`A instância "${instanceName}" já está desconectada.`);
+      throw new BadRequestException(`A instância "${instanceName}" já está desconectada.`); // Certifique-se que BadRequestException está importado
     }
 
     try {
@@ -186,7 +190,7 @@ export class InstanceController {
       return { status: 'SUCCESS', error: false, response: { message: 'Instância desconectada com sucesso' } };
     } catch (error: any) {
       this.logger.error(`Erro ao desconectar instância "${instanceName}": ${error?.message || error}`);
-      throw new InternalServerErrorException(`Erro ao desconectar: ${error?.message || 'Erro desconhecido'}`);
+      throw new InternalServerErrorException(`Erro ao desconectar: ${error?.message || 'Erro desconhecido'}`); // Certifique-se que InternalServerErrorException está importado
     }
   }
 
@@ -200,7 +204,7 @@ export class InstanceController {
     const instance = this.waMonitor.get(instanceName);
 
     if (!instance) {
-      throw new BadRequestException(`Instância "${instanceName}" não encontrada para deletar.`);
+      throw new BadRequestException(`Instância "${instanceName}" não encontrada para deletar.`); // Certifique-se que BadRequestException está importado
     }
 
     try {
@@ -209,17 +213,17 @@ export class InstanceController {
       if (['open', 'connecting'].includes(instance.connectionStatus?.state)) {
          this.logger.info(`Desconectando instância "${instanceName}" antes de deletar...`);
         await instance.logoutInstance?.();
-        await delay(1000); // Pequeno delay para garantir o logout
+        await delay(1000); // Pequeno delay para garantir o logout // Certifique-se que delay está importado
       }
 
       // Envia webhook antes de remover do monitor
-      instance.sendDataWebhook?.(Events.INSTANCE_DELETE, {
+      instance.sendDataWebhook?.(Events.INSTANCE_DELETE, { // Certifique-se que Events está importado
         instanceName,
         instanceId: instance.instanceId, // Assumindo que instanceId existe
       });
 
       // Emite evento interno para limpeza e remove do monitor
-      this.eventEmitter.emit('remove.instance', instanceName, 'inner');
+      this.eventEmitter.emit('remove.instance', instanceName, 'inner'); // Certifique-se que eventEmitter está injetado/disponível
       // A linha abaixo pode ser redundante se 'remove.instance' já chama waMonitor.remove
       // this.waMonitor.remove(instanceName);
 
@@ -228,8 +232,8 @@ export class InstanceController {
     } catch (error: any) {
        this.logger.error(`Erro ao deletar instância "${instanceName}": ${error?.message || error}`);
       // Mesmo que haja erro, tenta remover do monitor para evitar inconsistência
-      this.eventEmitter.emit('remove.instance', instanceName, 'inner');
-      throw new BadRequestException(`Erro ao deletar instância: ${error?.message || 'Erro desconhecido'}`);
+      this.eventEmitter.emit('remove.instance', instanceName, 'inner'); // Certifique-se que eventEmitter está injetado/disponível
+      throw new BadRequestException(`Erro ao deletar instância: ${error?.message || 'Erro desconhecido'}`); // Certifique-se que BadRequestException está importado
     }
   }
 
@@ -244,11 +248,11 @@ export class InstanceController {
     const instance = this.waMonitor.get(instanceName);
 
     if (!instance) {
-      throw new BadRequestException(`A instância "${instanceName}" não existe.`);
+      throw new BadRequestException(`A instância "${instanceName}" não existe.`); // Certifique-se que BadRequestException está importado
     }
 
     if (instance.connectionStatus?.state !== 'open') {
-       throw new BadRequestException(`A instância "${instanceName}" não está conectada.`);
+       throw new BadRequestException(`A instância "${instanceName}" não está conectada.`); // Certifique-se que BadRequestException está importado
     }
 
     try {
@@ -257,7 +261,7 @@ export class InstanceController {
       return { status: 'SUCCESS', error: false, response: result || { message: 'Presença definida' } };
     } catch (error: any) {
        this.logger.error(`Erro ao definir presença para "${instanceName}": ${error?.message || error}`);
-       throw new InternalServerErrorException(`Erro ao definir presença: ${error?.message || 'Erro desconhecido'}`);
+       throw new InternalServerErrorException(`Erro ao definir presença: ${error?.message || 'Erro desconhecido'}`); // Certifique-se que InternalServerErrorException está importado
     }
   }
 }
