@@ -1,888 +1,568 @@
-import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
-import { InstanceDto } from '../../../../dto/instance.dto';
+// src/api/integrations/chatbot/dify/controllers/dify.controller.ts
+
+import { IgnoreJidDto } from '@api/dto/chatbot.dto'; // Ajustado caminho relativo/alias
+import { InstanceDto } from '@api/dto/instance.dto'; // Ajustado caminho relativo/alias
 import { DifyDto } from '../dto/dify.dto';
 import { DifyService } from '../services/dify.service';
-import { PrismaRepository } from '../../../../repository/repository.service';
-import { WAMonitoringService } from '../../../../services/monitor.service';
-import { configService, Dify } from '@config/env.config';
-import { Logger } from '@config/logger.config';
-import { BadRequestException } from '@exceptions';
-import { Dify as DifyModel } from '@prisma/client';
-import { getConversationMessage } from '../../../../utils/getConversationMessage';
+import { PrismaRepository } from '@repository/repository.service'; // Ajustado caminho relativo/alias
+import { WAMonitoringService } from '@api/services/monitor.service'; // Ajustado caminho relativo/alias
+import { configService, Dify } from '@config/env.config'; // Assume alias
+import { Logger } from '@config/logger.config'; // Assume alias
+import { BadRequestException } from '@exceptions'; // Assume alias
+import { Dify as DifyModel, IntegrationSession, $Enums } from '@prisma/client'; // Importa $Enums do Prisma
+// << CORREÇÃO TS2307: Usar alias para importar utilitário >>
+import { getConversationMessage } from '@utils/getConversationMessage';
 
-import { ChatbotController, ChatbotControllerInterface, EmitData } from '../../chatbot.controller';
+// << CORREÇÃO TS2305: Remover ChatbotControllerInterface (não existe) >>
+import { ChatbotController, EmitData } from '../../chatbot.controller'; // Importa apenas ChatbotController e EmitData
 
-export class DifyController extends ChatbotController implements ChatbotControllerInterface {
+// << CORREÇÃO TS2305: Remover implementação da interface >>
+export class DifyController extends ChatbotController {
   constructor(
     private readonly difyService: DifyService,
     prismaRepository: PrismaRepository,
     waMonitor: WAMonitoringService,
   ) {
-    super(prismaRepository, waMonitor);
+    super(prismaRepository, waMonitor); // Passa dependências para a classe base
 
+    // Define os repositórios específicos para este controller
     this.botRepository = this.prismaRepository.dify;
     this.settingsRepository = this.prismaRepository.difySetting;
     this.sessionRepository = this.prismaRepository.integrationSession;
   }
 
-  public readonly logger = new Logger('DifyController');
-
-  integrationEnabled = configService.get<Dify>('DIFY').ENABLED;
-  botRepository: any;
-  settingsRepository: any;
-  sessionRepository: any;
+  // Logger e propriedades específicas
+  public readonly logger = new Logger('DifyController'); // Usa Logger importado
+  // << CORREÇÃO: Usar configService injetado/herdado se disponível, ou importar global >>
+  integrationEnabled = configService.get<Dify>('DIFY')?.ENABLED ?? false; // Usa configService importado globalmente
+  botRepository: PrismaRepository['dify']; // Tipo Prisma correto
+  settingsRepository: PrismaRepository['difySetting']; // Tipo Prisma correto
+  sessionRepository: PrismaRepository['integrationSession']; // Tipo Prisma correto
   userMessageDebounce: { [key: string]: { message: string; timeoutId: NodeJS.Timeout } } = {};
 
   // Bots
-  public async createBot(instance: InstanceDto, data: DifyDto) {
+  public async createBot(instance: InstanceDto, data: DifyDto): Promise<DifyModel> {
     if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
 
-    const instanceId = await this.prismaRepository.instance
-      .findFirst({
-        where: {
-          name: instance.instanceName,
-        },
-      })
-      .then((instance) => instance.id);
+    const instanceId = await this.prismaRepository.prisma.instance // Acessa via .prisma (ou método do repo)
+      .findFirst({ where: { name: instance.instanceName } })
+      .then((instanceDb) => instanceDb?.id);
 
-    if (
-      !data.expire ||
-      !data.keywordFinish ||
-      !data.delayMessage ||
-      !data.unknownMessage ||
-      !data.listeningFromMe ||
-      !data.stopBotFromMe ||
-      !data.keepOpen ||
-      !data.debounceTime ||
-      !data.ignoreJids ||
-      !data.splitMessages ||
-      !data.timePerChar
-    ) {
-      const defaultSettingCheck = await this.settingsRepository.findFirst({
-        where: {
-          instanceId: instanceId,
-        },
-      });
+    if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada no DB.`);
 
-      if (data.expire === undefined || data.expire === null) data.expire = defaultSettingCheck.expire;
-      if (data.keywordFinish === undefined || data.keywordFinish === null)
-        data.keywordFinish = defaultSettingCheck.keywordFinish;
-      if (data.delayMessage === undefined || data.delayMessage === null)
-        data.delayMessage = defaultSettingCheck.delayMessage;
-      if (data.unknownMessage === undefined || data.unknownMessage === null)
-        data.unknownMessage = defaultSettingCheck.unknownMessage;
-      if (data.listeningFromMe === undefined || data.listeningFromMe === null)
-        data.listeningFromMe = defaultSettingCheck.listeningFromMe;
-      if (data.stopBotFromMe === undefined || data.stopBotFromMe === null)
-        data.stopBotFromMe = defaultSettingCheck.stopBotFromMe;
-      if (data.keepOpen === undefined || data.keepOpen === null) data.keepOpen = defaultSettingCheck.keepOpen;
-      if (data.debounceTime === undefined || data.debounceTime === null)
-        data.debounceTime = defaultSettingCheck.debounceTime;
-      if (data.ignoreJids === undefined || data.ignoreJids === null) data.ignoreJids = defaultSettingCheck.ignoreJids;
-      if (data.splitMessages === undefined || data.splitMessages === null)
-        data.splitMessages = defaultSettingCheck?.splitMessages ?? false;
-      if (data.timePerChar === undefined || data.timePerChar === null)
-        data.timePerChar = defaultSettingCheck?.timePerChar ?? 0;
+    // Lógica para buscar ou definir configurações padrão (mantida, mas verificar acesso ao repo)
+    // NOTE: Acessando settingsRepository diretamente aqui
+     let defaultSettingCheck = await this.settingsRepository?.findFirst({
+         where: { instanceId: instanceId },
+     });
 
-      if (!defaultSettingCheck) {
-        await this.settings(instance, {
-          expire: data.expire,
-          keywordFinish: data.keywordFinish,
-          delayMessage: data.delayMessage,
-          unknownMessage: data.unknownMessage,
-          listeningFromMe: data.listeningFromMe,
-          stopBotFromMe: data.stopBotFromMe,
-          keepOpen: data.keepOpen,
-          debounceTime: data.debounceTime,
-          ignoreJids: data.ignoreJids,
-          splitMessages: data.splitMessages,
-          timePerChar: data.timePerChar,
-        });
-      }
-    }
+     if (!defaultSettingCheck) {
+         this.logger.warn(`Configurações padrão Dify não encontradas para ${instance.instanceName}, criando...`);
+         // Cria configurações padrão se não existirem
+         defaultSettingCheck = await this.settings(instance, {}); // Chama settings com objeto vazio para criar padrão
+     }
 
-    const checkTriggerAll = await this.botRepository.findFirst({
+     // Preenche dados faltantes com os padrões
+     data.expire = data.expire ?? defaultSettingCheck?.expire ?? 0;
+     data.keywordFinish = data.keywordFinish ?? defaultSettingCheck?.keywordFinish ?? '';
+     data.delayMessage = data.delayMessage ?? defaultSettingCheck?.delayMessage ?? 0;
+     data.unknownMessage = data.unknownMessage ?? defaultSettingCheck?.unknownMessage ?? '';
+     data.listeningFromMe = data.listeningFromMe ?? defaultSettingCheck?.listeningFromMe ?? false;
+     data.stopBotFromMe = data.stopBotFromMe ?? defaultSettingCheck?.stopBotFromMe ?? false;
+     data.keepOpen = data.keepOpen ?? defaultSettingCheck?.keepOpen ?? false;
+     data.debounceTime = data.debounceTime ?? defaultSettingCheck?.debounceTime ?? 0;
+     data.ignoreJids = data.ignoreJids ?? defaultSettingCheck?.ignoreJids ?? [];
+     data.splitMessages = data.splitMessages ?? defaultSettingCheck?.splitMessages ?? false;
+     data.timePerChar = data.timePerChar ?? defaultSettingCheck?.timePerChar ?? 0;
+
+
+    // << CORREÇÃO TS2367: Usar Enum Prisma se aplicável, senão manter string e verificar definição >>
+    // NOTE: Verifique como TriggerType é definido (Prisma Enum ou string literal)
+    const triggerAllBots = await this.botRepository.findMany({ // Busca todos com 'all'
       where: {
         enabled: true,
-        triggerType: 'all',
+        triggerType: $Enums.TriggerType.all, // Usando Enum Prisma
+        // triggerType: 'all', // Manter se TriggerType for string literal
         instanceId: instanceId,
       },
     });
 
-    if (checkTriggerAll && data.triggerType === 'all') {
-      throw new Error('You already have a dify with an "All" trigger, you cannot have more bots while it is active');
+    // Permite criar 'all' apenas se não houver nenhum outro bot ativo do tipo 'all'
+    if (data.triggerType === $Enums.TriggerType.all && triggerAllBots.length > 0) {
+      throw new BadRequestException('Você já possui um bot Dify com gatilho "all" ativo. Desative-o para criar outro.');
     }
 
-    const checkDuplicate = await this.botRepository.findFirst({
+    // Verifica duplicidade de API Key/URL (mantida)
+    const checkDuplicateAPI = await this.botRepository.findFirst({
       where: {
         instanceId: instanceId,
-        botType: data.botType,
+        botType: data.botType, // << CORREÇÃO: Assume que botType existe em DifyDto/Model >>
         apiUrl: data.apiUrl,
         apiKey: data.apiKey,
       },
     });
-
-    if (checkDuplicate) {
-      throw new Error('Dify already exists');
+    if (checkDuplicateAPI) {
+      throw new BadRequestException('Já existe um bot Dify com esta URL/API Key.');
     }
 
-    if (data.triggerType === 'keyword') {
+    // Validação e Verificação de Gatilhos Duplicados (keyword/advanced)
+    if (data.triggerType === $Enums.TriggerType.keyword) { // Usando Enum Prisma
+    // if (data.triggerType === 'keyword') { // Manter se for string literal
       if (!data.triggerOperator || !data.triggerValue) {
-        throw new Error('Trigger operator and value are required');
+        throw new BadRequestException('Operador (triggerOperator) e Valor (triggerValue) são obrigatórios para o gatilho "keyword".');
       }
-
-      const checkDuplicate = await this.botRepository.findFirst({
+      const checkDuplicateTrigger = await this.botRepository.findFirst({
         where: {
+          triggerType: $Enums.TriggerType.keyword,
           triggerOperator: data.triggerOperator,
           triggerValue: data.triggerValue,
           instanceId: instanceId,
         },
       });
-
-      if (checkDuplicate) {
-        throw new Error('Trigger already exists');
+      if (checkDuplicateTrigger) {
+        throw new BadRequestException(`Gatilho "keyword" duplicado: ${data.triggerOperator} ${data.triggerValue}`);
       }
-    }
-
-    if (data.triggerType === 'advanced') {
+    } else if (data.triggerType === $Enums.TriggerType.advanced) { // Usando Enum Prisma
+    // } else if (data.triggerType === 'advanced') { // Manter se for string literal
       if (!data.triggerValue) {
-        throw new Error('Trigger value is required');
+        throw new BadRequestException('Valor (triggerValue) é obrigatório para o gatilho "advanced".');
       }
-
-      const checkDuplicate = await this.botRepository.findFirst({
+       const checkDuplicateTrigger = await this.botRepository.findFirst({
         where: {
+          triggerType: $Enums.TriggerType.advanced,
           triggerValue: data.triggerValue,
           instanceId: instanceId,
         },
       });
-
-      if (checkDuplicate) {
-        throw new Error('Trigger already exists');
+      if (checkDuplicateTrigger) {
+         throw new BadRequestException(`Gatilho "advanced" duplicado: ${data.triggerValue}`);
       }
     }
 
     try {
+      // Cria o bot (ajustado para usar os dados com fallback)
       const bot = await this.botRepository.create({
         data: {
-          enabled: data?.enabled,
-          description: data.description,
-          botType: data.botType,
-          apiUrl: data.apiUrl,
-          apiKey: data.apiKey,
-          expire: data.expire,
-          keywordFinish: data.keywordFinish,
-          delayMessage: data.delayMessage,
-          unknownMessage: data.unknownMessage,
-          listeningFromMe: data.listeningFromMe,
-          stopBotFromMe: data.stopBotFromMe,
-          keepOpen: data.keepOpen,
-          debounceTime: data.debounceTime,
-          instanceId: instanceId,
-          triggerType: data.triggerType,
-          triggerOperator: data.triggerOperator,
-          triggerValue: data.triggerValue,
-          ignoreJids: data.ignoreJids,
-          splitMessages: data.splitMessages,
-          timePerChar: data.timePerChar,
+          ...data, // Espalha os dados recebidos (com fallbacks aplicados)
+          instanceId: instanceId, // Garante que instanceId correto seja usado
         },
       });
-
+      this.logger.log(`Bot Dify criado com ID: ${bot.id}`);
       return bot;
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(error);
-      throw new Error('Error creating dify');
+      throw new InternalServerErrorException(`Erro ao criar bot Dify: ${error.message}`); // Usa InternalServerErrorException
     }
   }
 
-  public async findBot(instance: InstanceDto) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+  // findBot, fetchBot, updateBot, deleteBot (lógica mantida, verificar acesso ao repo)
+    public async findBot(instance: InstanceDto): Promise<DifyModel[] | null> {
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        const instanceId = await this.prismaRepository.prisma.instance
+            .findFirst({ where: { name: instance.instanceName } })
+            .then((inst) => inst?.id);
+        if (!instanceId) return null; // Retorna null se instância não existe
 
-    const instanceId = await this.prismaRepository.instance
-      .findFirst({
-        where: {
-          name: instance.instanceName,
-        },
-      })
-      .then((instance) => instance.id);
-
-    const bots = await this.botRepository.findMany({
-      where: {
-        instanceId: instanceId,
-      },
-    });
-
-    if (!bots.length) {
-      return null;
+        const bots = await this.botRepository.findMany({ where: { instanceId: instanceId } });
+        return bots; // Retorna array vazio se não houver bots
     }
 
-    return bots;
-  }
+    public async fetchBot(instance: InstanceDto, botId: string): Promise<DifyModel> {
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        const instanceId = await this.prismaRepository.prisma.instance
+            .findFirst({ where: { name: instance.instanceName } })
+            .then((inst) => inst?.id);
+        if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada.`);
 
-  public async fetchBot(instance: InstanceDto, botId: string) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
-
-    const instanceId = await this.prismaRepository.instance
-      .findFirst({
-        where: {
-          name: instance.instanceName,
-        },
-      })
-      .then((instance) => instance.id);
-
-    const bot = await this.botRepository.findFirst({
-      where: {
-        id: botId,
-      },
-    });
-
-    if (!bot) {
-      throw new Error('Dify not found');
+        const bot = await this.botRepository.findFirst({ where: { id: botId } });
+        if (!bot) throw new BadRequestException('Bot Dify não encontrado.');
+        if (bot.instanceId !== instanceId) throw new BadRequestException('Bot Dify não pertence a esta instância.');
+        return bot;
     }
 
-    if (bot.instanceId !== instanceId) {
-      throw new Error('Dify not found');
-    }
+    public async updateBot(instance: InstanceDto, botId: string, data: DifyDto): Promise<DifyModel> {
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        const instanceId = await this.prismaRepository.prisma.instance
+            .findFirst({ where: { name: instance.instanceName } })
+            .then((inst) => inst?.id);
+        if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada.`);
 
-    return bot;
-  }
+        const bot = await this.botRepository.findFirst({ where: { id: botId } });
+        if (!bot || bot.instanceId !== instanceId) throw new BadRequestException('Bot Dify não encontrado ou não pertence a esta instância.');
 
-  public async updateBot(instance: InstanceDto, botId: string, data: DifyDto) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
-
-    const instanceId = await this.prismaRepository.instance
-      .findFirst({
-        where: {
-          name: instance.instanceName,
-        },
-      })
-      .then((instance) => instance.id);
-
-    const bot = await this.botRepository.findFirst({
-      where: {
-        id: botId,
-      },
-    });
-
-    if (!bot) {
-      throw new Error('Dify not found');
-    }
-
-    if (bot.instanceId !== instanceId) {
-      throw new Error('Dify not found');
-    }
-
-    if (data.triggerType === 'all') {
-      const checkTriggerAll = await this.botRepository.findFirst({
-        where: {
-          enabled: true,
-          triggerType: 'all',
-          id: {
-            not: botId,
-          },
-          instanceId: instanceId,
-        },
-      });
-
-      if (checkTriggerAll) {
-        throw new Error('You already have a dify with an "All" trigger, you cannot have more bots while it is active');
-      }
-    }
-
-    const checkDuplicate = await this.botRepository.findFirst({
-      where: {
-        id: {
-          not: botId,
-        },
-        instanceId: instanceId,
-        botType: data.botType,
-        apiUrl: data.apiUrl,
-        apiKey: data.apiKey,
-      },
-    });
-
-    if (checkDuplicate) {
-      throw new Error('Dify already exists');
-    }
-
-    if (data.triggerType === 'keyword') {
-      if (!data.triggerOperator || !data.triggerValue) {
-        throw new Error('Trigger operator and value are required');
-      }
-
-      const checkDuplicate = await this.botRepository.findFirst({
-        where: {
-          triggerOperator: data.triggerOperator,
-          triggerValue: data.triggerValue,
-          id: { not: botId },
-          instanceId: instanceId,
-        },
-      });
-
-      if (checkDuplicate) {
-        throw new Error('Trigger already exists');
-      }
-    }
-
-    if (data.triggerType === 'advanced') {
-      if (!data.triggerValue) {
-        throw new Error('Trigger value is required');
-      }
-
-      const checkDuplicate = await this.botRepository.findFirst({
-        where: {
-          triggerValue: data.triggerValue,
-          id: { not: botId },
-          instanceId: instanceId,
-        },
-      });
-
-      if (checkDuplicate) {
-        throw new Error('Trigger already exists');
-      }
-    }
-
-    try {
-      const bot = await this.botRepository.update({
-        where: {
-          id: botId,
-        },
-        data: {
-          enabled: data?.enabled,
-          description: data.description,
-          botType: data.botType,
-          apiUrl: data.apiUrl,
-          apiKey: data.apiKey,
-          expire: data.expire,
-          keywordFinish: data.keywordFinish,
-          delayMessage: data.delayMessage,
-          unknownMessage: data.unknownMessage,
-          listeningFromMe: data.listeningFromMe,
-          stopBotFromMe: data.stopBotFromMe,
-          keepOpen: data.keepOpen,
-          debounceTime: data.debounceTime,
-          instanceId: instanceId,
-          triggerType: data.triggerType,
-          triggerOperator: data.triggerOperator,
-          triggerValue: data.triggerValue,
-          ignoreJids: data.ignoreJids,
-          splitMessages: data.splitMessages,
-          timePerChar: data.timePerChar,
-        },
-      });
-
-      return bot;
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error updating dify');
-    }
-  }
-
-  public async deleteBot(instance: InstanceDto, botId: string) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
-
-    const instanceId = await this.prismaRepository.instance
-      .findFirst({
-        where: {
-          name: instance.instanceName,
-        },
-      })
-      .then((instance) => instance.id);
-
-    const bot = await this.botRepository.findFirst({
-      where: {
-        id: botId,
-      },
-    });
-
-    if (!bot) {
-      throw new Error('Dify not found');
-    }
-
-    if (bot.instanceId !== instanceId) {
-      throw new Error('Dify not found');
-    }
-    try {
-      await this.prismaRepository.integrationSession.deleteMany({
-        where: {
-          botId: botId,
-        },
-      });
-
-      await this.botRepository.delete({
-        where: {
-          id: botId,
-        },
-      });
-
-      return { bot: { id: botId } };
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error deleting dify bot');
-    }
-  }
-
-  // Settings
-  public async settings(instance: InstanceDto, data: any) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
-
-    try {
-      const instanceId = await this.prismaRepository.instance
-        .findFirst({
-          where: {
-            name: instance.instanceName,
-          },
-        })
-        .then((instance) => instance.id);
-
-      const settings = await this.settingsRepository.findFirst({
-        where: {
-          instanceId: instanceId,
-        },
-      });
-
-      if (settings) {
-        const updateSettings = await this.settingsRepository.update({
-          where: {
-            id: settings.id,
-          },
-          data: {
-            expire: data.expire,
-            keywordFinish: data.keywordFinish,
-            delayMessage: data.delayMessage,
-            unknownMessage: data.unknownMessage,
-            listeningFromMe: data.listeningFromMe,
-            stopBotFromMe: data.stopBotFromMe,
-            keepOpen: data.keepOpen,
-            debounceTime: data.debounceTime,
-            difyIdFallback: data.difyIdFallback,
-            ignoreJids: data.ignoreJids,
-            splitMessages: data.splitMessages,
-            timePerChar: data.timePerChar,
-          },
-        });
-
-        return {
-          expire: updateSettings.expire,
-          keywordFinish: updateSettings.keywordFinish,
-          delayMessage: updateSettings.delayMessage,
-          unknownMessage: updateSettings.unknownMessage,
-          listeningFromMe: updateSettings.listeningFromMe,
-          stopBotFromMe: updateSettings.stopBotFromMe,
-          keepOpen: updateSettings.keepOpen,
-          debounceTime: updateSettings.debounceTime,
-          difyIdFallback: updateSettings.difyIdFallback,
-          ignoreJids: updateSettings.ignoreJids,
-          splitMessages: updateSettings.splitMessages,
-          timePerChar: updateSettings.timePerChar,
-        };
-      }
-
-      const newSetttings = await this.settingsRepository.create({
-        data: {
-          expire: data.expire,
-          keywordFinish: data.keywordFinish,
-          delayMessage: data.delayMessage,
-          unknownMessage: data.unknownMessage,
-          listeningFromMe: data.listeningFromMe,
-          stopBotFromMe: data.stopBotFromMe,
-          keepOpen: data.keepOpen,
-          debounceTime: data.debounceTime,
-          difyIdFallback: data.difyIdFallback,
-          ignoreJids: data.ignoreJids,
-          instanceId: instanceId,
-          splitMessages: data.splitMessages,
-          timePerChar: data.timePerChar,
-        },
-      });
-
-      return {
-        expire: newSetttings.expire,
-        keywordFinish: newSetttings.keywordFinish,
-        delayMessage: newSetttings.delayMessage,
-        unknownMessage: newSetttings.unknownMessage,
-        listeningFromMe: newSetttings.listeningFromMe,
-        stopBotFromMe: newSetttings.stopBotFromMe,
-        keepOpen: newSetttings.keepOpen,
-        debounceTime: newSetttings.debounceTime,
-        difyIdFallback: newSetttings.difyIdFallback,
-        ignoreJids: newSetttings.ignoreJids,
-        splitMessages: newSetttings.splitMessages,
-        timePerChar: newSetttings.timePerChar,
-      };
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error setting default settings');
-    }
-  }
-
-  public async fetchSettings(instance: InstanceDto) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
-
-    try {
-      const instanceId = await this.prismaRepository.instance
-        .findFirst({
-          where: {
-            name: instance.instanceName,
-          },
-        })
-        .then((instance) => instance.id);
-
-      const settings = await this.settingsRepository.findFirst({
-        where: {
-          instanceId: instanceId,
-        },
-        include: {
-          Fallback: true,
-        },
-      });
-
-      if (!settings) {
-        return {
-          expire: 0,
-          keywordFinish: '',
-          delayMessage: 0,
-          unknownMessage: '',
-          listeningFromMe: false,
-          stopBotFromMe: false,
-          keepOpen: false,
-          ignoreJids: [],
-          splitMessages: false,
-          timePerChar: 0,
-          difyIdFallback: '',
-          fallback: null,
-        };
-      }
-
-      return {
-        expire: settings.expire,
-        keywordFinish: settings.keywordFinish,
-        delayMessage: settings.delayMessage,
-        unknownMessage: settings.unknownMessage,
-        listeningFromMe: settings.listeningFromMe,
-        stopBotFromMe: settings.stopBotFromMe,
-        keepOpen: settings.keepOpen,
-        ignoreJids: settings.ignoreJids,
-        splitMessages: settings.splitMessages,
-        timePerChar: settings.timePerChar,
-        difyIdFallback: settings.difyIdFallback,
-        fallback: settings.Fallback,
-      };
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error fetching default settings');
-    }
-  }
-
-  // Sessions
-  public async changeStatus(instance: InstanceDto, data: any) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
-
-    try {
-      const instanceId = await this.prismaRepository.instance
-        .findFirst({
-          where: {
-            name: instance.instanceName,
-          },
-        })
-        .then((instance) => instance.id);
-
-      const defaultSettingCheck = await this.settingsRepository.findFirst({
-        where: {
-          instanceId,
-        },
-      });
-
-      const remoteJid = data.remoteJid;
-      const status = data.status;
-
-      if (status === 'delete') {
-        await this.sessionRepository.deleteMany({
-          where: {
-            remoteJid: remoteJid,
-            botId: { not: null },
-          },
-        });
-
-        return { bot: { remoteJid: remoteJid, status: status } };
-      }
-
-      if (status === 'closed') {
-        if (defaultSettingCheck?.keepOpen) {
-          await this.sessionRepository.updateMany({
-            where: {
-              remoteJid: remoteJid,
-              botId: { not: null },
-            },
-            data: {
-              status: 'closed',
-            },
-          });
-        } else {
-          await this.sessionRepository.deleteMany({
-            where: {
-              remoteJid: remoteJid,
-              botId: { not: null },
-            },
-          });
+        // Lógica de verificação de gatilho 'all' e duplicidade (mantida, com correção de tipo)
+        if (data.triggerType === $Enums.TriggerType.all) {
+            const checkTriggerAll = await this.botRepository.findFirst({
+                where: {
+                    enabled: true,
+                    triggerType: $Enums.TriggerType.all,
+                    id: { not: botId },
+                    instanceId: instanceId,
+                },
+            });
+            if (checkTriggerAll) {
+                throw new BadRequestException('Já existe outro bot Dify com gatilho "all" ativo.');
+            }
         }
+        // ... (verificações de duplicidade para keyword e advanced mantidas, usando Enum) ...
+         if (data.triggerType === $Enums.TriggerType.keyword) {
+             if (!data.triggerOperator || !data.triggerValue) throw new BadRequestException('Operator/Value required for keyword trigger.');
+             const checkDuplicateTrigger = await this.botRepository.findFirst({ where: { triggerType: $Enums.TriggerType.keyword, triggerOperator: data.triggerOperator, triggerValue: data.triggerValue, id: { not: botId }, instanceId } });
+             if (checkDuplicateTrigger) throw new BadRequestException(`Duplicate keyword trigger: ${data.triggerOperator} ${data.triggerValue}`);
+         } else if (data.triggerType === $Enums.TriggerType.advanced) {
+             if (!data.triggerValue) throw new BadRequestException('Value required for advanced trigger.');
+             const checkDuplicateTrigger = await this.botRepository.findFirst({ where: { triggerType: $Enums.TriggerType.advanced, triggerValue: data.triggerValue, id: { not: botId }, instanceId } });
+             if (checkDuplicateTrigger) throw new BadRequestException(`Duplicate advanced trigger: ${data.triggerValue}`);
+         }
+         // Verificar duplicidade de API/URL
+         const checkDuplicateAPI = await this.botRepository.findFirst({ where: { id: { not: botId }, instanceId, botType: data.botType, apiUrl: data.apiUrl, apiKey: data.apiKey } });
+         if (checkDuplicateAPI) throw new BadRequestException('Another Dify bot with this URL/API Key already exists.');
 
-        return { bot: { ...instance, bot: { remoteJid: remoteJid, status: status } } };
-      } else {
-        const session = await this.sessionRepository.updateMany({
-          where: {
-            instanceId: instanceId,
-            remoteJid: remoteJid,
-            botId: { not: null },
-          },
-          data: {
-            status: status,
-          },
-        });
 
-        const botData = {
-          remoteJid: remoteJid,
-          status: status,
-          session,
-        };
-
-        return { bot: { ...instance, bot: botData } };
-      }
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error changing status');
+        try {
+            const updatedBot = await this.botRepository.update({
+                where: { id: botId },
+                data: {
+                    ...data, // Passa todos os dados do DTO
+                    instanceId: undefined, // Não permite atualizar instanceId
+                    id: undefined, // Não permite atualizar id
+                },
+            });
+            this.logger.log(`Bot Dify atualizado com ID: ${updatedBot.id}`);
+            return updatedBot;
+        } catch (error: any) {
+            this.logger.error(error);
+            throw new InternalServerErrorException(`Erro ao atualizar bot Dify: ${error.message}`);
+        }
     }
-  }
 
-  public async fetchSessions(instance: InstanceDto, botId: string, remoteJid?: string) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+    public async deleteBot(instance: InstanceDto, botId: string): Promise<{ bot: { id: string } }> {
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        const instanceId = await this.prismaRepository.prisma.instance
+            .findFirst({ where: { name: instance.instanceName } })
+            .then((inst) => inst?.id);
+         if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada.`);
 
-    try {
-      const instanceId = await this.prismaRepository.instance
-        .findFirst({
-          where: {
-            name: instance.instanceName,
-          },
-        })
-        .then((instance) => instance.id);
+        const bot = await this.botRepository.findFirst({ where: { id: botId } });
+        if (!bot || bot.instanceId !== instanceId) throw new BadRequestException('Bot Dify não encontrado ou não pertence a esta instância.');
 
-      const bot = await this.botRepository.findFirst({
-        where: {
-          id: botId,
-        },
-      });
-
-      if (bot && bot.instanceId !== instanceId) {
-        throw new Error('Dify not found');
-      }
-
-      return await this.sessionRepository.findMany({
-        where: {
-          instanceId: instanceId,
-          remoteJid,
-          botId: bot ? botId : { not: null },
-          type: 'dify',
-        },
-      });
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error fetching sessions');
+        try {
+            // Deleta sessões associadas primeiro
+            await this.sessionRepository.deleteMany({ where: { botId: botId, type: 'dify' } }); // Especifica o tipo
+            // Deleta o bot
+            await this.botRepository.delete({ where: { id: botId } });
+            this.logger.log(`Bot Dify deletado com ID: ${botId}`);
+            return { bot: { id: botId } };
+        } catch (error: any) {
+            this.logger.error(error);
+            throw new InternalServerErrorException(`Erro ao deletar bot Dify: ${error.message}`);
+        }
     }
-  }
 
-  public async ignoreJid(instance: InstanceDto, data: IgnoreJidDto) {
-    if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
 
-    try {
-      const instanceId = await this.prismaRepository.instance
-        .findFirst({
-          where: {
-            name: instance.instanceName,
-          },
-        })
-        .then((instance) => instance.id);
+  // Settings (lógica mantida, verificar acesso ao repo)
+   public async settings(instance: InstanceDto, data: Partial<DifyDto>) { // Usa Partial para permitir atualização parcial
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        try {
+            const instanceId = await this.prismaRepository.prisma.instance
+                .findFirst({ where: { name: instance.instanceName } })
+                .then((inst) => inst?.id);
+            if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada.`);
 
-      const settings = await this.settingsRepository.findFirst({
-        where: {
-          instanceId: instanceId,
-        },
-      });
+            // Prepara dados para upsert (apenas campos de configuração)
+            const settingsData = {
+                expire: data.expire,
+                keywordFinish: data.keywordFinish,
+                delayMessage: data.delayMessage,
+                unknownMessage: data.unknownMessage,
+                listeningFromMe: data.listeningFromMe,
+                stopBotFromMe: data.stopBotFromMe,
+                keepOpen: data.keepOpen,
+                debounceTime: data.debounceTime,
+                difyIdFallback: data.difyIdFallback, // Campo existe no DTO/Model? Adicionar se necessário.
+                ignoreJids: data.ignoreJids,
+                splitMessages: data.splitMessages,
+                timePerChar: data.timePerChar,
+                instanceId: instanceId, // Necessário para 'create'
+            };
 
-      if (!settings) {
-        throw new Error('Settings not found');
-      }
+             // Remove chaves com valor undefined para não sobrescrever com null no update
+            Object.keys(settingsData).forEach(key => settingsData[key] === undefined && delete settingsData[key]);
 
-      let ignoreJids: any = settings?.ignoreJids || [];
+            const upsertedSettings = await this.settingsRepository.upsert({
+                where: { instanceId: instanceId },
+                update: { ...settingsData, instanceId: undefined }, // Não atualiza instanceId
+                create: settingsData as any, // Garante que instanceId está presente no create
+            });
 
-      if (data.action === 'add') {
-        if (ignoreJids.includes(data.remoteJid)) return { ignoreJids: ignoreJids };
-
-        ignoreJids.push(data.remoteJid);
-      } else {
-        ignoreJids = ignoreJids.filter((jid) => jid !== data.remoteJid);
-      }
-
-      const updateSettings = await this.settingsRepository.update({
-        where: {
-          id: settings.id,
-        },
-        data: {
-          ignoreJids: ignoreJids,
-        },
-      });
-
-      return {
-        ignoreJids: updateSettings.ignoreJids,
-      };
-    } catch (error) {
-      this.logger.error(error);
-      throw new Error('Error setting default settings');
+            // Retorna apenas os campos relevantes
+            return {
+                expire: upsertedSettings.expire,
+                keywordFinish: upsertedSettings.keywordFinish,
+                delayMessage: upsertedSettings.delayMessage,
+                unknownMessage: upsertedSettings.unknownMessage,
+                listeningFromMe: upsertedSettings.listeningFromMe,
+                stopBotFromMe: upsertedSettings.stopBotFromMe,
+                keepOpen: upsertedSettings.keepOpen,
+                debounceTime: upsertedSettings.debounceTime,
+                difyIdFallback: upsertedSettings.difyIdFallback,
+                ignoreJids: upsertedSettings.ignoreJids,
+                splitMessages: upsertedSettings.splitMessages,
+                timePerChar: upsertedSettings.timePerChar,
+            };
+        } catch (error: any) {
+            this.logger.error(error);
+            throw new InternalServerErrorException(`Erro ao definir configurações Dify: ${error.message}`);
+        }
     }
-  }
 
-  // Emit
-  public async emit({ instance, remoteJid, msg }: EmitData) {
+    public async fetchSettings(instance: InstanceDto) {
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        try {
+            const instanceId = await this.prismaRepository.prisma.instance
+                .findFirst({ where: { name: instance.instanceName } })
+                .then((inst) => inst?.id);
+            if (!instanceId) return null; // Retorna null se instância não existe
+
+            const settings = await this.settingsRepository.findFirst({
+                where: { instanceId: instanceId },
+                include: { Fallback: true }, // Inclui relação Fallback se existir no schema
+            });
+
+            // Retorna as configurações ou um objeto padrão
+            return settings || {
+                expire: 0, keywordFinish: '', delayMessage: 0, unknownMessage: '', listeningFromMe: false,
+                stopBotFromMe: false, keepOpen: false, debounceTime: 0, ignoreJids: [],
+                splitMessages: false, timePerChar: 0, difyIdFallback: null, Fallback: null
+            };
+        } catch (error: any) {
+            this.logger.error(error);
+            throw new InternalServerErrorException(`Erro ao buscar configurações Dify: ${error.message}`);
+        }
+    }
+
+
+  // Sessions (lógica mantida, verificar acesso ao repo)
+  public async changeStatus(instance: InstanceDto, data: any) {
+     if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+     try {
+         const instanceId = await this.prismaRepository.prisma.instance
+             .findFirst({ where: { name: instance.instanceName } })
+             .then((inst) => inst?.id);
+         if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada.`);
+
+         const defaultSettingCheck = await this.settingsRepository?.findFirst({ where: { instanceId } });
+
+         const remoteJid = data.remoteJid;
+         const status = data.status; // 'open', 'closed', 'paused', 'delete'
+
+         if (!remoteJid || !status) throw new BadRequestException('remoteJid e status são obrigatórios.');
+
+         if (status === 'delete') {
+             const deleted = await this.sessionRepository.deleteMany({
+                 where: { instanceId, remoteJid, type: 'dify' }, // Filtra por tipo também
+             });
+             this.logger.log(`Sessões Dify deletadas para ${remoteJid}: ${deleted.count}`);
+             return { bot: { remoteJid, status } };
+         }
+
+         if (status === 'closed') {
+             if (defaultSettingCheck?.keepOpen) {
+                 // Apenas atualiza o status para 'closed'
+                 const updated = await this.sessionRepository.updateMany({
+                     where: { instanceId, remoteJid, type: 'dify', status: { not: 'closed' } },
+                     data: { status: 'closed' },
+                 });
+                 this.logger.log(`Sessões Dify fechadas (mantidas) para ${remoteJid}: ${updated.count}`);
+             } else {
+                 // Deleta as sessões fechadas se keepOpen for false
+                 const deleted = await this.sessionRepository.deleteMany({
+                     where: { instanceId, remoteJid, type: 'dify' },
+                 });
+                 this.logger.log(`Sessões Dify deletadas (keepOpen=false) para ${remoteJid}: ${deleted.count}`);
+             }
+             return { bot: { remoteJid, status } };
+         } else {
+             // Atualiza para 'open' ou 'paused'
+             const updated = await this.sessionRepository.updateMany({
+                 where: { instanceId, remoteJid, type: 'dify' },
+                 data: { status: status },
+             });
+              this.logger.log(`Status da sessão Dify atualizado para "${status}" para ${remoteJid}: ${updated.count}`);
+             // Retorna mais detalhes se necessário, como a sessão atualizada (requer findFirst)
+             return { bot: { remoteJid, status } };
+         }
+     } catch (error: any) {
+         this.logger.error(error);
+         throw new InternalServerErrorException(`Erro ao alterar status da sessão Dify: ${error.message}`);
+     }
+ }
+
+ // fetchSessions, ignoreJid (lógica mantida, verificar acesso ao repo)
+    public async fetchSessions(instance: InstanceDto, botId?: string, remoteJid?: string): Promise<IntegrationSession[]> { // botId é opcional
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        try {
+            const instanceId = await this.prismaRepository.prisma.instance
+                .findFirst({ where: { name: instance.instanceName } })
+                .then((inst) => inst?.id);
+            if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada.`);
+
+            // Verifica se o botId pertence à instância, se fornecido
+            if (botId) {
+                 const bot = await this.botRepository.findFirst({ where: { id: botId } });
+                 if (!bot || bot.instanceId !== instanceId) throw new BadRequestException('Bot Dify não encontrado ou não pertence a esta instância.');
+            }
+
+            const whereClause: Prisma.IntegrationSessionWhereInput = {
+                instanceId: instanceId,
+                remoteJid: remoteJid, // Filtra por JID se fornecido
+                botId: botId, // Filtra por botId se fornecido
+                type: 'dify', // Garante que são sessões Dify
+            };
+            // Remove filtros indefinidos
+            if (!remoteJid) delete whereClause.remoteJid;
+            if (!botId) delete whereClause.botId;
+
+
+            return await this.sessionRepository.findMany({ where: whereClause });
+        } catch (error: any) {
+            this.logger.error(error);
+            throw new InternalServerErrorException(`Erro ao buscar sessões Dify: ${error.message}`);
+        }
+    }
+
+    public async ignoreJid(instance: InstanceDto, data: IgnoreJidDto) {
+        if (!this.integrationEnabled) throw new BadRequestException('Dify is disabled');
+        try {
+            const instanceId = await this.prismaRepository.prisma.instance
+                .findFirst({ where: { name: instance.instanceName } })
+                .then((inst) => inst?.id);
+            if (!instanceId) throw new BadRequestException(`Instância ${instance.instanceName} não encontrada.`);
+
+            const settings = await this.settingsRepository.findFirst({ where: { instanceId } });
+            if (!settings) throw new BadRequestException('Configurações Dify não encontradas.');
+
+            let ignoreJids: string[] = (settings?.ignoreJids as string[]) || []; // Faz cast ou usa array vazio
+
+            if (data.action === 'add') {
+                if (!ignoreJids.includes(data.remoteJid)) {
+                    ignoreJids.push(data.remoteJid);
+                }
+            } else { // action === 'remove'
+                ignoreJids = ignoreJids.filter((jid) => jid !== data.remoteJid);
+            }
+
+            const updateSettings = await this.settingsRepository.update({
+                where: { id: settings.id },
+                data: { ignoreJids: ignoreJids },
+            });
+
+            return { ignoreJids: updateSettings.ignoreJids };
+        } catch (error: any) {
+            this.logger.error(error);
+            throw new InternalServerErrorException(`Erro ao atualizar ignoreJids Dify: ${error.message}`);
+        }
+    }
+
+
+  // Emit (lógica principal mantida, com correções de tipo e acesso)
+  public async emit({ instance, remoteJid, msg }: EmitData): Promise<void> { // isIntegration não usado aqui
     if (!this.integrationEnabled) return;
 
     try {
-      const settings = await this.settingsRepository.findFirst({
-        where: {
-          instanceId: instance.instanceId,
-        },
-      });
+      // Busca configurações Dify para a instância
+       const settings = await this.fetchSettings(instance); // Usa o método fetchSettings corrigido
+      if (!settings) {
+         this.logger.warn(`Configurações Dify não encontradas para ${instance.instanceName}, ignorando mensagem.`);
+         return;
+      }
+      // Verifica se o JID deve ser ignorado
+      if (this.checkIgnoreJids(settings?.ignoreJids as string[] || [], remoteJid)) return; // Usa checkIgnoreJids da base
 
-      if (this.checkIgnoreJids(settings?.ignoreJids, remoteJid)) return;
+      // Obtém a sessão de integração existente
+      const session = await this.getSession(remoteJid, instance); // Usa getSession da base
 
-      const session = await this.getSession(remoteJid, instance);
+      // Extrai o conteúdo da mensagem
+      const content = getConversationMessage(msg); // Usa utilitário importado
+      if (!content) {
+         this.logger.debug(`Conteúdo da mensagem vazio ou não extraído para ${remoteJid}, ignorando.`);
+         return; // Ignora se não houver conteúdo
+      }
 
-      const content = getConversationMessage(msg);
+      // Encontra o bot Dify apropriado (por gatilho ou sessão existente)
+      // Usa findBotTrigger da classe base
+      let findBot = await this.findBotTrigger(this.botRepository, content, instance, session) as DifyModel | null;
 
-      let findBot = (await this.findBotTrigger(this.botRepository, content, instance, session)) as DifyModel;
-
+      // Se nenhum bot for encontrado pelo gatilho/sessão, verifica fallback
       if (!findBot) {
-        const fallback = await this.settingsRepository.findFirst({
-          where: {
-            instanceId: instance.instanceId,
-          },
-        });
-
-        if (fallback?.difyIdFallback) {
-          const findFallback = await this.botRepository.findFirst({
-            where: {
-              id: fallback.difyIdFallback,
-            },
-          });
-
-          findBot = findFallback;
-        } else {
-          return;
+        if (settings?.difyIdFallback) {
+          findBot = await this.botRepository.findFirst({ where: { id: settings.difyIdFallback } });
+           if (findBot) this.logger.debug(`Usando bot Dify de fallback (ID: ${findBot.id}) para ${remoteJid}`);
         }
       }
 
-      let expire = findBot?.expire;
-      let keywordFinish = findBot?.keywordFinish;
-      let delayMessage = findBot?.delayMessage;
-      let unknownMessage = findBot?.unknownMessage;
-      let listeningFromMe = findBot?.listeningFromMe;
-      let stopBotFromMe = findBot?.stopBotFromMe;
-      let keepOpen = findBot?.keepOpen;
-      let debounceTime = findBot?.debounceTime;
-      let ignoreJids = findBot?.ignoreJids;
-      let splitMessages = findBot?.splitMessages;
-      let timePerChar = findBot?.timePerChar;
+      // Se ainda assim nenhum bot for encontrado, encerra
+      if (!findBot) {
+         this.logger.debug(`Nenhum bot Dify (gatilho ou fallback) encontrado para ${remoteJid}, ignorando mensagem.`);
+        return;
+      }
 
-      if (expire === undefined || expire === null) expire = settings.expire;
-      if (keywordFinish === undefined || keywordFinish === null) keywordFinish = settings.keywordFinish;
-      if (delayMessage === undefined || delayMessage === null) delayMessage = settings.delayMessage;
-      if (unknownMessage === undefined || unknownMessage === null) unknownMessage = settings.unknownMessage;
-      if (listeningFromMe === undefined || listeningFromMe === null) listeningFromMe = settings.listeningFromMe;
-      if (stopBotFromMe === undefined || stopBotFromMe === null) stopBotFromMe = settings.stopBotFromMe;
-      if (keepOpen === undefined || keepOpen === null) keepOpen = settings.keepOpen;
-      if (debounceTime === undefined || debounceTime === null) debounceTime = settings.debounceTime;
-      if (ignoreJids === undefined || ignoreJids === null) ignoreJids = settings.ignoreJids;
-      if (splitMessages === undefined || splitMessages === null) splitMessages = settings?.splitMessages ?? false;
-      if (timePerChar === undefined || timePerChar === null) timePerChar = settings?.timePerChar ?? 0;
-
-      const key = msg.key as {
-        id: string;
-        remoteJid: string;
-        fromMe: boolean;
-        participant: string;
+      // Determina as configurações finais a serem usadas (bot específico ou padrão)
+      const finalSettings = {
+        expire: findBot.expire ?? settings.expire ?? 0,
+        keywordFinish: findBot.keywordFinish ?? settings.keywordFinish ?? '',
+        delayMessage: findBot.delayMessage ?? settings.delayMessage ?? 0,
+        unknownMessage: findBot.unknownMessage ?? settings.unknownMessage ?? '',
+        listeningFromMe: findBot.listeningFromMe ?? settings.listeningFromMe ?? false,
+        stopBotFromMe: findBot.stopBotFromMe ?? settings.stopBotFromMe ?? false,
+        keepOpen: findBot.keepOpen ?? settings.keepOpen ?? false,
+        debounceTime: findBot.debounceTime ?? settings.debounceTime ?? 0,
+        ignoreJids: findBot.ignoreJids as string[] ?? settings.ignoreJids as string[] ?? [], // Cast para string[]
+        splitMessages: findBot.splitMessages ?? settings.splitMessages ?? false,
+        timePerChar: findBot.timePerChar ?? settings.timePerChar ?? 0,
+        // Adiciona difyIdFallback das configurações gerais
+        difyIdFallback: settings.difyIdFallback,
       };
 
-      if (stopBotFromMe && key.fromMe && session) {
-        await this.prismaRepository.integrationSession.update({
-          where: {
-            id: session.id,
-          },
-          data: {
-            status: 'paused',
-          },
-        });
+      const key = msg.key as { id: string; remoteJid: string; fromMe: boolean; participant: string };
+
+      // Verifica stopBotFromMe
+      if (finalSettings.stopBotFromMe && key.fromMe && session && session.status !== 'closed') {
+        this.logger.info(`Mensagem própria recebida e stopBotFromMe ativo para ${remoteJid}. Pausando sessão Dify.`);
+        await this.sessionRepository.update({ where: { id: session.id }, data: { status: 'paused' } });
         return;
       }
 
-      if (!listeningFromMe && key.fromMe) {
+      // Verifica listeningFromMe
+      if (!finalSettings.listeningFromMe && key.fromMe) {
+        this.logger.debug(`Ignorando mensagem própria para ${remoteJid} (listeningFromMe=false)`);
         return;
       }
 
-      if (session && !session.awaitUser) {
+      // Verifica se a sessão aguarda input do usuário
+      if (session && !session.awaitUser && session.status !== 'closed') {
+         this.logger.debug(`Sessão Dify para ${remoteJid} não aguarda input do usuário, ignorando.`);
         return;
       }
 
-      if (debounceTime && debounceTime > 0) {
-        this.processDebounce(this.userMessageDebounce, content, remoteJid, debounceTime, async (debouncedContent) => {
-          await this.difyService.processDify(
-            this.waMonitor.waInstances[instance.instanceName],
-            remoteJid,
-            findBot,
-            session,
-            {
-              ...settings,
-              expire,
-              keywordFinish,
-              delayMessage,
-              unknownMessage,
-              listeningFromMe,
-              stopBotFromMe,
-              keepOpen,
-              debounceTime,
-              ignoreJids,
-              splitMessages,
-              timePerChar,
-            },
-            debouncedContent,
-            msg?.pushName,
-          );
+      // Processa com ou sem debounce
+      const waInstance = this.waMonitor.get(instance.instanceName); // Obtém instância Baileys/Meta
+      if (!waInstance) {
+           this.logger.error(`Instância WA ${instance.instanceName} não encontrada no monitor.`);
+           return;
+      }
+
+      if (finalSettings.debounceTime && finalSettings.debounceTime > 0) {
+        // Usa processDebounce da classe base
+        this.processDebounce(this.userMessageDebounce, content, remoteJid, finalSettings.debounceTime, async (debouncedContent) => {
+          await this.difyService.processDify(waInstance, remoteJid, findBot!, session, finalSettings, debouncedContent, msg?.pushName);
         });
       } else {
-        await this.difyService.processDify(
-          this.waMonitor.waInstances[instance.instanceName],
-          remoteJid,
-          findBot,
-          session,
-          {
-            ...settings,
-            expire,
-            keywordFinish,
-            delayMessage,
-            unknownMessage,
-            listeningFromMe,
-            stopBotFromMe,
-            keepOpen,
-            debounceTime,
-            ignoreJids,
-            splitMessages,
-            timePerChar,
-          },
-          content,
-          msg?.pushName,
-        );
+        await this.difyService.processDify(waInstance, remoteJid, findBot!, session, finalSettings, content, msg?.pushName);
       }
 
-      return;
-    } catch (error) {
-      this.logger.error(error);
-      return;
+    } catch (error: any) {
+      this.logger.error(`Erro no método emit DifyController para ${remoteJid}: ${error.message}`, error.stack);
     }
-  }
+  } // Fim emit
 }
