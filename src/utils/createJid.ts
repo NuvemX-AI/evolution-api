@@ -1,71 +1,51 @@
-// Check if the number is MX or AR
-function formatMXOrARNumber(jid: string): string {
-  const countryCode = jid.substring(0, 2);
-
-  if (Number(countryCode) === 52 || Number(countryCode) === 54) {
-    if (jid.length === 13) {
-      const number = countryCode + jid.substring(3);
-      return number;
-    }
-
-    return jid;
+/**
+ * Converte qualquer “número” ou JID informado em um JID válido para o WhatsApp.
+ *  - preserva JIDs já completos (@s.whatsapp.net, @g.us, @lid, @broadcast)
+ *  - faz normalização BR / MX / AR quando necessário
+ */
+function formatMXorAR(number: string): string {
+  const cc = number.slice(0, 2);
+  if (cc === '52' || cc === '54') {
+    // ex.: 521234567890 → 521234567890   | 52123*** → idem
+    return number.length === 13 ? cc + number.slice(3) : number;
   }
-  return jid;
+  return number;
 }
 
-// Check if the number is br
-function formatBRNumber(jid: string) {
-  const regexp = new RegExp(/^(\d{2})(\d{2})\d{1}(\d{8})$/);
-  if (regexp.test(jid)) {
-    const match = regexp.exec(jid);
-    if (match && match[1] === '55') {
-      const joker = Number.parseInt(match[3][0]);
-      const ddd = Number.parseInt(match[2]);
-      if (joker < 7 || ddd < 31) {
-        return match[0];
-      }
-      return match[1] + match[2] + match[3];
-    }
-    return jid;
-  } else {
-    return jid;
+function formatBR(number: string): string {
+  // 55(DD)9XXXXXXXX: remove o “9” quando é linha fixa ou DDD<31
+  const re = /^(\d{2})(\d{2})\d(\d{8})$/;      // 55 11 9 12345678
+  const m  = re.exec(number);
+  if (!m) return number;
+
+  const [, cc, ddd, rest] = m;
+  const firstDigit = Number(rest[0]);
+  if (cc === '55' && (firstDigit < 7 || Number(ddd) < 31)) {
+    return m[0];                // mantém como veio
   }
+  return `${cc}${ddd}${rest}`;  // remove o “9”
 }
 
-export function createJid(number: string): string {
-  number = number.replace(/:\d+/, '');
+/** Exporta função principal */
+export function createJid(raw: string): string {
+  let number = raw.replace(/:\d+/, '');
 
-  if (number.includes('@g.us') || number.includes('@s.whatsapp.net') || number.includes('@lid')) {
-    return number;
-  }
+  // já é JID completo
+  if (/@(g\.us|s\.whatsapp\.net|lid|broadcast)$/.test(number)) return number;
 
-  if (number.includes('@broadcast')) {
-    return number;
-  }
-
+  // limpeza básica
   number = number
-    ?.replace(/\s/g, '')
-    .replace(/\+/g, '')
-    .replace(/\(/g, '')
-    .replace(/\)/g, '')
-    .split(':')[0]
-    .split('@')[0];
+    .replace(/[\s+()]/g, '')
+    .split(/[:@]/)[0]           // remove :device ou @jid
+    .replace(/\D/g, '');
 
-  if (number.includes('-') && number.length >= 24) {
-    number = number.replace(/[^\d-]/g, '');
-    return `${number}@g.us`;
-  }
+  // grupos (contém ‘-’ ou ≥ 18 dígitos)
+  if (number.includes('-') && number.length >= 24) return `${number}@g.us`;
+  if (number.length >= 18)                          return `${number}@g.us`;
 
-  number = number.replace(/\D/g, '');
-
-  if (number.length >= 18) {
-    number = number.replace(/[^\d-]/g, '');
-    return `${number}@g.us`;
-  }
-
-  number = formatMXOrARNumber(number);
-
-  number = formatBRNumber(number);
+  // ajustes regionais
+  number = formatMXorAR(number);
+  number = formatBR(number);
 
   return `${number}@s.whatsapp.net`;
 }
