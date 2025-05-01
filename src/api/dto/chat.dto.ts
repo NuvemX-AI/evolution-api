@@ -7,6 +7,9 @@ import {
   WAReadReceiptsValue,
 } from 'baileys';
 
+/* -------------------------------------------------------------------------- */
+/*  Checagem de número                                                        */
+/* -------------------------------------------------------------------------- */
 export class OnWhatsAppDto {
   constructor(
     public readonly jid: string,
@@ -16,11 +19,20 @@ export class OnWhatsAppDto {
   ) {}
 }
 
-export class getBase64FromMediaMessageDto {
+/* -------------------------------------------------------------------------- */
+/*  Media → Base64                                                            */
+/* -------------------------------------------------------------------------- */
+export class GetBase64FromMediaMessageDto {
   message: proto.WebMessageInfo;
   convertToMp4?: boolean;
 }
 
+/* -------- Alias opcional de compatibilidade: remova quando não precisar --- */
+export { GetBase64FromMediaMessageDto as getBase64FromMediaMessageDto };
+
+/* -------------------------------------------------------------------------- */
+/*  Diversos DTOs                                                             */
+/* -------------------------------------------------------------------------- */
 export class WhatsAppNumberDto {
   numbers: string[];
 }
@@ -56,15 +68,19 @@ export class ProfileStatusDto {
 
 export class ProfilePictureDto {
   number?: string;
-  // url or base64
+  // url ou base64
   picture?: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Chats & mensagens                                                         */
+/* -------------------------------------------------------------------------- */
 class Key {
   id: string;
   fromMe: boolean;
   remoteJid: string;
 }
+
 export class ReadMessageDto {
   readMessages: Key[];
 }
@@ -85,6 +101,9 @@ export class MarkChatUnreadDto {
   chat?: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Privacidade                                                               */
+/* -------------------------------------------------------------------------- */
 export class PrivacySettingDto {
   readreceipts: WAReadReceiptsValue;
   profile: WAPrivacyValue;
@@ -94,23 +113,35 @@ export class PrivacySettingDto {
   groupadd: WAPrivacyGroupAddValue;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Exclusão                                                                  */
+/* -------------------------------------------------------------------------- */
 export class DeleteMessage {
   id: string;
   fromMe: boolean;
   remoteJid: string;
   participant?: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Utilidades                                                                */
+/* -------------------------------------------------------------------------- */
 export class Options {
   delay?: number;
   presence?: WAPresence;
 }
+
 class OptionsMessage {
   options: Options;
 }
+
 export class Metadata extends OptionsMessage {
   number: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Presença / Atualizações                                                   */
+/* -------------------------------------------------------------------------- */
 export class SendPresenceDto extends Metadata {
   presence: WAPresence;
   delay: number;
