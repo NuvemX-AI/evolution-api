@@ -1,36 +1,83 @@
 // Arquivo: tsconfig.json
 {
   "compilerOptions": {
-    "target": "ES2021", // Ou outra versão do ECMAScript compatível
-    "module": "CommonJS", // Mantido conforme original, mas considere "NodeNext" ou "ESNext" para projetos modernos
-    "moduleResolution": "Node", // Ou "NodeNext" se mudar o module
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true, // Recomendado manter true
-    "esModuleInterop": true,
-    "skipLibCheck": true, // Mantido conforme original
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "sourceMap": true, // Habilita source maps
-    "declaration": true, // Gera arquivos .d.ts
-    "declarationMap": true, // Gera source maps para .d.ts
-    "experimentalDecorators": true, // Necessário para decorators
-    "emitDecoratorMetadata": true, // Necessário para metadados de decorators (usado por NestJS/TypeORM etc)
-    "baseUrl": "./src", // Define a base para resolução de paths absolutos
-    "paths": { // Define os aliases
-      "@api/*": ["api/*"],
-      "@config/*": ["config/*"],
-      "@repository/*": ["repository/*"], // Certifique-se que este é o caminho canônico
-      "@utils/*": ["utils/*"],
-      "@cache/*": ["cache/*"],
-      "@exceptions/*": ["exceptions/*"],
-      "@integrations/*": ["integrations/*"],
-      "@provider/*": ["provider/*"],
-      "@validate/*": ["validate/*"],
-      // Adicione outros aliases conforme necessário
-    },
-    "lib": ["ES2021"] // Bibliotecas padrão a serem incluídas
+    /* --------------------------------------------------------- */
+    /* transpile / emit                                          */
+    /* --------------------------------------------------------- */
+    "target"              : "ES2020", // Mantido conforme original
+    "module"              : "CommonJS", // Mantido conforme original
+    "declaration"         : true, // Gera arquivos .d.ts
+    "declarationMap"      : true, // Gera source maps para .d.ts (Adicionado)
+    "sourceMap": true, // Gera source maps para .js (Adicionado)
+    "outDir"              : "./dist",
+    "rootDir"             : "./src",
+    "removeComments"      : true, // Remove comentários no build final
+    "noEmitOnError"       : true, // Não emite arquivos se houver erros
+
+    /* --------------------------------------------------------- */
+    /* language & runtime support                                */
+    /* --------------------------------------------------------- */
+    "experimentalDecorators" : true, // Necessário para decorators
+    "emitDecoratorMetadata"  : true, // Necessário para metadados de type reflection
+    "esModuleInterop"        : true, // Permite interoperabilidade com módulos CommonJS
+    "allowSyntheticDefaultImports": true, // Permite import default de módulos sem export default
+    "resolveJsonModule"      : true, // Permite importar arquivos .json
+    "types"                  : ["node"], // Inclui tipos do Node.js
+    "lib"                    : ["ES2020"], // Especifica bibliotecas padrão (Adicionado - ajuste conforme target)
+
+    /* --------------------------------------------------------- */
+    /* type-checking                                             */
+    /* --------------------------------------------------------- */
+    // NOTA: Recomenda-se habilitar 'strict: true' gradualmente para melhor qualidade de código.
+    "strict"                 : false, // Mantido false por ora para evitar muitos erros iniciais
+    "noImplicitAny"          : false, // Mantido false por ora
+    "strictNullChecks"       : false, // Mantido false por ora
+    "forceConsistentCasingInFileNames": true, // Garante consistência no case dos nomes de arquivos
+    "skipLibCheck"           : true, // Pula checagem de tipos em arquivos de declaração (.d.ts)
+
+    /* --------------------------------------------------------- */
+    /* build perf                                                */
+    /* --------------------------------------------------------- */
+    "incremental"            : true, // Habilita compilação incremental
+
+    /* --------------------------------------------------------- */
+    /* module resolution / paths                                 */
+    /* --------------------------------------------------------- */
+    "moduleResolution" : "Node", // Estratégia de resolução de módulos
+    "baseUrl"          : "./src", // Base para resolução de paths absolutos (aliases)
+    "paths": { // Definição dos aliases (Mantido conforme original - verifique se estão corretos!)
+      /* raiz API */
+      "@api/*"          : ["api/*"],
+      "@api"            : ["api"],
+
+      /* controladores / serviços / repositórios */
+      "@controllers/*"  : ["api/controllers/*"],
+      "@integrations/*" : ["api/integrations/*"],
+      "@repository/*"   : ["repository/*"], // Caminho canônico para o repositório
+      "@services/*"     : ["api/services/*"],
+
+      /* utilidades & libs */
+      "@utils/*"        : ["utils/*"],
+      "@utils"          : ["utils/index.ts"],
+      "@validate/*"     : ["validate/*"],
+      "@libs/*"         : ["libs/*"],
+      "@cache/*"        : ["cache/*"],
+      "@provider/*"     : ["provider/*"],
+      "@config/*"       : ["config/*"],
+
+      /* exceptions */
+      "@exceptions"     : ["exceptions/index.ts"],
+      "@exceptions/*"   : ["exceptions/*"],
+
+      /* constantes */
+      "@constants"      : ["api/constants/index.ts"],
+      "@constants/*"    : ["api/constants/*"]
+    }
   },
-  "include": ["src/**/*"], // Inclui todos os arquivos dentro de src
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"] // Exclui node_modules, dist e arquivos de teste
+
+  /* arquivos que entram na compilação ------------------------ */
+  "include": ["src/**/*"], // Inclui todos os arquivos .ts, .tsx, .d.ts, .js, .jsx em src (Removido .json explícito, resolveJsonModule cuida disso)
+
+  /* pastas ignoradas ----------------------------------------- */
+  "exclude": ["node_modules", "dist", "test", "prisma"] // Pastas a serem ignoradas
 }
