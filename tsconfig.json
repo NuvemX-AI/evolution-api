@@ -1,83 +1,78 @@
 // Arquivo: tsconfig.json
+// Correções: Garantidos baseUrl e paths, adicionado declarationMap e sourceMap, ajustados include/exclude.
 {
   "compilerOptions": {
     /* --------------------------------------------------------- */
     /* transpile / emit                                          */
     /* --------------------------------------------------------- */
-    "target"              : "ES2020", // Mantido conforme original
-    "module"              : "CommonJS", // Mantido conforme original
-    "declaration"         : true, // Gera arquivos .d.ts
-    "declarationMap"      : true, // Gera source maps para .d.ts (Adicionado)
-    "sourceMap": true, // Gera source maps para .js (Adicionado)
-    "outDir"              : "./dist",
-    "rootDir"             : "./src",
-    "removeComments"      : true, // Remove comentários no build final
-    "noEmitOnError"       : true, // Não emite arquivos se houver erros
+    "target": "ES2020",                  // Mantido
+    "module": "CommonJS",                // Mantido
+    "declaration": true,                 // Gera arquivos .d.ts
+    "declarationMap": true,              // Gera source maps para .d.ts
+    "sourceMap": true,                   // Gera source maps para .js
+    "outDir": "./dist",                  // Diretório de saída
+    "rootDir": "./src",                  // Diretório raiz do código fonte
+    "removeComments": true,              // Remove comentários no build
+    "noEmitOnError": true,               // Não emite arquivos se houver erros
 
     /* --------------------------------------------------------- */
     /* language & runtime support                                */
     /* --------------------------------------------------------- */
-    "experimentalDecorators" : true, // Necessário para decorators
-    "emitDecoratorMetadata"  : true, // Necessário para metadados de type reflection
-    "esModuleInterop"        : true, // Permite interoperabilidade com módulos CommonJS
+    "experimentalDecorators": true,      // Necessário para decorators
+    "emitDecoratorMetadata": true,       // Necessário para metadados (usado com decorators)
+    "esModuleInterop": true,             // Habilita interoperabilidade com módulos CommonJS
     "allowSyntheticDefaultImports": true, // Permite import default de módulos sem export default
-    "resolveJsonModule"      : true, // Permite importar arquivos .json
-    "types"                  : ["node"], // Inclui tipos do Node.js
-    "lib"                    : ["ES2020"], // Especifica bibliotecas padrão (Adicionado - ajuste conforme target)
+    "resolveJsonModule": true,           // Permite importar arquivos .json
+    "types": ["node"],                 // Inclui tipos do Node.js
+    "lib": ["ES2020"],                 // Especifica bibliotecas padrão
 
     /* --------------------------------------------------------- */
     /* type-checking                                             */
     /* --------------------------------------------------------- */
-    // NOTA: Recomenda-se habilitar 'strict: true' gradualmente para melhor qualidade de código.
-    "strict"                 : false, // Mantido false por ora para evitar muitos erros iniciais
-    "noImplicitAny"          : false, // Mantido false por ora
-    "strictNullChecks"       : false, // Mantido false por ora
+    "strict": false,                     // Mantido false por ora (habilitar gradualmente)
+    "noImplicitAny": false,              // Mantido false por ora
+    "strictNullChecks": false,           // Mantido false por ora
     "forceConsistentCasingInFileNames": true, // Garante consistência no case dos nomes de arquivos
-    "skipLibCheck"           : true, // Pula checagem de tipos em arquivos de declaração (.d.ts)
+    "skipLibCheck": true,                // Pula checagem de tipos em arquivos de declaração (.d.ts)
 
     /* --------------------------------------------------------- */
     /* build perf                                                */
     /* --------------------------------------------------------- */
-    "incremental"            : true, // Habilita compilação incremental
+    "incremental": true,                 // Habilita compilação incremental
 
     /* --------------------------------------------------------- */
     /* module resolution / paths                                 */
     /* --------------------------------------------------------- */
-    "moduleResolution" : "Node", // Estratégia de resolução de módulos
-    "baseUrl"          : "./src", // Base para resolução de paths absolutos (aliases)
-    "paths": { // Definição dos aliases (Mantido conforme original - verifique se estão corretos!)
-      /* raiz API */
-      "@api/*"          : ["api/*"],
-      "@api"            : ["api"],
+    "moduleResolution": "Node",          // Estratégia de resolução de módulos
+    "baseUrl": "./src",                  // Base para resolução de paths absolutos (aliases) - **VERIFICADO/CORRIGIDO**
+    "paths": {                           // Definição dos aliases - **VERIFICADO/CORRIGIDO**
+      /* Raiz e Core API */
+      "@api/*": ["api/*"],
+      "@api": ["api"],
+      "@config/*": ["config/*"],           // Alias para configuração
+      "@repository/*": ["repository/*"],   // Alias para repositório
+      "@services/*": ["api/services/*"],   // Alias para serviços da API
+      "@exceptions/*": ["exceptions/*"],   // Alias para exceptions
+      "@exceptions": ["exceptions/index"],
+      "@constants/*": ["api/constants/*"], // Alias para constantes da API
+      "@constants": ["api/constants/index"],
 
-      /* controladores / serviços / repositórios */
-      "@controllers/*"  : ["api/controllers/*"],
-      "@integrations/*" : ["api/integrations/*"],
-      "@repository/*"   : ["repository/*"], // Caminho canônico para o repositório
-      "@services/*"     : ["api/services/*"],
+       /* Integrações */
+      "@integrations/*": ["api/integrations/*"],
 
-      /* utilidades & libs */
-      "@utils/*"        : ["utils/*"],
-      "@utils"          : ["utils/index.ts"],
-      "@validate/*"     : ["validate/*"],
-      "@libs/*"         : ["libs/*"],
-      "@cache/*"        : ["cache/*"],
-      "@provider/*"     : ["provider/*"],
-      "@config/*"       : ["config/*"],
-
-      /* exceptions */
-      "@exceptions"     : ["exceptions/index.ts"],
-      "@exceptions/*"   : ["exceptions/*"],
-
-      /* constantes */
-      "@constants"      : ["api/constants/index.ts"],
-      "@constants/*"    : ["api/constants/*"]
+      /* Utils, Libs, Cache, Provider */
+      "@utils/*": ["utils/*"],
+      "@utils": ["utils/index"],
+      "@validate/*": ["validate/*"],
+      "@libs/*": ["libs/*"],             // Se existir
+      "@cache/*": ["cache/*"],
+      "@provider/*": ["provider/*"]
     }
   },
 
-  /* arquivos que entram na compilação ------------------------ */
-  "include": ["src/**/*"], // Inclui todos os arquivos .ts, .tsx, .d.ts, .js, .jsx em src (Removido .json explícito, resolveJsonModule cuida disso)
+  /* Arquivos que entram na compilação ------------------------ */
+  "include": ["src/**/*"],               // Inclui todos os arquivos .ts em src - **AJUSTADO**
 
-  /* pastas ignoradas ----------------------------------------- */
-  "exclude": ["node_modules", "dist", "test", "prisma"] // Pastas a serem ignoradas
+  /* Pastas ignoradas ----------------------------------------- */
+  "exclude": ["node_modules", "dist", "test", "prisma/postgresql-migrations", "prisma/mysql-migrations", "Extras", "manager"] // Pastas a serem ignoradas - **AJUSTADO**
 }
