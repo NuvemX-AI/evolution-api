@@ -1,40 +1,76 @@
 {
   "compilerOptions": {
+    /* --------------------------------------------------------- */
+    /* transpile / emit                                          */
+    /* --------------------------------------------------------- */
+    "target": "ES2020",
+    "module": "CommonJS",
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "removeComments": true,
+    "noEmitOnError": true,
+
+    /* --------------------------------------------------------- */
+    /* language & runtime support                                */
+    /* --------------------------------------------------------- */
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "declaration": true,
-    "target": "es2020",
-    "module": "CommonJS",
-    "rootDir": "./",
-    "resolveJsonModule": true,
-    "removeComments": true,
-    "outDir": "./dist",
-    "noEmitOnError": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+
+    /* --------------------------------------------------------- */
+    /* type-checking                                             */
+    /* --------------------------------------------------------- */
     "strict": false,
-    "skipLibCheck": true,
-    "strictNullChecks": false,
-    "incremental": true,
     "noImplicitAny": false,
-    "baseUrl": ".",
+    "strictNullChecks": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+
+    /* --------------------------------------------------------- */
+    /* build perf                                                */
+    /* --------------------------------------------------------- */
+    "incremental": true,
+
+    /* --------------------------------------------------------- */
+    /* module resolution / paths                                 */
+    /* --------------------------------------------------------- */
+    "moduleResolution": "Node",
+    "baseUrl": "./src",
     "paths": {
-      "@api/*": ["./src/api/*"],
-      "@cache/*": ["./src/cache/*"],
-      "@config/*": ["./src/config/*"],
-      "@exceptions/*": ["./src/exceptions/*"],
-      "@libs/*": ["./src/libs/*"],
-      "@utils/*": ["./src/utils/*"],
-      "@validate/*": ["./src/validate/*"],
-      "@controllers/*": ["./src/api/controllers/*"],
-      "@integrations/*": ["./src/integrations/*"],
-      "@provider/*": ["./src/provider/*"],
-      "@repository/*": ["./src/repository/*"],
-      "@services/*": ["./src/services/*"],
-      "@constants/*": ["./src/api/constants/*"]
-    },
-    "moduleResolution": "Node"
+      /* raiz API */
+      "@api/*"          : ["api/*"],
+      "@api"            : ["api"],
+
+      /* módulos de domínio */
+      "@controllers/*"  : ["api/controllers/*"],
+      "@integrations/*" : ["api/integrations/*"],
+      "@repository/*"   : ["repository/*"],
+      "@services/*"     : ["api/services/*"],
+
+      /* utilidades & libs */
+      "@utils/*"        : ["utils/*"],
+      "@utils"          : ["utils/index.ts"],
+      "@validate/*"     : ["validate/*"],
+      "@libs/*"         : ["libs/*"],
+      "@cache/*"        : ["cache/*"],
+      "@provider/*"     : ["provider/*"],
+      "@config/*"       : ["config/*"],
+
+      /* exceptions */
+      "@exceptions"     : ["api/exceptions/index.ts"],
+      "@exceptions/*"   : ["api/exceptions/*"],
+
+      /* constantes */
+      "@constants"      : ["api/constants/index.ts"],
+      "@constants/*"    : ["api/constants/*"]
+    }
   },
-  "exclude": ["node_modules", "./test", "./dist", "./prisma"],
-  "include": ["src/**/*", "src/**/*.json"]
+
+  /* arquivos que entram na compilação ------------------------ */
+  "include": ["src/**/*", "src/**/*.json"],
+
+  /* pastas ignoradas ----------------------------------------- */
+  "exclude": ["node_modules", "dist", "test", "prisma"]
 }
