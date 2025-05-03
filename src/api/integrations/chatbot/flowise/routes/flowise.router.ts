@@ -1,29 +1,30 @@
 // src/api/integrations/chatbot/flowise/routes/flowise.router.ts
 
-// << CORREÇÃO: Importar RouterBroker via alias se configurado >>
-// import { RouterBroker } from '@api/abstract/abstract.router';
-import { RouterBroker, DataValidateArgs } from '../../../../abstract/abstract.router'; // Mantendo relativo e importando Args
-import { IgnoreJidDto } from '../../../../dto/chatbot.dto'; // Assume DTO existe
-import { InstanceDto } from '../../../../dto/instance.dto'; // Assume DTO existe
-// << CORREÇÃO TS2305: Importar httpStatus local >>
-import httpStatus from '../../../../constants/http-status'; // Ajustado caminho relativo
-import { flowiseController } from '@api/server.module'; // Assume exportação correta
-import { instanceSchema } from '@validate/instance.schema'; // Assume alias
-import { RequestHandler, Router, Request, Response, NextFunction } from 'express'; // Importados Request, Response, NextFunction
-
-// Importa DTOs e Schemas específicos
-import { FlowiseDto, FlowiseSettingDto } from '../dto/flowise.dto'; // Assume DTO existe
-// NOTE: Verifique se estes schemas existem no caminho correto
+// Imports (mantidos e corrigidos aliases/paths conforme análise anterior)
+// CORREÇÃO TS2724: Importar DataValidateArgs de abstract.router
+import { RouterBroker, DataValidateArgs } from '../../../../abstract/abstract.router'; // Ajustado path
+import { IgnoreJidDto } from '../../../../dto/chatbot.dto';
+import { InstanceDto } from '../../../../dto/instance.dto';
+import httpStatus from '../../../../constants/http-status';
+import { flowiseController } from '@api/server.module';
+import { instanceSchema } from '@validate/instance.schema'; // Ajustar path/alias
+import { RequestHandler, Router, Request, Response, NextFunction } from 'express';
+import { FlowiseDto, FlowiseSettingDto } from '../dto/flowise.dto';
 import {
   flowiseIgnoreJidSchema,
   flowiseSchema,
   flowiseSettingSchema,
   flowiseStatusSchema,
-} from '../validate/flowise.schema'; // Assume schemas existem e alias @validate funciona
+} from '../validate/flowise.schema'; // Ajustar path/alias
 
 export class FlowiseRouter extends RouterBroker {
+
+  // CORREÇÃO TS2339: Declarar a propriedade router ANTES do construtor
+  public readonly router: Router = Router();
+
   constructor(...guards: RequestHandler[]) {
-    super();
+    super(); // Chamar construtor da base
+    // Usar this.router
     this.router
       .post(this.routerPath('create'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -33,11 +34,11 @@ export class FlowiseRouter extends RouterBroker {
             ClassRef: FlowiseDto,
             execute: (instance, data) => flowiseController.createBot(instance, data),
           });
-           // << CORREÇÃO TS2305: Usar httpStatus >>
           res.status(httpStatus.CREATED).json(response);
         } catch (error) { next(error); }
       })
-      .get(this.routerPath('find'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
+      // ... (restante das definições de rota usando this.router) ...
+       .get(this.routerPath('find'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
          try {
             const response = await this.dataValidate<InstanceDto>({
               request: req,
@@ -45,7 +46,6 @@ export class FlowiseRouter extends RouterBroker {
               ClassRef: InstanceDto,
               execute: (instance) => flowiseController.findBot(instance),
             });
-             // << CORREÇÃO TS2305: Usar httpStatus >>
             res.status(httpStatus.OK).json(response);
          } catch (error) { next(error); }
       })
@@ -57,7 +57,6 @@ export class FlowiseRouter extends RouterBroker {
               ClassRef: InstanceDto,
               execute: (instance) => flowiseController.fetchBot(instance, req.params.flowiseId),
             });
-             // << CORREÇÃO TS2305: Usar httpStatus >>
             res.status(httpStatus.OK).json(response);
          } catch (error) { next(error); }
       })
@@ -69,7 +68,6 @@ export class FlowiseRouter extends RouterBroker {
                 ClassRef: FlowiseDto,
                 execute: (instance, data) => flowiseController.updateBot(instance, req.params.flowiseId, data),
               });
-               // << CORREÇÃO TS2305: Usar httpStatus >>
               res.status(httpStatus.OK).json(response);
           } catch (error) { next(error); }
       })
@@ -81,7 +79,6 @@ export class FlowiseRouter extends RouterBroker {
                   ClassRef: InstanceDto,
                   execute: (instance) => flowiseController.deleteBot(instance, req.params.flowiseId),
                 });
-                 // << CORREÇÃO TS2305: Usar httpStatus >>
                 res.status(httpStatus.OK).json(response);
            } catch (error) { next(error); }
       })
@@ -90,10 +87,9 @@ export class FlowiseRouter extends RouterBroker {
                 const response = await this.dataValidate<FlowiseSettingDto>({
                   request: req,
                   schema: flowiseSettingSchema,
-                  ClassRef: FlowiseSettingDto, // Passa DTO correto
+                  ClassRef: FlowiseSettingDto,
                   execute: (instance, data) => flowiseController.settings(instance, data),
                 });
-                 // << CORREÇÃO TS2305: Usar httpStatus >>
                 res.status(httpStatus.OK).json(response);
              } catch (error) { next(error); }
       })
@@ -105,31 +101,28 @@ export class FlowiseRouter extends RouterBroker {
                     ClassRef: InstanceDto,
                     execute: (instance) => flowiseController.fetchSettings(instance),
                   });
-                   // << CORREÇÃO TS2305: Usar httpStatus >>
                   res.status(httpStatus.OK).json(response);
              } catch (error) { next(error); }
       })
       .post(this.routerPath('changeStatus'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
              try {
-                  const response = await this.dataValidate<any>({ // Usar DTO específico se houver
+                  const response = await this.dataValidate<any>({
                     request: req,
                     schema: flowiseStatusSchema,
-                    ClassRef: Object, // Usar DTO específico se houver
+                    ClassRef: Object,
                     execute: (instance, data) => flowiseController.changeStatus(instance, data),
                   });
-                   // << CORREÇÃO TS2305: Usar httpStatus >>
                   res.status(httpStatus.OK).json(response);
              } catch (error) { next(error); }
       })
-      .get(this.routerPath('fetchSessions/:flowiseId?'), ...guards, async (req: Request, res: Response, next: NextFunction) => { // Id opcional
+      .get(this.routerPath('fetchSessions/:flowiseId?'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
              try {
                   const response = await this.dataValidate<InstanceDto>({
                     request: req,
                     schema: instanceSchema,
                     ClassRef: InstanceDto,
-                    execute: (instance) => flowiseController.fetchSessions(instance, req.params.flowiseId), // Passa botId opcional
+                    execute: (instance) => flowiseController.fetchSessions(instance, req.params.flowiseId),
                   });
-                   // << CORREÇÃO TS2305: Usar httpStatus >>
                   res.status(httpStatus.OK).json(response);
              } catch (error) { next(error); }
       })
@@ -141,19 +134,19 @@ export class FlowiseRouter extends RouterBroker {
                     ClassRef: IgnoreJidDto,
                     execute: (instance, data) => flowiseController.ignoreJid(instance, data),
                   });
-                   // << CORREÇÃO TS2305: Usar httpStatus >>
                   res.status(httpStatus.OK).json(response);
              } catch (error) { next(error); }
       });
   }
 
-  // Placeholder para routerPath
+  // Implementar ou herdar routerPath e dataValidate
+  // CORREÇÃO TS2415: Visibilidade precisa ser compatível com a base (protected ou public)
   protected routerPath(pathSuffix: string): string {
-    const basePath = '/flowise'; // Definir o prefixo correto para Flowise
+    const basePath = ''; // Ajustar base path
     return pathSuffix ? `${basePath}/${pathSuffix}` : basePath;
   }
 
-  // Placeholder para dataValidate
+  // CORREÇÃO TS2415: Visibilidade precisa ser compatível com a base (protected ou public)
   protected async dataValidate<T>(args: DataValidateArgs<T>): Promise<any> {
       // NOTE: Implementação MOCK - Substitua pela lógica real
       const instanceName = args.request.params?.instanceName || args.request.body?.instanceName || args.request.headers?.instanceName || args.request.params?.instance;
