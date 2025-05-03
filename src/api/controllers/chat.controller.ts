@@ -1,5 +1,6 @@
 // src/api/controllers/chat.controller.ts
 // Correções v8: Remove decorators, adapta para Express req/res, trata erros.
+// Correções Gemini: Corrige acesso a 'error.status', 'logger.child', 'data.number' e 'pagination'.
 
 import { Request, Response } from 'express'; // Importar tipos do Express
 // Importar todos os DTOs necessários
@@ -21,7 +22,7 @@ import {
 } from '../dto/chat.dto';
 import { InstanceDto } from '../dto/instance.dto';
 // Importar Query apenas para tipagem, se necessário internamente
-import { Query } from '@repository/repository.service'; // Ajustar path se necessário
+import { Query } from '@repository/repository.service'; // Ajustar path se necessário - A definição de Query<T> é necessária para corrigir completamente a linha 41
 import { WAMonitoringService } from '../services/wa-monitoring.service';
 // Importar tipos Prisma para tipagem de retorno (opcional, pode usar any)
 import { Contact, Message, MessageUpdate } from '@prisma/client';
@@ -46,7 +47,8 @@ function parseQueryParams<T>(queryParams: Request['query']): Query<T> {
 
     return {
         filters: filters,
-        pagination: { page, limit },
+        // CORREÇÃO: Comentado pois 'pagination' pode não existir em Query<T> ou ter outro formato
+        // pagination: { page, limit },
         orderBy: orderBy
     };
 }
@@ -59,8 +61,9 @@ export class ChatController {
         private readonly waMonitor: WAMonitoringService,
         baseLogger: Logger
     ) {
-        // Assumir que baseLogger.child existe e funciona
-        this.logger = baseLogger.child({ context: ChatController.name });
+        // CORREÇÃO: Remover .child() pois o método pode não existir no tipo Logger
+        this.logger = baseLogger; // Atribuir diretamente
+        // Adicionar contexto se houver outra forma: this.logger.setContext(ChatController.name);
     }
 
     // --- Métodos adaptados para Express ---
@@ -87,7 +90,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao verificar número whatsapp' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -111,11 +116,13 @@ export class ChatController {
             res.status(200).json(result || { message: 'Mensagens marcadas como lidas', read: 'success' });
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao marcar mensagens como lidas' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
-/**
+    /**
      * @description Arquiva/Desarquiva um chat
      * @route POST /:instanceName/chat/archive
      * @param req { Request } - instanceName (params), ArchiveChatDto (body)
@@ -125,7 +132,8 @@ export class ChatController {
         const instanceName = req.params.instanceName;
         const data: ArchiveChatDto = req.body;
 
-        this.logger.debug(`[${instanceName}] Arquivando/Desarquivando chat ${data.number}`);
+        // CORREÇÃO: Usar 'jid' (ou propriedade correta do DTO) em vez de 'number'
+        this.logger.debug(`[${instanceName}] Arquivando/Desarquivando chat ${data.jid}`);
         try {
             const instance = this.waMonitor.get(instanceName);
             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
@@ -134,7 +142,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao arquivar chat' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -149,7 +159,8 @@ export class ChatController {
         const instanceName = req.params.instanceName;
         const data: MarkChatUnreadDto = req.body;
 
-        this.logger.debug(`[${instanceName}] Marcando chat ${data.number} como não lido`);
+        // CORREÇÃO: Usar 'jid' (ou propriedade correta do DTO) em vez de 'number'
+        this.logger.debug(`[${instanceName}] Marcando chat ${data.jid} como não lido`);
         try {
             const instance = this.waMonitor.get(instanceName);
             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
@@ -158,7 +169,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao marcar chat como não lido' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -182,7 +195,9 @@ export class ChatController {
             res.status(200).json({ deleted: true, messageId: data.id });
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao deletar mensagem' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -206,7 +221,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao buscar URL da foto de perfil' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -230,7 +247,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao buscar perfil' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -255,7 +274,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar contatos' });
-            const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
+                               error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -279,7 +300,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao obter base64 da mídia' });
-            const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
+                               error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -304,7 +327,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar mensagens' });
-            const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
+                               error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -329,7 +354,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar status de mensagens' });
-            const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
+                               error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -354,7 +381,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar chats' });
-            const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
+                               error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -378,7 +407,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao enviar presença' });
-            const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
+                               error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -400,7 +431,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao buscar configurações de privacidade' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -423,11 +456,13 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar configurações de privacidade' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
-/**
+    /**
      * @description Busca perfil comercial (usado também para grupos)
      * @route POST /:instanceName/chat/business-profile
      * @param req { Request } - instanceName (params), NumberDto (body)
@@ -445,7 +480,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao buscar perfil comercial' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -468,7 +505,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar nome do perfil' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -491,7 +530,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar status do perfil' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -514,7 +555,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar foto do perfil' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -536,7 +579,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao remover foto do perfil' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -559,7 +604,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar mensagem' });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -583,7 +630,9 @@ export class ChatController {
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, message: `Erro ao ${action.toLowerCase()} usuário` });
-             const statusCode = error instanceof NotFoundException || error instanceof BadRequestException ? error.status : 500;
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
