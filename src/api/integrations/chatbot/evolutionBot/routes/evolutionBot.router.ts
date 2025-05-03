@@ -1,42 +1,44 @@
 // src/api/integrations/chatbot/evolutionBot/routes/evolutionBot.router.ts
 
-// << CORREÇÃO TS2307: Usar alias >>
-// NOTE: Certifique-se que DataValidateArgs está exportado de abstract.router.ts
+// Imports (mantidos e corrigidos aliases/paths conforme análise anterior)
 import { RouterBroker, DataValidateArgs } from '@api/abstract/abstract.router';
-import { IgnoreJidDto } from '@api/dto/chatbot.dto'; // Ajustado caminho relativo/alias
-import { InstanceDto } from '@api/dto/instance.dto'; // Ajustado caminho relativo/alias
-// << CORREÇÃO TS2305: Importar httpStatus local >>
-import httpStatus from '../../../../constants/http-status'; // Ajustado caminho relativo
-import { evolutionBotController } from '@api/server.module'; // Assume exportação correta
-import { instanceSchema } from '@validate/instance.schema'; // Assume alias
-import { RequestHandler, Router, Request, Response, NextFunction } from 'express'; // Importado Request, Response, NextFunction
-
-// Importa DTOs e Schemas específicos
-import { EvolutionBotDto, EvolutionBotSettingDto } from '../dto/evolutionBot.dto'; // Assume DTO existe
-// NOTE: Verifique se estes schemas existem no caminho correto
+import { IgnoreJidDto } from '@api/dto/chatbot.dto';
+import { InstanceDto } from '@api/dto/instance.dto';
+import httpStatus from '../../../../constants/http-status';
+import { evolutionBotController } from '@api/server.module';
+import { instanceSchema } from '@validate/instance.schema';
+import { RequestHandler, Router, Request, Response, NextFunction } from 'express';
+import { EvolutionBotDto, EvolutionBotSettingDto } from '../dto/evolutionBot.dto';
 import {
   evolutionBotIgnoreJidSchema,
   evolutionBotSchema,
   evolutionBotSettingSchema,
   evolutionBotStatusSchema,
-} from '../validate/evolutionBot.schema'; // Assume schemas existem e alias @validate funciona
+} from '../validate/evolutionBot.schema';
 
 export class EvolutionBotRouter extends RouterBroker {
+
+  // CORREÇÃO TS2339: Declarar a propriedade router ANTES do construtor
+  public readonly router: Router = Router();
+
   constructor(...guards: RequestHandler[]) {
-    super();
+    super(); // Chamar construtor da classe base
+    // Usar this.router para definir as rotas
     this.router
       .post(this.routerPath('create'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
         try {
-          const response = await this.dataValidate<EvolutionBotDto>({
+          const response = await this.dataValidate<EvolutionBotDto>({ // Tipagem <EvolutionBotDto> estava faltando
             request: req,
             schema: evolutionBotSchema,
+            // CORREÇÃO TS2693: Passar a classe como referência
             ClassRef: EvolutionBotDto,
             execute: (instance, data) => evolutionBotController.createBot(instance, data),
           });
           res.status(httpStatus.CREATED).json(response);
         } catch (error) { next(error); }
       })
-      .get(this.routerPath('find'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
+      // ... (restante das definições de rota usando this.router) ...
+       .get(this.routerPath('find'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
          try {
             const response = await this.dataValidate<InstanceDto>({
               request: req,
@@ -60,9 +62,10 @@ export class EvolutionBotRouter extends RouterBroker {
       })
       .put(this.routerPath('update/:evolutionBotId'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
           try {
-              const response = await this.dataValidate<EvolutionBotDto>({
+              const response = await this.dataValidate<EvolutionBotDto>({ // Tipagem <EvolutionBotDto> estava faltando
                 request: req,
                 schema: evolutionBotSchema,
+                // CORREÇÃO TS2693: Passar a classe como referência
                 ClassRef: EvolutionBotDto,
                 execute: (instance, data) => evolutionBotController.updateBot(instance, req.params.evolutionBotId, data),
               });
@@ -82,9 +85,10 @@ export class EvolutionBotRouter extends RouterBroker {
       })
       .post(this.routerPath('settings'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
              try {
-                const response = await this.dataValidate<EvolutionBotSettingDto>({
+                const response = await this.dataValidate<EvolutionBotSettingDto>({ // Tipagem <EvolutionBotSettingDto> estava faltando
                   request: req,
                   schema: evolutionBotSettingSchema,
+                  // CORREÇÃO TS2693: Passar a classe como referência
                   ClassRef: EvolutionBotSettingDto,
                   execute: (instance, data) => evolutionBotController.settings(instance, data),
                 });
@@ -104,11 +108,10 @@ export class EvolutionBotRouter extends RouterBroker {
       })
       .post(this.routerPath('changeStatus'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
              try {
-                  // Usar um DTO específico para changeStatus se existir
                   const response = await this.dataValidate<any>({
                     request: req,
                     schema: evolutionBotStatusSchema,
-                    ClassRef: Object, // Usar DTO específico se existir
+                    ClassRef: Object,
                     execute: (instance, data) => evolutionBotController.changeStatus(instance, data),
                   });
                   res.status(httpStatus.OK).json(response);
@@ -120,7 +123,7 @@ export class EvolutionBotRouter extends RouterBroker {
                     request: req,
                     schema: instanceSchema,
                     ClassRef: InstanceDto,
-                    execute: (instance) => evolutionBotController.fetchSessions(instance, req.params.evolutionBotId), // Passa botId opcional
+                    execute: (instance) => evolutionBotController.fetchSessions(instance, req.params.evolutionBotId),
                   });
                   res.status(httpStatus.OK).json(response);
              } catch (error) { next(error); }
@@ -139,27 +142,24 @@ export class EvolutionBotRouter extends RouterBroker {
   }
 
   // Placeholder para routerPath (idealmente viria da classe base RouterBroker)
+  // Corrigir visibilidade se RouterBroker definir como public
   protected routerPath(pathSuffix: string): string {
-    const basePath = '/evolution'; // Definir o prefixo correto para este bot
+    const basePath = ''; // Ajuste o base path conforme necessário ou remova se gerenciado pela base
     return pathSuffix ? `${basePath}/${pathSuffix}` : basePath;
   }
 
   // Placeholder para dataValidate (idealmente viria da classe base RouterBroker)
-  // NOTE: Esta implementação é um MOCK e precisa ser substituída pela lógica real
-  //       de validação de schema, busca de instância e execução.
+  // Corrigir visibilidade se RouterBroker definir como public
   protected async dataValidate<T>(args: DataValidateArgs<T>): Promise<any> {
-      const instanceName = args.request.params?.instanceName || args.request.body?.instanceName || args.request.headers?.instanceName || args.request.params?.instance; // Tenta pegar de params também
+      // NOTE: Implementação MOCK - Substitua pela lógica real
+      const instanceName = args.request.params?.instanceName || args.request.body?.instanceName || args.request.headers?.instanceName || args.request.params?.instance;
       if (!instanceName) {
         throw new Error("Nome da instância não encontrado na requisição (params, body ou headers)");
       }
-      // Simula busca da instância (substitua pela lógica real com waMonitor)
       const instanceMock: InstanceDto = { instanceName: instanceName, instanceId: `mock-${instanceName}-id` };
-
-      // Simula validação (adicione sua biblioteca de validação, ex: Joi)
+      // Validação (exemplo Joi)
       // const { error } = args.schema.validate(args.request.body);
       // if (error) throw new Error(`Erro de validação: ${error.message}`);
-
-      // Executa a função do controller
       return await args.execute(instanceMock, args.request.body as T);
   }
 }
