@@ -1,15 +1,16 @@
 // src/api/integrations/chatbot/chatwoot/routes/chatwoot.router.ts
 
-// Imports (mantidos e corrigidos aliases/paths conforme análise anterior)
+// Imports
 import { RouterBroker, DataValidateArgs } from '../../../../abstract/abstract.router'; // Ajustado path
 import { InstanceDto } from '@api/dto/instance.dto';
 import { ChatwootDto } from '@api/integrations/chatbot/chatwoot/dto/chatwoot.dto';
 import httpStatus from '../../../../constants/http-status';
-// CORREÇÃO TS2724: Importar controller correto (verificar exportação em server.module)
+// CORREÇÃO TS2724: Importar chatwootController.
+//                 NOTA: server.module.ts PRECISA INSTANCIAR E EXPORTAR chatwootController.
 import { chatwootController } from '@api/server.module';
 // Usar alias @validate ou ajustar path
 import { chatwootSchema, instanceSchema } from '@validate/validate.schema';
-import { RequestHandler, Router, Request, Response, NextFunction } from 'express'; // Adicionado Request, Response, NextFunction
+import { RequestHandler, Router, Request, Response, NextFunction } from 'express'; // Importar tipos Express
 
 export class ChatwootRouter extends RouterBroker {
 
@@ -18,7 +19,7 @@ export class ChatwootRouter extends RouterBroker {
 
   constructor(...guards: RequestHandler[]) {
     super(); // Chamar construtor da base
-    // Usar this.router
+    // Usar this.router para definir as rotas
     this.router
       .post(this.routerPath('set'), ...guards, async (req: Request, res: Response, next: NextFunction) => {
         try {
@@ -46,41 +47,42 @@ export class ChatwootRouter extends RouterBroker {
           next(error);
         }
       })
-      // Webhook (rota pública)
-      .post(this.routerPath('webhook/:instanceName'), async (req: Request, res: Response, next: NextFunction) => { // Adicionado :instanceName
+      // Webhook não deve ter guards de instância logada
+      // Ajustar a rota para incluir o nome da instância como parâmetro URL
+      .post(this.routerPath('webhook/:instanceName'), async (req: Request, res: Response, next: NextFunction) => {
         try {
-          // A validação aqui precisa pegar instanceName dos params
           const instanceName = req.params.instanceName;
           if (!instanceName) {
             return res.status(httpStatus.BAD_REQUEST).json({ message: "instanceName é obrigatório nos parâmetros da URL do webhook." });
           }
-          // Simula a busca da instância ou passa o nome para o controller
-          const instanceMock: InstanceDto = { instanceName: instanceName };
-          const response = await chatwootController.receiveWebhook(instanceMock, req.body);
+          // O controller espera um objeto { instanceName }, não InstanceDto completo
+          const instanceParam = { instanceName };
+          const response = await chatwootController.receiveWebhook(instanceParam, req.body);
           res.status(httpStatus.OK).json(response);
         } catch (error) {
-           // É comum webhooks retornarem 200 mesmo em caso de erro interno
+           // Não passar erro para next em webhooks normalmente
            console.error("Erro no processamento do webhook Chatwoot:", error);
            res.status(httpStatus.OK).json({ message: "Webhook received, processing error occurred." });
-           // Ou passar para next se configurado: next(error);
+           // Ou: next(error);
         }
       });
   }
 
-   // Implementar ou herdar routerPath e dataValidate
-   protected routerPath(pathSuffix: string): string {
-     const basePath = ''; // Ajustar base path
-     return pathSuffix ? `${basePath}/${pathSuffix}` : basePath;
-   }
+  // Implementar ou herdar routerPath e dataValidate
+  // Ajustar visibilidade se necessário
+  protected routerPath(pathSuffix: string): string {
+    const basePath = ''; // Ajustar base path para chatwoot
+    return pathSuffix ? `${basePath}/${pathSuffix}` : basePath;
+  }
 
-   protected async dataValidate<T>(args: DataValidateArgs<T>): Promise<any> {
-      // NOTE: Implementação MOCK - Substitua pela lógica real
-      const instanceName = args.request.params?.instanceName || args.request.body?.instanceName || args.request.headers?.instanceName || args.request.params?.instance;
-      if (!instanceName) throw new Error("Nome da instância não encontrado na requisição");
-      const instanceMock: InstanceDto = { instanceName: instanceName, instanceId: `mock-${instanceName}-id` };
-      // Validação (exemplo Joi)
-      // const { error } = args.schema.validate(args.request.body);
-      // if (error) throw new Error(`Erro de validação: ${error.message}`);
-      return await args.execute(instanceMock, args.request.body as T);
-   }
+  // MOCK - Substituir pela implementação real de RouterBroker ou local
+  protected async dataValidate<T>(args: DataValidateArgs<T>): Promise<any> {
+     const instanceName = args.request.params?.instanceName || args.request.body?.instanceName || args.request.headers?.instanceName || args.request.params?.instance;
+     if (!instanceName) throw new Error("Nome da instância não encontrado na requisição");
+     const instanceMock: InstanceDto = { instanceName: instanceName, instanceId: `mock-${instanceName}-id` };
+     // Validação schema
+     // const { error } = args.schema.validate(args.request.body);
+     // if (error) throw new Error(`Erro de validação: ${error.message}`);
+     return await args.execute(instanceMock, args.request.body as T);
+  }
 }
