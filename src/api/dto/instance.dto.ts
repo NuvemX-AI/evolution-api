@@ -1,131 +1,230 @@
-import { IntegrationDto } from '../integrations/integration.dto';
-import { JsonValue } from '@prisma/client/runtime/library';
-// CORREÇÃO TS2307: Corrigido o nome do pacote para @whiskeysockets/baileys
-import { WAPresence } from '@whiskeysockets/baileys';
-// Importar ApiProperty se estiver usando Swagger (NestJS)
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, ValidateNested, IsIn } from 'class-validator'; // Adicionar validadores necessários
-import { Type } from 'class-transformer'; // Para ValidateNested
+// src/api/dto/instance.dto.ts
+// Correção Erro 22: Adiciona IsNumber ao import de class-validator.
 
-// DTO auxiliar para Webhook (apenas exemplo, ajuste conforme necessário)
-class WebhookDto {
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() enabled?: boolean;
-  @ApiPropertyOptional({ type: [String] }) @IsOptional() @IsString({ each: true }) events?: string[];
-  @ApiPropertyOptional() @IsOptional() headers?: JsonValue; // Tipo JsonValue do Prisma é adequado
-  @ApiPropertyOptional() @IsOptional() @IsString() url?: string;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() byEvents?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() base64?: boolean;
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'; // Assuming NestJS Swagger decorators
+// ** Correção Erro 22: Adicionado IsNumber **
+import { IsString, IsNotEmpty, IsOptional, IsUrl, IsBoolean, ValidateNested, IsEnum, IsNumberString, IsArray, ArrayMinSize, IsDefined, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer'; // Necessary for ValidateNested DTOs
+
+// --- Enums ---
+export enum InstanceStatus {
+    connecting = 'connecting',
+    qrcode = 'qrcode',
+    open = 'open',
+    close = 'close',
+    error = 'error', // Added for potential error states
+}
+
+// --- Sub-DTOs ---
+// Representa a configuração do webhook
+export class WebhookDto {
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsBoolean()
+    enabled?: boolean;
+
+    @ApiPropertyOptional({ description: 'URL do webhook' })
+    @IsOptional()
+    @IsUrl()
+    url?: string;
+
+    @ApiPropertyOptional({ description: 'Enviar mídia como base64 no webhook' })
+    @IsOptional()
+    @IsBoolean()
+    webhookBase64?: boolean;
+
+    @ApiPropertyOptional({ description: 'Enviar eventos específicos (separados por vírgula se string, ou array)', example: ['messages.upsert', 'connection.update'] })
+    @IsOptional()
+    @IsArray() // Assuming events are passed as an array
+    @IsString({ each: true }) // Each item in the array should be a string
+    events?: string[];
+
+    @ApiPropertyOptional({ description: 'Headers customizados para o webhook (JSON)' })
+    @IsOptional()
+    // Add validation if headers should be a specific object structure or just any object/JSON string
+    headers?: Record<string, any>; // Allows any JSON object for headers
+
+    @ApiPropertyOptional({ description: 'Enviar eventos por nome (ex: messages.upsert) em vez de um webhook geral' })
+    @IsOptional()
+    @IsBoolean()
+    webhookByEvents?: boolean; // Keep this if used by the implementation
+}
+
+// Representa as configurações locais da instância
+export class LocalSettingsDto {
+    @ApiPropertyOptional({ description: 'Marcar mensagens como lidas automaticamente' })
+    @IsOptional()
+    @IsBoolean()
+    readMessages?: boolean;
+
+    @ApiPropertyOptional({ description: 'Sincronizar todo o histórico de mensagens ao conectar' })
+    @IsOptional()
+    @IsBoolean()
+    syncFullHistory?: boolean;
+
+    @ApiPropertyOptional({ description: 'Manter a instância sempre online (pode aumentar uso de recursos)' })
+    @IsOptional()
+    @IsBoolean()
+    alwaysOnline?: boolean;
+
+    // Adicionar outros settings conforme necessário
+    @ApiPropertyOptional({ description: 'Token wavoip se estiver usando chamadas de voz' })
+    @IsOptional()
+    @IsString()
+    wavoipToken?: string;
+}
+
+// --- Main DTOs ---
+// Usado para criar uma nova instância
+export class CreateInstanceDto {
+    @ApiProperty()
+    @IsString()
+    @IsNotEmpty()
+    instanceName: string;
+
+    @ApiPropertyOptional({ description: 'Token (apikey) para esta instância. Gerado automaticamente se não fornecido.' })
+    @IsOptional()
+    @IsString()
+    token?: string;
+
+    @ApiPropertyOptional({ description: 'Solicitar QR Code ao conectar' })
+    @IsOptional()
+    @IsBoolean()
+    qrcode?: boolean; // Typically true for initial connection
+
+    @ApiPropertyOptional({ description: 'Número de telefone do proprietário da instância (sem máscara, apenas dígitos com DDI+DDD)' })
+    @IsOptional()
+    @IsNumberString()
+    ownerJid?: string;
+
+    @ApiPropertyOptional({ description: 'Webhook configuration' })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => WebhookDto)
+    webhook?: WebhookDto;
+
+    @ApiPropertyOptional({ description: 'Local settings' })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => LocalSettingsDto)
+    settings?: LocalSettingsDto;
+
+    // Gemini: Adicionando campos que podem ser úteis na criação
+    @ApiPropertyOptional({ description: 'Integração a ser usada (evolution, meta, etc.)', example: 'evolution' })
+    @IsOptional()
+    @IsString()
+    integration?: string;
+
+    @ApiPropertyOptional({ description: 'Habilitar Chatwoot para esta instância' })
+    @IsOptional()
+    @IsBoolean()
+    chatwootEnabled?: boolean; // Simplified flag, detailed config separate
+
+    @ApiPropertyOptional({ description: 'Limite de dias para importar mensagens no Chatwoot' })
+    @IsOptional()
+    @IsNumber() // Use IsNumber for number type
+    chatwootDaysLimitImportMessages?: number;
+
+}
+
+// Usado para atualizar uma instância (webhook e settings)
+export class InstanceUpdateDto {
+    @ApiPropertyOptional()
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => WebhookDto)
+    webhook?: WebhookDto;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => LocalSettingsDto)
+    settings?: LocalSettingsDto;
 }
 
 
-export class InstanceDto extends IntegrationDto {
-  @ApiProperty({ example: 'my_instance', description: 'Nome único da instância' })
-  @IsString()
-  instanceName!: string; // '!' indica que será inicializado (ex: pelo construtor ou DI)
+// Representa os dados básicos de uma instância retornada pela API
+export class InstanceDto {
+    @ApiProperty()
+    @IsDefined() // Should always be present
+    instanceName!: string; // '!' indica que será inicializado (ex: pelo construtor ou DI)
 
-  @ApiPropertyOptional({ description: 'ID interno da instância (gerado)' })
-  @IsOptional() @IsString() instanceId?: string;
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    owner?: string; // Usually the JID
 
-  @ApiPropertyOptional({ description: 'Estado do QR Code (true se disponível)' })
-  @IsOptional() @IsBoolean() qrcode?: boolean; // Ou string (base64)? Ajustar tipo se necessário
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    profileName?: string;
 
-  @ApiPropertyOptional({ description: 'ID de negócio associado (Meta Business ID)' })
-  @IsOptional() @IsString() businessId?: string;
+    @ApiPropertyOptional({ type: 'string', format: 'url', nullable: true })
+    @IsOptional()
+    @IsUrl()
+    profilePictureUrl?: string | null;
 
-  @ApiPropertyOptional({ description: 'Número de telefone associado à instância' })
-  @IsOptional() @IsString() number?: string;
-
-  @ApiPropertyOptional({ description: 'Tipo de integração (ex: whatsapp, telegram)' })
-  @IsOptional() @IsString() integration?: string; // Herdado de IntegrationDto?
-
-  @ApiPropertyOptional({ description: 'Token de API específico da instância' })
-  @IsOptional() @IsString() token?: string;
-
-  @ApiPropertyOptional({ description: 'Status atual da conexão (ex: open, close, connecting)' })
-  @IsOptional() @IsString() status?: string;
-
-  @ApiPropertyOptional({ description: 'JID do proprietário da instância (se aplicável)' })
-  @IsOptional() @IsString() ownerJid?: string; // Renomeado de 'owner' para 'ownerJid' para clareza
-
-  @ApiPropertyOptional({ description: 'Nome do perfil da instância no WhatsApp' })
-  @IsOptional() @IsString() profileName?: string;
-
-  @ApiPropertyOptional({ description: 'URL da foto de perfil da instância no WhatsApp' })
-  @IsOptional() @IsString() profilePicUrl?: string;
-
-  // settings (mover para um DTO aninhado SettingsDto?)
-  @ApiPropertyOptional({ description: 'Rejeitar chamadas?' })
-  @IsOptional() @IsBoolean() rejectCall?: boolean;
-  @ApiPropertyOptional({ description: 'Mensagem automática para chamadas rejeitadas' })
-  @IsOptional() @IsString() msgCall?: string;
-  @ApiPropertyOptional({ description: 'Ignorar mensagens de grupo?' })
-  @IsOptional() @IsBoolean() groupsIgnore?: boolean;
-  @ApiPropertyOptional({ description: 'Manter sempre online?' })
-  @IsOptional() @IsBoolean() alwaysOnline?: boolean;
-  @ApiPropertyOptional({ description: 'Marcar mensagens como lidas?' })
-  @IsOptional() @IsBoolean() readMessages?: boolean;
-  @ApiPropertyOptional({ description: 'Marcar status como vistos?' })
-  @IsOptional() @IsBoolean() readStatus?: boolean;
-  @ApiPropertyOptional({ description: 'Sincronizar histórico completo?' })
-  @IsOptional() @IsBoolean() syncFullHistory?: boolean;
-  @ApiPropertyOptional({ description: 'Token para chamadas VOIP' })
-  @IsOptional() @IsString() wavoipToken?: string;
-
-  // proxy (mover para um DTO aninhado ProxyDto?)
-  @ApiPropertyOptional() @IsOptional() @IsString() proxyHost?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() proxyPort?: string; // Porta geralmente é string ou number
-  @ApiPropertyOptional() @IsOptional() @IsString() proxyProtocol?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() proxyUsername?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() proxyPassword?: string;
-
-  // webhook (Usando DTO auxiliar)
-  @ApiPropertyOptional({ type: WebhookDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => WebhookDto)
-  webhook?: WebhookDto;
-
-  // chatwoot (mover para um DTO aninhado ChatwootDto?)
-  @ApiPropertyOptional() @IsOptional() @IsString() chatwootAccountId?: string;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() chatwootConversationPending?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() chatwootAutoCreate?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsNumber() chatwootDaysLimitImportMessages?: number;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() chatwootImportContacts?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() chatwootImportMessages?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsString() chatwootLogo?: string;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() chatwootMergeBrazilContacts?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsString() chatwootNameInbox?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() chatwootOrganization?: string;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() chatwootReopenConversation?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() chatwootSignMsg?: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsString() chatwootToken?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() chatwootUrl?: string;
-
-  // Adicionar 'owner' se ele realmente fizer parte deste DTO principal
-  @ApiPropertyOptional({ description: 'Proprietário da instância (ex: email ou ID do usuário)' })
-  @IsOptional() @IsString() owner?: string;
-
-  constructor(data?: Partial<InstanceDto>) {
-    super();
-    if (data) Object.assign(this, data);
-  }
+    @ApiProperty({ enum: InstanceStatus })
+    @IsEnum(InstanceStatus)
+    status: InstanceStatus; // Use the enum
 }
 
-export class SetPresenceDto {
-  // Removido instanceName daqui, pois geralmente vem dos parâmetros da rota
+// Representa a estrutura do QR Code
+export class QRCodeDto {
+    @ApiProperty()
+    @IsString()
+    base64: string;
 
-  @ApiProperty({ enum: ['unavailable', 'available', 'composing', 'recording', 'paused'], description: 'Tipo de presença' })
-  @IsIn(['unavailable', 'available', 'composing', 'recording', 'paused']) // Validar os tipos de presença
-  presence!: WAPresence;
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    pairingCode?: string;
 
-  @ApiProperty({ example: '5511999999999@s.whatsapp.net | 123456789-12345678@g.us', description: 'JID do chat para definir a presença (opcional, se não for global)' })
-  @IsOptional()
-  @IsString()
-  jid?: string; // Renomeado de 'number' para 'jid' para consistência
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    code?: string;
 
-  constructor(data?: Partial<SetPresenceDto>) {
-    if (data) Object.assign(this, data);
-  }
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsNumber()
+    count?: number;
 }
 
-// Remover chave extra no final, se houver
+// Representa a estrutura do Hash (API Key)
+export class HashDto {
+    @ApiProperty()
+    @IsString()
+    apikey: string;
+}
+
+// Estrutura completa da resposta para criação/conexão
+export class InstanceResponseDto {
+    @ApiProperty()
+    @ValidateNested()
+    @Type(() => InstanceDto)
+    instance: InstanceDto;
+
+    @ApiProperty()
+    @ValidateNested()
+    @Type(() => HashDto)
+    hash: HashDto;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => QRCodeDto)
+    qrcode?: QRCodeDto;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => WebhookDto)
+    webhook?: WebhookDto;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => LocalSettingsDto)
+    settings?: LocalSettingsDto;
+}
