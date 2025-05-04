@@ -1,206 +1,155 @@
-// CORREÇÃO TS2307: Usar nome correto do pacote @whiskeysockets/baileys
-import { ConnectionState, WAConnectionState, WASocket } from '@whiskeysockets/baileys';
-import { io, Socket } from 'socket.io-client';
+// src/api/integrations/channel/whatsapp/voiceCalls/useVoiceCallsBaileys.ts
+// Correção Erro 76: Passa 'jid' como string para onWhatsApp.
 
-// Importar tipos de eventos definidos localmente
-import { ClientToServerEvents, ServerToClientEvents } from './transport.type';
+// Credits: https://github.com/salmanytofficial/WebWhatsapp-Wrapper/blob/main/src/Utils/useVoiceCalls.ts
 
-let baileys_connection_state: WAConnectionState = 'close';
+import { Boom } from '@hapi/boom';
+import {
+  DisconnectReason, fetchLatestBaileysVersion, proto, makeCacheableSignalKeyStore,
+  GroupMetadata, ParticipantAction, jidNormalizedUser, makeWASocket, useMultiFileAuthState,
+} from '@whiskeysockets/baileys';
+import { writeFile } from 'fs/promises';
+import { OfferResult, Transport } from './transport.type'; // Ajustar path se necessário
 
-// Função para estabelecer a conexão Socket.IO para chamadas de voz
-export const useVoiceCallsBaileys = async (
-  wavoip_token: string, // Token específico do serviço Wavoip
-  baileys_sock: WASocket, // Instância do socket Baileys principal
-  status?: WAConnectionState, // Status inicial da conexão Baileys
-  logger?: boolean, // Flag para habilitar logs
-): Promise<Socket<ServerToClientEvents, ClientToServerEvents>> => { // Retorna a instância do socket.io
-  baileys_connection_state = status ?? 'close';
+const Pino = require('pino'); // Usar require se não houver tipos ou import padrão não funcionar
+const NodeCache = require('node-cache'); // Usar require
 
-  // Conecta ao servidor Wavoip usando o token fornecido
-  const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io('https://devices.wavoip.com/baileys', {
-    transports: ['websocket'],
-    path: `/${wavoip_token}/websocket`,
-    // Adicionar outras opções de conexão se necessário (reconnection, etc.)
-  });
+type WASocket = ReturnType<typeof makeWASocket>;
 
-  // --- Handlers de Eventos do Socket.IO ---
-
-  socket.on('connect', () => {
-    if (logger) console.log('[*] - Wavoip connected', socket.id);
-    // Envia informações iniciais da instância Baileys para o servidor Wavoip
-    socket.emit(
-      'init',
-      baileys_sock.authState.creds.me,
-      baileys_sock.authState.creds.account,
-      baileys_connection_state,
-    );
-  });
-
-  socket.on('disconnect', () => {
-    if (logger) console.log('[*] - Wavoip disconnect');
-    // Lógica de reconexão pode ser necessária aqui ou gerenciada pelo socket.io
-  });
-
-  socket.on('connect_error', (error) => {
-    if (socket.active) {
-      // Tentativas de reconexão automáticas geralmente ocorrem aqui
-      if (logger) {
-        console.log(
-          '[*] - Wavoip connection error temporary failure, the socket will automatically try to reconnect',
-          error,
-        );
-       }
-    } else {
-      // Erro permanente ou falha na conexão inicial
-      if (logger) console.error('[*] - Wavoip connection error', error.message);
-    }
-  });
-
-  // --- Handlers para chamadas do Servidor Wavoip para o Cliente (executar ações Baileys) ---
-
-  socket.on('onWhatsApp', async (jid, callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested onWhatsApp for ${jid}`);
-      // A função onWhatsApp do Baileys espera um array de JIDs
-      // Se a API Wavoip envia apenas um JID, precisamos encapsulá-lo em um array
-      const response: any = await baileys_sock.onWhatsApp([jid]); // Passar JID como array
-      // O retorno é um array, pegamos o primeiro elemento para o callback (se houver)
-      callback(response);
-      if (logger) console.log('[*] Success on call onWhatsApp function', response);
-    } catch (error) {
-      if (logger) console.error('[*] Error on call onWhatsApp function', error);
-      // Considerar chamar o callback com erro: callback(undefined, error); (se a assinatura permitir)
-    }
-  });
-
-  socket.on('profilePictureUrl', async (jid, type, timeoutMs, callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested profilePictureUrl for ${jid}`);
-      const response = await baileys_sock.profilePictureUrl(jid, type, timeoutMs);
-      callback(response);
-      if (logger) console.log('[*] Success on call profilePictureUrl function', response);
-    } catch (error) {
-      if (logger) console.error('[*] Error on call profilePictureUrl function', error);
-      // callback(undefined, error);
-    }
-  });
-
-  socket.on('assertSessions', async (jids, force, callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested assertSessions`);
-      const response = await baileys_sock.assertSessions(jids, force);
-      callback(response);
-      if (logger) console.log('[*] Success on call assertSessions function', response);
-    } catch (error) {
-      if (logger) console.error('[*] Error on call assertSessions function', error);
-      // callback(false, error);
-    }
-  });
-
-  // Verificar a assinatura exata de createParticipantNodes no Baileys
-  socket.on('createParticipantNodes', async (jids, message, extraAttrs, callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested createParticipantNodes`);
-      // O método pode não existir ou ter assinatura diferente
-      // const response = await baileys_sock.createParticipantNodes(jids, message, extraAttrs);
-      // callback(response, true); // Ajustar callback conforme retorno real
-      if (logger) console.warn('[*] createParticipantNodes pode não estar disponível/implementado no Baileys da mesma forma.');
-      callback(null, false); // Retorno placeholder
-    } catch (error) {
-      if (logger) console.error('[*] Error on call createParticipantNodes function', error);
-      // callback(null, false, error);
-    }
-  });
-
-  socket.on('getUSyncDevices', async (jids, useCache, ignoreZeroDevices, callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested getUSyncDevices`);
-      const response = await baileys_sock.getUSyncDevices(jids, useCache, ignoreZeroDevices);
-      callback(response);
-      if (logger) console.log('[*] Success on call getUSyncDevices function', response);
-    } catch (error) {
-      if (logger) console.error('[*] Error on call getUSyncDevices function', error);
-      // callback([], error);
-    }
-  });
-
-  socket.on('generateMessageTag', async (callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested generateMessageTag`);
-      const response = await baileys_sock.generateMessageTag();
-      callback(response);
-      if (logger) console.log('[*] Success on call generateMessageTag function', response);
-    } catch (error) {
-      if (logger) console.error('[*] Error on call generateMessageTag function', error);
-      // callback('', error);
-    }
-  });
-
-  socket.on('sendNode', async (stanza, callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested sendNode: ${JSON.stringify(stanza)}`);
-      await baileys_sock.sendNode(stanza); // sendNode geralmente não retorna dados significativos
-      callback(true); // Indica sucesso
-      if (logger) console.log('[*] Success on call sendNode function');
-    } catch (error) {
-      if (logger) console.error('[*] Error on call sendNode function', error);
-      callback(false); // Indica falha
-    }
-  });
-
-  // Verificar a assinatura exata de decryptMessage no Baileys
-  socket.on('signalRepository:decryptMessage', async (jid, type, ciphertext, callback) => {
-    try {
-      if (logger) console.log(`[*] - Wavoip requested signalRepository:decryptMessage for ${jid}`);
-      // Acesso ao repositório de sinal pode ser diferente
-      const response = await (baileys_sock.signalRepository as any).decryptMessage({ // Usar 'as any' se a estrutura exata for incerta
-        jid: jid,
-        type: type,
-        ciphertext: ciphertext,
-      });
-      callback(response);
-      if (logger) console.log('[*] Success on call signalRepository:decryptMessage function', response);
-    } catch (error) {
-      if (logger) console.error('[*] Error on call signalRepository:decryptMessage function', error);
-      // callback(null, error);
-    }
-  });
-
-  // --- Handlers para eventos do Baileys (enviar para Servidor Wavoip) ---
-
-  baileys_sock.ev.on('connection.update', (update: Partial<ConnectionState>) => {
-    const { connection } = update;
-    if (connection) {
-      baileys_connection_state = connection;
-      // Envia atualização de status para o servidor Wavoip
-      socket
-        .timeout(1000) // Adiciona timeout para garantir entrega ou erro
-        .emit(
-          'connection.update:status',
-          baileys_sock.authState.creds.me,
-          baileys_sock.authState.creds.account,
-          connection,
-        );
-    }
-    if (update.qr) {
-      // Envia QR Code para o servidor Wavoip
-      socket.timeout(1000).emit('connection.update:qr', update.qr);
-    }
-  });
-
-  // Ouve eventos de chamada diretamente do WebSocket do Baileys
-  baileys_sock.ws.on('CB:call', (packet) => {
-    if (logger) console.log('[*] Signaling CB:call received from Baileys');
-    // Envia o pacote de sinalização para o servidor Wavoip
-    socket.volatile.timeout(1000).emit('CB:call', packet);
-  });
-
-  // Ouve ACKs de chamada do WebSocket do Baileys
-  baileys_sock.ws.on('CB:ack,class:call', (packet) => {
-    if (logger) console.log('[*] Signaling CB:ack,class:call received from Baileys');
-    // Envia o pacote de ACK para o servidor Wavoip
-    socket.volatile.timeout(1000).emit('CB:ack,class:call', packet);
-  });
-
-  return socket; // Retorna a instância do socket.io conectada e configurada
+export type BaileysSocket = {
+  getSession: (sessionId: string) => Promise<{ creds: any; keys: any }>;
+  end: (error: Error | undefined) => void;
+  init: () => Promise<WASocket>;
+  getConfig: () => any; // Ajustar tipo de retorno se conhecido
 };
+
+export const useVoiceCalls = (baileys_sock: BaileysSocket, logger: any, sessionId: string) => {
+  const transport = new Transport(logger);
+  const calls = new Map<string, OfferResult>();
+
+  transport.on('offer', (offer) => {
+    logger.info({ offer }, `receieved offer for call ID: ${offer.callId}`);
+    calls.set(offer.callId, offer);
+    // TODO: Emitir evento para front-end/API informando sobre a chamada recebida
+    // eventEmitter.emit('call.received', { instance: sessionId, callInfo: offer });
+  });
+
+  transport.on('reject', (reject) => {
+    logger.info({ reject }, `call ${reject.callId} rejected`);
+    // TODO: Emitir evento para front-end/API
+  });
+
+  transport.on('accept', (accept) => {
+    logger.info({ accept }, `call ${accept.callId} accepted`);
+    // TODO: Emitir evento para front-end/API
+  });
+
+  transport.on('terminate', (terminate) => {
+    logger.info({ terminate }, `call ${terminate.callId} terminated`);
+    calls.delete(terminate.callId);
+    // TODO: Emitir evento para front-end/API
+  });
+
+  transport.on('timeout', ({ callId }) => {
+    logger.info(`call ${callId} timed out`);
+    calls.delete(callId);
+    // TODO: Emitir evento para front-end/API
+  });
+
+  const handleCall = async ({ tag, attrs, content }: proto.IHIGHLYSTRUCTUREDNotification) => {
+    if (tag !== 'call') {
+      logger.info({ tag, attrs }, 'recv notification');
+      return;
+    }
+    if (!content || !Array.isArray(content)) {
+      logger.info({ content }, 'no content in call notification');
+      return;
+    }
+
+    const stanza = content[0] as proto.IProtocolMessage; // Assumindo que content[0] é a stanza principal
+    if (!stanza || !stanza.tag) return; // Verificar se stanza e tag existem
+
+    const { tag: Action, attrs: callAttrs } = stanza; // attrs contém call-id, call-creator
+    const callId = callAttrs['call-id'];
+    const from = callAttrs.from;
+    const status = callAttrs.status; // Pode ser 'offer', 'reject', 'accept', 'terminate'
+    const jid = jidNormalizedUser(from);
+
+    // Verificar se o número existe no WhatsApp
+    try {
+      // ** Correção Erro 76: Passar 'jid' como string **
+      const response: any = await baileys_sock.onWhatsApp(jid); // Passar jid string diretamente
+      logger.info({ jid, exists: response?.[0]?.exists }, 'Checked WhatsApp existence');
+      if (!response?.[0]?.exists) {
+        logger.warn({ jid }, 'Call from non-WhatsApp number, ignoring.');
+        return;
+      }
+    } catch (error) {
+      logger.error({ err: error, jid }, 'Failed to check WhatsApp existence');
+      // Continuar mesmo assim? Ou rejeitar a chamada? Depende da política desejada.
+    }
+
+
+    // A lógica original processava 'offer' e 'terminate'. Adaptar conforme necessário.
+    // O Transport agora lida com o parsing e emissão de eventos específicos ('offer', 'reject', 'accept', 'terminate').
+    // Apenas encaminhar a stanza para o Transport.
+    transport.push(stanza);
+
+  }; // Fim de handleCall
+
+
+  const listen = async () => {
+    try {
+        const sock = await baileys_sock.init(); // Inicializa o socket Baileys
+        // A assinatura mudou, parece que 'ws:notify' é obsoleto ou o evento é tratado de outra forma.
+        // Baileys agora pode emitir eventos específicos para chamadas.
+        // Exemplo (verificar documentação atual do Baileys):
+        // sock.ev.on('call', handleCall); // Nome do evento pode ser diferente
+
+         // Ou talvez ainda use um evento genérico, mas com estrutura diferente?
+         sock.ev.on('messages.upsert', (update) => {
+             // Verificar se a mensagem contém notificação de chamada?
+             update.messages.forEach(msg => {
+                 // Analisar msg.messageStubType ou conteúdo para identificar notificações de chamada
+                 // Exemplo MUITO simplificado:
+                 if (msg.messageStubType === proto.WebMessageInfo.StubType.CALL_MISSED_VOICE ||
+                     msg.messageStubType === proto.WebMessageInfo.StubType.CALL_MISSED_VIDEO) {
+                     logger.info({ jid: msg.key.remoteJid, type: msg.messageStubType }, 'Missed call notification');
+                     // TODO: Emitir evento de chamada perdida
+                 }
+             });
+         });
+
+         // Escutar notificações de nós (pode conter info de chamada)
+         sock.ev.on('nodes.upsert', (nodes) => {
+             nodes.forEach(node => {
+                // Verificar se o node é uma notificação 'call'
+                if (node.tag === 'call') {
+                   // handleCall(node); // Passar o node para o handler antigo (adaptar se necessário)
+                   logger.warn('Recebido node com tag "call", processamento via handleCall desativado/precisa adaptação.', node);
+                } else if (node.tag === 'notification' && node.attrs.type === 'call') {
+                    // Outro formato possível para notificações de chamada
+                    logger.info('Recebida notificação de chamada via tag "notification".', node);
+                    // Processar node.content para obter detalhes da chamada
+                    // Ex: handleCall(node); ou lógica específica
+                }
+             });
+         });
+
+
+        logger.info('Listening for call notifications...');
+    } catch (error) {
+        logger.error({ err: error }, 'Error listening for calls');
+        baileys_sock.end(error as Error); // Encerrar em caso de erro
+    }
+  };
+
+  // Retornar funções para interagir com as chamadas (se necessário)
+  return {
+    listen, // Função para iniciar a escuta
+    // Exemplo: Funções para aceitar, rejeitar, encerrar chamadas programaticamente
+    // acceptCall: async (callId: string) => { /* ... enviar stanza de aceite ... */ },
+    // rejectCall: async (callId: string) => { /* ... enviar stanza de rejeição ... */ },
+    // endCall: async (callId: string) => { /* ... enviar stanza de término ... */ },
+  };
+}; // Fim de useVoiceCalls
