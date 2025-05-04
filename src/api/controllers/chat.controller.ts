@@ -1,6 +1,7 @@
 // src/api/controllers/chat.controller.ts
 // Correções v8: Remove decorators, adapta para Express req/res, trata erros.
 // Correções Gemini: Corrige acesso a 'error.status', 'logger.child', 'data.number' e 'pagination'.
+// Correção Erro 1: data.jid -> data.chatId
 
 import { Request, Response } from 'express'; // Importar tipos do Express
 // Importar todos os DTOs necessários
@@ -132,8 +133,8 @@ export class ChatController {
         const instanceName = req.params.instanceName;
         const data: ArchiveChatDto = req.body;
 
-        // CORREÇÃO: Usar 'jid' (ou propriedade correta do DTO) em vez de 'number'
-        this.logger.debug(`[${instanceName}] Arquivando/Desarquivando chat ${data.jid}`);
+        // ** CORREÇÃO ERRO 1: Alterado de data.jid para data.chatId **
+        this.logger.debug(`[${instanceName}] Arquivando/Desarquivando chat ${data.chatId}`);
         try {
             const instance = this.waMonitor.get(instanceName);
             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
@@ -276,8 +277,8 @@ export class ChatController {
             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar contatos' });
             // CORREÇÃO: Usar status codes explícitos
             const statusCode = error instanceof NotFoundException ? 404 :
-                               error instanceof BadRequestException ? 400 : 500;
-             res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
+                                error instanceof BadRequestException ? 400 : 500;
+            res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
 
@@ -287,27 +288,27 @@ export class ChatController {
      * @param req { Request } - instanceName (params), getBase64FromMediaMessageDto (body)
      * @param res { Response }
      */
-    public async getBase64FromMediaMessage(req: Request, res: Response): Promise<void> {
+     public async getBase64FromMediaMessage(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
         const data: getBase64FromMediaMessageDto = req.body;
 
         this.logger.debug(`[${instanceName}] Obtendo Base64 da mensagem de mídia`);
         try {
-             const instance = this.waMonitor.get(instanceName);
+            const instance = this.waMonitor.get(instanceName);
              if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
              // Assumir que o método existe no service
             const result = await instance.getBase64FromMediaMessage?.(data);
             res.status(200).json(result);
         } catch (error: any) {
-            this.logger.error({ err: error, instance: instanceName, message: 'Erro ao obter base64 da mídia' });
-            // CORREÇÃO: Usar status codes explícitos
-            const statusCode = error instanceof NotFoundException ? 404 :
-                               error instanceof BadRequestException ? 400 : 500;
+             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao obter base64 da mídia' });
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
 
-    /**
+     /**
      * @description Busca mensagens salvas no DB
      * @route GET /:instanceName/chat/messages
      * @param req { Request } - instanceName (params), Query<Message> (query params)
@@ -320,21 +321,21 @@ export class ChatController {
 
         this.logger.debug(`[${instanceName}] Buscando mensagens com query: ${JSON.stringify(query)}`);
         try {
-             const instance = this.waMonitor.get(instanceName);
+            const instance = this.waMonitor.get(instanceName);
              if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
-            // Assumir que o método existe no service
+             // Assumir que o método existe no service
             const result = await instance.fetchMessages?.(query);
             res.status(200).json(result);
         } catch (error: any) {
             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar mensagens' });
             // CORREÇÃO: Usar status codes explícitos
             const statusCode = error instanceof NotFoundException ? 404 :
-                               error instanceof BadRequestException ? 400 : 500;
-             res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
+                                error instanceof BadRequestException ? 400 : 500;
+            res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
 
-    /**
+     /**
      * @description Busca status de mensagens salvos no DB
      * @route GET /:instanceName/chat/message-status
      * @param req { Request } - instanceName (params), Query<MessageUpdate> (query params)
@@ -342,21 +343,21 @@ export class ChatController {
      */
     public async fetchStatusMessage(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
-         // Parsear query params
-         const query: Query<MessageUpdate> = parseQueryParams<MessageUpdate>(req.query);
+        // Parsear query params
+        const query: Query<MessageUpdate> = parseQueryParams<MessageUpdate>(req.query);
 
         this.logger.debug(`[${instanceName}] Buscando status de mensagens com query: ${JSON.stringify(query)}`);
         try {
-             const instance = this.waMonitor.get(instanceName);
-             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
+            const instance = this.waMonitor.get(instanceName);
+            if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
              // Assumir que o método existe no service
             const result = await instance.fetchStatusMessage?.(query);
             res.status(200).json(result);
         } catch (error: any) {
-            this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar status de mensagens' });
-            // CORREÇÃO: Usar status codes explícitos
-            const statusCode = error instanceof NotFoundException ? 404 :
-                               error instanceof BadRequestException ? 400 : 500;
+             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar status de mensagens' });
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -383,8 +384,8 @@ export class ChatController {
             this.logger.error({ err: error, instance: instanceName, query, message: 'Erro ao buscar chats' });
             // CORREÇÃO: Usar status codes explícitos
             const statusCode = error instanceof NotFoundException ? 404 :
-                               error instanceof BadRequestException ? 400 : 500;
-             res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
+                                error instanceof BadRequestException ? 400 : 500;
+            res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
 
@@ -400,16 +401,16 @@ export class ChatController {
 
         this.logger.debug(`[${instanceName}] Enviando presença ${data.presence} para ${data.number}`);
         try {
-             const instance = this.waMonitor.get(instanceName);
-             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
+            const instance = this.waMonitor.get(instanceName);
+            if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
              // Assumir que o método existe no service
             const result = await instance.sendPresence?.(data);
             res.status(200).json(result);
         } catch (error: any) {
-            this.logger.error({ err: error, instance: instanceName, message: 'Erro ao enviar presença' });
-            // CORREÇÃO: Usar status codes explícitos
-            const statusCode = error instanceof NotFoundException ? 404 :
-                               error instanceof BadRequestException ? 400 : 500;
+             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao enviar presença' });
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -424,13 +425,13 @@ export class ChatController {
         const instanceName = req.params.instanceName;
         this.logger.debug(`[${instanceName}] Buscando configurações de privacidade`);
         try {
-             const instance = this.waMonitor.get(instanceName);
+            const instance = this.waMonitor.get(instanceName);
              if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
              // Assumir que o método existe no service
             const result = await instance.fetchPrivacySettings?.();
             res.status(200).json(result);
         } catch (error: any) {
-            this.logger.error({ err: error, instance: instanceName, message: 'Erro ao buscar configurações de privacidade' });
+             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao buscar configurações de privacidade' });
              // CORREÇÃO: Usar status codes explícitos
              const statusCode = error instanceof NotFoundException ? 404 :
                                 error instanceof BadRequestException ? 400 : 500;
@@ -447,23 +448,51 @@ export class ChatController {
     public async updatePrivacySettings(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
         const data: PrivacySettingDto = req.body;
+
         this.logger.debug(`[${instanceName}] Atualizando configurações de privacidade`);
         try {
             const instance = this.waMonitor.get(instanceName);
             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
             // Assumir que o método existe no service
-            const result = await instance.updatePrivacySettings?.(data);
+            const result = await instance.updatePrivacySetting?.(data); // Passar o DTO
             res.status(200).json(result);
         } catch (error: any) {
-            this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar configurações de privacidade' });
+             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar configurações de privacidade' });
              // CORREÇÃO: Usar status codes explícitos
              const statusCode = error instanceof NotFoundException ? 404 :
                                 error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
+
     /**
-     * @description Busca perfil comercial (usado também para grupos)
+     * @description Bloqueia/Desbloqueia um usuário
+     * @route POST /:instanceName/chat/block-user
+     * @param req { Request } - instanceName (params), BlockUserDto (body)
+     * @param res { Response }
+     */
+    public async blockUser(req: Request, res: Response): Promise<void> {
+        const instanceName = req.params.instanceName;
+        const data: BlockUserDto = req.body;
+
+        this.logger.debug(`[${instanceName}] ${data.action} usuário ${data.number}`);
+        try {
+            const instance = this.waMonitor.get(instanceName);
+            if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
+             // Assumir que o método existe no service
+            const result = await instance.blockUser?.(data);
+            res.status(200).json(result);
+        } catch (error: any) {
+            this.logger.error({ err: error, instance: instanceName, message: 'Erro ao bloquear/desbloquear usuário' });
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
+            res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
+        }
+    }
+
+     /**
+     * @description Obtém informações de perfil comercial
      * @route POST /:instanceName/chat/business-profile
      * @param req { Request } - instanceName (params), NumberDto (body)
      * @param res { Response }
@@ -471,15 +500,42 @@ export class ChatController {
     public async fetchBusinessProfile(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
         const data: NumberDto = req.body;
+
         this.logger.debug(`[${instanceName}] Buscando perfil comercial para ${data.number}`);
         try {
-             const instance = this.waMonitor.get(instanceName);
+            const instance = this.waMonitor.get(instanceName);
              if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
              // Assumir que o método existe no service
             const result = await instance.fetchBusinessProfile?.(data.number);
             res.status(200).json(result);
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao buscar perfil comercial' });
+             // CORREÇÃO: Usar status codes explícitos
+             const statusCode = error instanceof NotFoundException ? 404 :
+                                error instanceof BadRequestException ? 400 : 500;
+             res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
+        }
+    }
+
+    /**
+     * @description Atualiza uma mensagem enviada
+     * @route POST /:instanceName/chat/update-message
+     * @param req { Request } - instanceName (params), UpdateMessageDto (body)
+     * @param res { Response }
+     */
+    public async updateMessage(req: Request, res: Response): Promise<void> {
+        const instanceName = req.params.instanceName;
+        const data: UpdateMessageDto = req.body;
+
+        this.logger.debug(`[${instanceName}] Atualizando mensagem ${data.key.id}`);
+        try {
+             const instance = this.waMonitor.get(instanceName);
+             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
+             // Assumir que o método existe no service
+            const result = await instance.updateMessage?.(data);
+            res.status(200).json(result);
+        } catch (error: any) {
+             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar mensagem' });
              // CORREÇÃO: Usar status codes explícitos
              const statusCode = error instanceof NotFoundException ? 404 :
                                 error instanceof BadRequestException ? 400 : 500;
@@ -496,11 +552,12 @@ export class ChatController {
     public async updateProfileName(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
         const data: ProfileNameDto = req.body;
+
         this.logger.debug(`[${instanceName}] Atualizando nome do perfil`);
         try {
-             const instance = this.waMonitor.get(instanceName);
-             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
-              // Assumir que o método existe no service
+            const instance = this.waMonitor.get(instanceName);
+            if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
+             // Assumir que o método existe no service
             const result = await instance.updateProfileName?.(data.name);
             res.status(200).json(result);
         } catch (error: any) {
@@ -521,11 +578,12 @@ export class ChatController {
     public async updateProfileStatus(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
         const data: ProfileStatusDto = req.body;
+
         this.logger.debug(`[${instanceName}] Atualizando status do perfil`);
         try {
-             const instance = this.waMonitor.get(instanceName);
-             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
-              // Assumir que o método existe no service
+            const instance = this.waMonitor.get(instanceName);
+            if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
+             // Assumir que o método existe no service
             const result = await instance.updateProfileStatus?.(data.status);
             res.status(200).json(result);
         } catch (error: any) {
@@ -546,10 +604,11 @@ export class ChatController {
     public async updateProfilePicture(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
         const data: ProfilePictureDto = req.body;
+
         this.logger.debug(`[${instanceName}] Atualizando foto do perfil`);
         try {
-             const instance = this.waMonitor.get(instanceName);
-             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
+            const instance = this.waMonitor.get(instanceName);
+            if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
              // Assumir que o método espera um objeto com a propriedade 'picture'
             const result = await instance.updateProfilePicture?.({ picture: data.picture });
             res.status(200).json(result);
@@ -562,7 +621,7 @@ export class ChatController {
         }
     }
 
-    /**
+     /**
      * @description Remove a foto do perfil da instância
      * @route DELETE /:instanceName/chat/profile-picture
      * @param req { Request } - instanceName (params)
@@ -570,71 +629,23 @@ export class ChatController {
      */
     public async removeProfilePicture(req: Request, res: Response): Promise<void> {
         const instanceName = req.params.instanceName;
-        this.logger.debug(`[${instanceName}] Removendo foto do perfil`);
-        try {
-             const instance = this.waMonitor.get(instanceName);
-             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
-             // Assumir que o método existe no service
-            const result = await instance.removeProfilePicture?.();
-            res.status(200).json(result);
-        } catch (error: any) {
-             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao remover foto do perfil' });
-             // CORREÇÃO: Usar status codes explícitos
-             const statusCode = error instanceof NotFoundException ? 404 :
-                                error instanceof BadRequestException ? 400 : 500;
-             res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
-        }
-    }
+        // CORREÇÃO: NumberDto não é necessário aqui, o JID é da própria instância
+        // const data: NumberDto = req.body;
 
-    /**
-     * @description Edita uma mensagem enviada (requer Baileys)
-     * @route POST /:instanceName/chat/update-message
-     * @param req { Request } - instanceName (params), UpdateMessageDto (body)
-     * @param res { Response }
-     */
-    public async updateMessage(req: Request, res: Response): Promise<void> {
-        const instanceName = req.params.instanceName;
-        const data: UpdateMessageDto = req.body;
-        this.logger.debug(`[${instanceName}] Atualizando mensagem ${data.key.id}`);
+        this.logger.debug(`[${instanceName}] Removendo foto do perfil`);
         try {
             const instance = this.waMonitor.get(instanceName);
             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
-             // Assumir que o método existe no service
-            const result = await instance.updateMessage?.(data);
+             // Assumir que o método existe no service e não precisa de argumento ou usa o JID interno
+            const result = await instance.removeProfilePicture?.();
             res.status(200).json(result);
         } catch (error: any) {
-             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao atualizar mensagem' });
-             // CORREÇÃO: Usar status codes explícitos
-             const statusCode = error instanceof NotFoundException ? 404 :
+            this.logger.error({ err: error, instance: instanceName, message: 'Erro ao remover foto do perfil' });
+            // CORREÇÃO: Usar status codes explícitos
+            const statusCode = error instanceof NotFoundException ? 404 :
                                 error instanceof BadRequestException ? 400 : 500;
-             res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
+            res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
 
-    /**
-     * @description Bloqueia ou desbloqueia um usuário
-     * @route POST /:instanceName/chat/block-user
-     * @param req { Request } - instanceName (params), BlockUserDto (body)
-     * @param res { Response }
-     */
-    public async blockUser(req: Request, res: Response): Promise<void> {
-        const instanceName = req.params.instanceName;
-        const data: BlockUserDto = req.body;
-        const action = data.status === 'block' ? 'Bloqueando' : 'Desbloqueando';
-        this.logger.debug(`[${instanceName}] ${action} usuário ${data.number}`);
-        try {
-             const instance = this.waMonitor.get(instanceName);
-             if (!instance) throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
-             // Assumir que o método existe no service
-            const result = await instance.blockUser?.(data);
-            res.status(200).json(result);
-        } catch (error: any) {
-            this.logger.error({ err: error, instance: instanceName, message: `Erro ao ${action.toLowerCase()} usuário` });
-             // CORREÇÃO: Usar status codes explícitos
-             const statusCode = error instanceof NotFoundException ? 404 :
-                                error instanceof BadRequestException ? 400 : 500;
-             res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
-        }
-    }
-
-} // Fim da classe ChatController
+} // Fim da classe
