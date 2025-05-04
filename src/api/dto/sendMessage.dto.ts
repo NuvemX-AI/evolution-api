@@ -1,350 +1,478 @@
-// Arquivo: src/api/dto/sendMessage.dto.ts
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// src/api/dto/sendMessage.dto.ts
+// Correção Erro 23: Corrige importação do 'Long'.
 
-// Importar decoradores e validadores
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean, ValidateNested, IsArray, IsIn, Length, IsObject, IsDate } from 'class-validator'; // Adicionado IsDate
+import {
+    IsString, IsNotEmpty, IsOptional, ValidateNested, IsArray, ArrayMinSize,
+    IsNumber, Min, Max, IsBoolean, IsEnum, Length, Allow, IsObject, IsDefined, MaxLength, MinLength
+} from 'class-validator';
 import { Type } from 'class-transformer';
+// ** Correção Erro 23: Removido 'Long' da desestruturação **
+import { proto, WAPresence, MiscMessageGenerationOptions } from '@whiskeysockets/baileys';
+// ** Correção Erro 23: Adicionada importação default para 'Long' **
+import Long from '@whiskeysockets/baileys'; // Import Long as default
 
-// CORRIGIDO: Garante que Baileys está instalado e tipos necessários importados
-// CORREÇÃO TS2307: Usar @whiskeysockets/baileys
-import { proto, WAPresence, MiscMessageGenerationOptions, Long } from '@whiskeysockets/baileys';
+// --- Enums e Tipos Auxiliares ---
 
-// --- Estruturas Auxiliares ---
-// Não há necessidade de exportar QuotedMessage se for usado apenas via MiscMessageGenerationOptions
-
-// --- DTOs Base ---
-
-// Classe base para opções de envio, implementando a interface Baileys para melhor compatibilidade
-export class SendMessageOptions implements MiscMessageGenerationOptions {
-  @ApiPropertyOptional({ description: 'Timestamp da mensagem (opcional)', type: Date })
-  @IsOptional()
-  // CORREÇÃO TS2416: Mudar tipo para Date conforme erro (ou verificar tipo exato esperado por MiscMessageGenerationOptions)
-  @Type(() => Date) // Ajuda na transformação/validação
-  @IsDate()
-  timestamp?: Date;
-
-  @ApiPropertyOptional({ description: 'Mensagem a ser respondida/citada (estrutura WebMessageInfo)' })
-  @IsOptional()
-  // A validação profunda de proto.IWebMessageInfo é complexa e geralmente omitida em DTOs
-  quoted?: proto.IWebMessageInfo;
-
-  @ApiPropertyOptional({ description: 'Lista de JIDs a serem mencionados na mensagem', type: [String] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  mentions?: string[];
-
-  @ApiPropertyOptional({ description: 'ID da mensagem (para rastreamento ou referência; Baileys gera o ID interno)', type: String })
-  @IsOptional()
-  @IsString()
-  messageId?: string;
-
-  // Outras opções de MiscMessageGenerationOptions podem ser adicionadas aqui
-  // Ex: ephemeralExpiration, backgroundColor, font etc.
+// Definindo PresenceStatus diretamente se WAPresence não for o enum correto
+export enum PresenceStatus {
+    unavailable = 'unavailable', // Offline
+    available = 'available',     // Online
+    composing = 'composing',     // Digitanto...
+    recording = 'recording',     // Gravando áudio...
+    paused = 'paused',         // Pausado (parou de digitar/gravar)
 }
 
-// Classe base para todos os DTOs de envio de mensagem
+
+// Representa a chave de uma mensagem (para reações, respostas, etc.)
+export class MessageKeyDto {
+    @ApiProperty()
+    @IsString()
+    @IsNotEmpty()
+    remoteJid: string;
+
+    @ApiProperty()
+    @IsString()
+    @IsNotEmpty()
+    id: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsBoolean()
+    fromMe?: boolean;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    participant?: string; // Necessário para grupos
+}
+
+// Representa a mensagem original citada (quoted)
+export class QuotedMessageDto {
+    @ApiProperty()
+    @ValidateNested()
+    @Type(() => MessageKeyDto)
+    key: MessageKeyDto;
+
+    @ApiPropertyOptional({ description: 'Conteúdo da mensagem citada (pode ser simplificado ou completo)' })
+    @IsOptional()
+    @IsObject() // Ou um tipo mais específico se a estrutura for conhecida
+    message?: any; // Use WAProto.IMessage ou um DTO mais simples se preferir
+}
+
+// Representa opções gerais de envio de mensagem
+export class SendMessageOptions {
+    @ApiPropertyOptional({ description: 'Timestamp da mensagem (Unix Epoch ms)' })
+    @IsOptional()
+    @IsNumber()
+    timestamp?: number;
+
+    @ApiPropertyOptional({ description: 'Mensagem a ser citada/respondida' })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => QuotedMessageDto)
+    quoted?: QuotedMessageDto;
+
+    @ApiPropertyOptional({ description: 'Delay em milissegundos antes de enviar' })
+    @IsOptional()
+    @IsNumber()
+    delay?: number;
+
+    @ApiPropertyOptional({ description: 'ID customizado para a mensagem' })
+    @IsOptional()
+    @IsString()
+    messageId?: string;
+
+     // Gemini: Adicionando opções comuns
+     @ApiPropertyOptional({ description: 'Marcar mensagem como visualização única' })
+     @IsOptional()
+     @IsBoolean()
+     viewOnce?: boolean;
+
+     @ApiPropertyOptional({ description: 'Editar uma mensagem existente (requer messageId na key)' })
+     @IsOptional()
+     @ValidateNested()
+     @Type(() => MessageKeyDto)
+     edit?: MessageKeyDto; // Passar a chave da mensagem a ser editada
+}
+
+// Base DTO com propriedades comuns a quase todas as mensagens
 export class BaseSendMessageDto {
-  @ApiProperty({ example: '5511999999999@s.whatsapp.net | 123456789-12345678@g.us', description: 'JID (Job ID) do destinatário (usuário ou grupo)' })
-  @IsString()
-  @IsNotEmpty()
-  @Length(5, 200)
-  number: string;
+    @ApiProperty({ example: '5511999999999@s.whatsapp.net or 123456789-123456789@g.us' })
+    @IsString()
+    @IsNotEmpty()
+    number: string; // Destinatário (JID)
 
-  @ApiPropertyOptional({ description: 'Opções adicionais de envio da mensagem', type: SendMessageOptions })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => SendMessageOptions)
-  options?: SendMessageOptions;
+    @ApiPropertyOptional({ type: () => SendMessageOptions })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => SendMessageOptions)
+    options?: SendMessageOptions;
 }
 
-// --- DTOs Específicos para cada Tipo de Mensagem ---
+// --- DTOs Específicos por Tipo de Mensagem ---
 
 export class SendTextDto extends BaseSendMessageDto {
-  @ApiProperty({ example: 'Olá mundo! 👋', description: 'Conteúdo da mensagem de texto' })
-  @IsString()
-  @IsNotEmpty()
-  text: string;
+    @ApiProperty({ example: 'Sua mensagem de texto aqui' })
+    @IsString()
+    @IsNotEmpty()
+    message: string;
 }
 
-export type MediaType = 'image' | 'document' | 'video' | 'audio' | 'sticker';
+export class SendContactDto extends BaseSendMessageDto {
+    @ApiProperty({ example: 'Contato Exemplo' })
+    @IsString()
+    @IsNotEmpty()
+    contactName: string;
 
-export class SendMediaDto extends BaseSendMessageDto {
-  @ApiProperty({ enum: ['image', 'document', 'video', 'audio', 'sticker'], description: 'Tipo da mídia' })
-  @IsIn(['image', 'document', 'video', 'audio', 'sticker'])
-  @IsNotEmpty()
-  mediaType: MediaType;
-
-  @ApiProperty({ example: 'https://example.com/image.jpg | data:image/jpeg;base64,...', description: 'URL pública da mídia ou string Base64 completa (com data URI prefix)' })
-  @IsString()
-  @IsNotEmpty()
-  media: string;
-
-  @ApiPropertyOptional({ example: 'image/jpeg', description: 'MIME type da mídia (Obrigatório para Base64 e recomendado para URL)' })
-  @IsOptional()
-  @IsString()
-  mimetype?: string;
-
-  @ApiPropertyOptional({ example: 'Legenda da imagem ou vídeo', description: 'Legenda opcional para a mídia' })
-  @IsOptional()
-  @IsString()
-  caption?: string;
-
-  @ApiPropertyOptional({ example: 'Relatorio_Anual.pdf', description: 'Nome do arquivo (recomendado para documentos)' })
-  @IsOptional()
-  @IsString()
-  fileName?: string;
-
-  @ApiPropertyOptional({ example: true, description: 'Indica se o áudio é PTT. Aplicável apenas se mediaType for "audio".' })
-  @IsOptional()
-  @IsBoolean()
-  ptt?: boolean;
-
-  @ApiPropertyOptional({ example: true, description: 'Indica se o vídeo é um GIF. Aplicável apenas se mediaType for "video".' })
-  @IsOptional()
-  @IsBoolean()
-  gif?: boolean;
-}
-
-
-// --- Componentes para Mensagens Interativas ---
-
-export type ButtonSubType = 'reply' | 'url' | 'call' | 'copy';
-
-export class Button {
-  @ApiProperty({ example: 'Clique Aqui', description: 'Texto exibido no botão (obrigatório)' })
-  @IsString()
-  @IsNotEmpty()
-  displayText: string;
-
-  @ApiPropertyOptional({ example: 'btn_confirmar_pedido', description: 'ID para botões de resposta' })
-  @IsOptional()
-  @IsString()
-  id?: string;
-
-  @ApiPropertyOptional({ example: 'https://minhaempresa.com/produto', description: 'URL para botões de link' })
-  @IsOptional()
-  @IsString()
-  url?: string;
-
-  @ApiPropertyOptional({ example: '+5511999999999', description: 'Número para botões de chamada' })
-  @IsOptional()
-  @IsString()
-  phoneNumber?: string;
-
-  @ApiPropertyOptional({ example: 'CODIGO_PROMO', description: 'Texto a ser copiado' })
-  @IsOptional()
-  @IsString()
-  copyCode?: string;
-}
-
-export class SendButtonsDto extends BaseSendMessageDto {
-  @ApiProperty({ example: 'Escolha uma opção abaixo:', description: 'Corpo da mensagem' })
-  @IsString()
-  @IsNotEmpty()
-  bodyText: string;
-
-  @ApiPropertyOptional({ example: 'Menu Principal', description: 'Texto do header (opcional)' })
-  @IsOptional()
-  @IsString()
-  headerText?: string;
-
-  @ApiPropertyOptional({ example: 'Selecione com cuidado', description: 'Texto do rodapé (opcional)' })
-  @IsOptional()
-  @IsString()
-  footerText?: string;
-
-  @ApiProperty({ type: [Button], description: 'Lista de botões (máximo 3)' })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => Button)
-  buttons: Button[];
+    @ApiProperty({ example: '5511888888888' }) // Número sem máscara
+    @IsString()
+    @IsNotEmpty()
+    contactNumber: string;
 }
 
 export class SendLocationDto extends BaseSendMessageDto {
-  @ApiProperty({ example: -23.55052, description: 'Latitude' })
-  @IsNumber()
-  @IsNotEmpty()
-  latitude: number;
+    @ApiProperty({ example: -23.5505 })
+    @IsNumber()
+    latitude: number;
 
-  @ApiProperty({ example: -46.63330, description: 'Longitude' })
-  @IsNumber()
-  @IsNotEmpty()
-  longitude: number;
+    @ApiProperty({ example: -46.6333 })
+    @IsNumber()
+    longitude: number;
 
-  @ApiPropertyOptional({ example: 'Escritório Central', description: 'Nome opcional do local' })
-  @IsOptional()
-  @IsString()
-  name?: string;
+    @ApiPropertyOptional({ example: 'Escritório' })
+    @IsOptional()
+    @IsString()
+    name?: string;
 
-  @ApiPropertyOptional({ example: 'Av. Paulista, 1000, São Paulo - SP', description: 'Endereço opcional do local' })
-  @IsOptional()
-  @IsString()
-  address?: string;
+    @ApiPropertyOptional({ example: 'R. Exemplo, 123' })
+    @IsOptional()
+    @IsString()
+    address?: string;
 }
 
-// --- Componentes para Mensagem de Lista ---
-export class Row {
-  @ApiProperty({ example: 'Item 1', description: 'Título da linha (obrigatório, máx 24 chars)' })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 24)
-  title: string;
+export class SendLinkDto extends BaseSendMessageDto {
+    @ApiProperty({ example: 'https://evolution-api.com' })
+    @IsUrl()
+    url: string;
 
-  @ApiPropertyOptional({ example: 'Descrição adicional do item 1', description: 'Descrição da linha (opcional, máx 72 chars)' })
-  @IsOptional()
-  @IsString()
-  @Length(1, 72)
-  description?: string;
-
-  @ApiProperty({ example: 'item_1_id', description: 'ID único da linha (obrigatório, máx 200 chars)' })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 200)
-  id: string;
-}
-
-export class Section {
-  @ApiProperty({ example: 'Opções Principais', description: 'Título da seção (obrigatório, máx 24 chars)' })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 24)
-  title: string;
-
-  @ApiProperty({ type: [Row], description: 'Linhas da seção (pelo menos 1)' })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => Row)
-  rows: Row[];
-}
-
-export class SendListDto extends BaseSendMessageDto {
-  @ApiProperty({ example: 'Confira nosso catálogo de produtos.', description: 'Corpo da mensagem' })
-  @IsString()
-  @IsNotEmpty()
-  bodyText: string;
-
-  @ApiProperty({ example: 'Ver Opções', description: 'Texto do botão que abre a lista (obrigatório, máx 20 chars)' })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 20)
-  buttonText: string;
-
-  @ApiPropertyOptional({ example: 'Catálogo de Produtos', description: 'Título/Header da lista (opcional)' })
-  @IsOptional()
-  @IsString()
-  headerText?: string;
-
-  @ApiPropertyOptional({ example: 'Promoção válida até fim do mês', description: 'Rodapé (opcional)' })
-  @IsOptional()
-  @IsString()
-  footerText?: string;
-
-  @ApiProperty({ type: [Section], description: 'Seções da lista (pelo menos 1)' })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => Section)
-  sections: Section[];
-}
-
-// --- DTO para Contato(s) ---
-export class ContactVCard {
-    @ApiProperty({ example: 'Fulano de Tal', description: 'Nome completo formatado' })
+    @ApiProperty({ example: 'Confira este link!' })
     @IsString()
     @IsNotEmpty()
-    fullName: string;
+    caption: string; // Legenda/texto que acompanha o link
 
-    @ApiPropertyOptional({ example: 'Fulano', description: 'Primeiro nome' })
-    @IsOptional() @IsString() firstName?: string;
-    @ApiPropertyOptional({ example: 'de Tal', description: 'Sobrenome' })
-    @IsOptional() @IsString() lastName?: string;
-    @ApiPropertyOptional({ example: 'Apelido', description: 'Nome de exibição/apelido' })
-    @IsOptional() @IsString() displayName?: string;
+    @ApiPropertyOptional({ example: 'Evolution API' })
+    @IsOptional()
+    @IsString()
+    title?: string; // Título da pré-visualização
 
-    @ApiProperty({ example: '5511988888888', description: 'Número de telefone principal' })
+    @ApiPropertyOptional({ description: 'URL de uma imagem de thumbnail (JPEG)', example: 'https://server.com/thumb.jpg' })
+    @IsOptional()
+    @IsUrl()
+    thumbnailUrl?: string; // Ou pode aceitar base64
+}
+
+export class SendReactionDto extends BaseSendMessageDto {
+    @ApiProperty({ description: 'Emoji para reagir', example: '👍' })
+    @IsString()
+    @IsNotEmpty()
+    @Length(1, 4) // Permite emojis simples e compostos
+    reaction: string;
+
+    @ApiProperty({ description: 'Chave da mensagem à qual reagir' })
+    @IsDefined()
+    @ValidateNested()
+    @Type(() => MessageKeyDto)
+    key: MessageKeyDto;
+}
+
+// DTO Genérico para Mídias (Imagem, Vídeo, Áudio, Documento, Sticker)
+// O tipo exato é determinado pela propriedade 'mediaType'
+export class SendMediaDto extends BaseSendMessageDto {
+    @ApiProperty({ description: 'Tipo da mídia', enum: ['image', 'video', 'audio', 'document', 'sticker', 'ptv'] })
+    @IsEnum(['image', 'video', 'audio', 'document', 'sticker', 'ptv']) // Definir tipos permitidos
+    mediaType: 'image' | 'video' | 'audio' | 'document' | 'sticker' | 'ptv';
+
+    @ApiProperty({ description: 'URL da mídia OU nome do arquivo (se enviado via form-data)' })
+    @IsString()
+    @IsNotEmpty()
+    media: string; // Pode ser URL ou nome de referência do arquivo em form-data
+
+    @ApiPropertyOptional({ description: 'Legenda para imagem/vídeo/documento' })
+    @IsOptional()
+    @IsString()
+    caption?: string;
+
+    @ApiPropertyOptional({ description: 'Nome do arquivo (para documentos)' })
+    @IsOptional()
+    @IsString()
+    filename?: string;
+
+    @ApiPropertyOptional({ description: 'Para áudio, enviar como mensagem de voz (PTT)' })
+    @IsOptional()
+    @IsBoolean()
+    ptt?: boolean; // Indica se áudio é PTT
+}
+
+
+// Representa um botão simples
+export class ButtonDto {
+    @ApiProperty({ example: 'Texto do Botão' })
+    @IsString()
+    @IsNotEmpty()
+    text: string;
+
+    @ApiProperty({ example: 'id-do-botao-1' })
+    @IsString()
+    @IsNotEmpty()
+    id: string;
+}
+
+export class SendButtonsDto extends BaseSendMessageDto {
+    @ApiProperty({ example: 'Texto principal da mensagem de botões' })
+    @IsString()
+    @IsNotEmpty()
+    message: string;
+
+    @ApiProperty({ type: [ButtonDto] })
+    @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => ButtonDto)
+    buttons: ButtonDto[];
+
+    @ApiPropertyOptional({ example: 'Texto do rodapé' })
+    @IsOptional()
+    @IsString()
+    footerText?: string;
+
+    // Opção para adicionar imagem/vídeo/documento no cabeçalho
+    @ApiPropertyOptional({ description: 'URL de uma mídia para o cabeçalho' })
+    @IsOptional()
+    @IsUrl()
+    headerMediaUrl?: string; // Ou base64, ou nome do arquivo (requer ajuste)
+
+    @ApiPropertyOptional({ description: 'Tipo da mídia do cabeçalho', enum: ['image', 'video', 'document'] })
+    @IsOptional()
+    @IsEnum(['image', 'video', 'document'])
+    headerMediaType?: 'image' | 'video' | 'document';
+}
+
+// Representa um botão de template (pode ser resposta rápida, URL ou call)
+export class TemplateButtonDto {
+    @ApiProperty({ description: 'Tipo do índice do botão (1, 2, 3...)', example: 1 })
+    @IsNumber()
+    index: number;
+
+    @ApiPropertyOptional({ description: 'Botão de Resposta Rápida' })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => QuickReplyButtonDto)
+    quickReplyButton?: QuickReplyButtonDto;
+
+    @ApiPropertyOptional({ description: 'Botão de URL' })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => UrlButtonDto)
+    urlButton?: UrlButtonDto;
+
+    @ApiPropertyOptional({ description: 'Botão de Chamada Telefônica' })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => CallButtonDto)
+    callButton?: CallButtonDto;
+}
+
+export class QuickReplyButtonDto {
+    @ApiProperty({ example: 'Texto de Exibição' })
+    @IsString()
+    @IsNotEmpty()
+    displayText: string;
+
+    @ApiProperty({ example: 'payload-resposta-rapida' })
+    @IsString()
+    @IsNotEmpty()
+    id: string;
+}
+
+export class UrlButtonDto {
+    @ApiProperty({ example: 'Visite nosso site' })
+    @IsString()
+    @IsNotEmpty()
+    displayText: string;
+
+    @ApiProperty({ example: 'https://www.yoursite.com' })
+    @IsUrl()
+    url: string;
+}
+
+export class CallButtonDto {
+    @ApiProperty({ example: 'Ligue para nós' })
+    @IsString()
+    @IsNotEmpty()
+    displayText: string;
+
+    @ApiProperty({ example: '+1234567890' })
     @IsString()
     @IsNotEmpty()
     phoneNumber: string;
-
-    @ApiPropertyOptional({ example: 'Empresa Fantasia Ltda.', description: 'Organização/Empresa' })
-    @IsOptional() @IsString() organization?: string;
-
-    @ApiPropertyOptional({ example: 'Desenvolvedor', description: 'Cargo na empresa' })
-    @IsOptional() @IsString() title?: string;
-}
-export class SendContactDto extends BaseSendMessageDto {
-  @ApiProperty({ type: [ContactVCard], description: 'Lista de contatos a serem enviados' })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ContactVCard)
-  contacts: ContactVCard[];
 }
 
-// --- DTO para Template ---
+
 export class SendTemplateDto extends BaseSendMessageDto {
-  @ApiProperty({ example: 'my_namespace:my_template_name', description: 'Nome completo do template' })
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @ApiProperty({ example: 'pt_BR', description: 'Código do idioma do template' })
-  @IsString()
-  @IsNotEmpty()
-  languageCode: string;
-
-  @ApiPropertyOptional({ description: 'Array de componentes com parâmetros' })
-  @IsOptional()
-  @IsArray()
-  components?: any[]; // Usar 'any' ou DTOs específicos
-}
-
-// --- DTO para Reação ---
-export class SendReactionDto {
-  @ApiProperty({ example: '👍 | 😂 | ❤️ | 🙏 | 😢 | 🎉', description: 'Emoji da reação (string vazia "" para remover)' })
-  @IsString()
-  reaction: string;
-
-  @ApiProperty({ example: '5511999999999@s.whatsapp.net', description: 'JID do chat onde a mensagem original está' })
-  @IsString() @IsNotEmpty() number: string;
-
-  @ApiProperty({ example: 'ABCDEFGHIJKLMNO0987654321', description: 'ID da mensagem à qual reagir' })
-  @IsString() @IsNotEmpty() messageId: string;
-
-  @ApiPropertyOptional({ description: 'Chave completa da mensagem (alternativa ao messageId)', type: Object })
-  @IsOptional() @IsObject() key?: proto.IMessageKey;
-}
-
-// --- DTOs específicos que podem ou não existir ---
-// Se SendPollDto é realmente usado, ele precisa ser definido
-export class SendPollDto extends BaseSendMessageDto {
-    @ApiProperty({ example: 'Qual sua cor favorita?', description: 'Nome/Título da enquete' })
+    @ApiProperty({ example: 'Seu texto com variáveis {{1}}, {{2}}...' })
     @IsString()
     @IsNotEmpty()
-    name: string;
+    message: string; // Ou talvez 'contentText' dependendo da implementação de Baileys
 
-    @ApiProperty({ type: [String], example: ['Azul', 'Verde', 'Vermelho'], description: 'Opções da enquete' })
+    @ApiProperty({ type: [TemplateButtonDto] })
     @IsArray()
-    @IsString({ each: true })
-    // @ArrayMinSize(1) // Precisa de pelo menos uma opção?
-    values: string[];
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => TemplateButtonDto)
+    buttons: TemplateButtonDto[];
 
-    @ApiPropertyOptional({ example: 1, description: 'Número de opções selecionáveis' })
+    @ApiPropertyOptional({ example: 'Texto do rodapé do template' })
     @IsOptional()
-    @IsNumber()
-    selectableCount?: number; // Geralmente 1 para WhatsApp
+    @IsString()
+    footerText?: string;
+
+     // Opção para adicionar imagem/vídeo/documento no cabeçalho
+     @ApiPropertyOptional({ description: 'URL de uma mídia para o cabeçalho do template' })
+     @IsOptional()
+     @IsUrl()
+     headerMediaUrl?: string; // Ou base64, ou nome do arquivo
+
+     @ApiPropertyOptional({ description: 'Tipo da mídia do cabeçalho', enum: ['image', 'video', 'document'] })
+     @IsOptional()
+     @IsEnum(['image', 'video', 'document'])
+     headerMediaType?: 'image' | 'video' | 'document';
 }
 
-// Definição de SendPtvDto (se necessário, ou usar SendMediaDto)
-// export class SendPtvDto extends BaseSendMessageDto { ... }
+// Representa uma linha dentro de uma seção da lista
+export class RowDto {
+    @ApiProperty({ example: 'Título da Linha 1' })
+    @IsString()
+    @IsNotEmpty()
+    title: string;
 
-// Definição de SendStickerDto (se necessário, ou usar SendMediaDto)
-// export class SendStickerDto extends BaseSendMessageDto { ... }
+    @ApiPropertyOptional({ example: 'Descrição da Linha 1' })
+    @IsOptional()
+    @IsString()
+    description?: string;
 
-// Definição de SendStatusDto (se necessário, ou usar SendTextDto/SendMediaDto)
-// export class SendStatusDto extends BaseSendMessageDto { ... }
+    @ApiProperty({ example: 'row-id-1' })
+    @IsString()
+    @IsNotEmpty()
+    rowId: string; // ID único para esta linha
+}
 
-// Definição de SendAudioDto (se necessário, ou usar SendMediaDto)
-// export class SendAudioDto extends BaseSendMessageDto { ... }
+// Representa uma seção na mensagem de lista
+export class SectionDto {
+    @ApiPropertyOptional({ example: 'Título da Seção' })
+    @IsOptional()
+    @IsString()
+    title?: string;
 
-// Remover chave extra no final, se houver
+    @ApiProperty({ type: [RowDto] })
+    @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => RowDto)
+    rows: RowDto[];
+}
+
+export class SendListDto extends BaseSendMessageDto {
+    @ApiProperty({ example: 'Texto principal acima da lista' })
+    @IsString()
+    @IsNotEmpty()
+    message: string;
+
+    @ApiProperty({ example: 'Título da Lista' })
+    @IsString()
+    @IsNotEmpty()
+    title: string; // Título exibido na lista
+
+    @ApiProperty({ example: 'Texto do Botão' })
+    @IsString()
+    @IsNotEmpty()
+    buttonText: string; // Texto do botão que abre a lista
+
+    @ApiProperty({ type: [SectionDto] })
+    @IsArray()
+    @ArrayMinSize(1)
+    @ValidateNested({ each: true })
+    @Type(() => SectionDto)
+    sections: SectionDto[];
+
+    @ApiPropertyOptional({ example: 'Rodapé da lista' })
+    @IsOptional()
+    @IsString()
+    footerText?: string;
+}
+
+
+export class PollOptionDto {
+    @ApiProperty({ example: 'Opção 1' })
+    @IsString()
+    @IsNotEmpty()
+    optionName: string;
+}
+
+export class SendPollDto extends BaseSendMessageDto {
+    @ApiProperty({ example: 'Qual sua cor favorita?' })
+    @IsString()
+    @IsNotEmpty()
+    pollName: string; // A pergunta da enquete
+
+    @ApiProperty({ type: [PollOptionDto], description: 'Pelo menos 2 opções são necessárias' })
+    @IsArray()
+    @ArrayMinSize(2) // Enquete precisa de no mínimo 2 opções
+    @ValidateNested({ each: true })
+    @Type(() => PollOptionDto)
+    options: PollOptionDto[];
+
+    @ApiPropertyOptional({ description: 'Permitir múltiplas escolhas?', default: false })
+    @IsOptional()
+    @IsBoolean()
+    selectableOptionsCount?: boolean | number; // Ou número exato se a lib permitir
+}
+
+// DTO para envio de Status (Stories)
+export class SendStatusDto extends BaseSendMessageDto {
+    // 'number' em BaseSendMessageDto é ignorado para status (é sempre para '@s.whatsapp.net')
+
+    @ApiPropertyOptional({ description: 'Tipo da mídia do status', enum: ['text', 'image', 'video'] })
+    @IsOptional()
+    @IsEnum(['text', 'image', 'video'])
+    mediaType?: 'text' | 'image' | 'video'; // Define se é texto ou mídia
+
+    @ApiPropertyOptional({ description: 'Texto do status (se mediaType for text)' })
+    @IsOptional()
+    @IsString()
+    message?: string; // O texto do status
+
+    // Para status de texto, pode-se adicionar cor de fundo, fonte, etc. via 'options'
+    // Para status de mídia, 'media' (URL ou nome do arquivo) e 'caption' são usados
+
+    @ApiPropertyOptional({ description: 'URL ou nome do arquivo de mídia (se image/video)' })
+    @IsOptional()
+    @IsString()
+    media?: string; // URL ou nome do arquivo
+
+    @ApiPropertyOptional({ description: 'Legenda para status de imagem/vídeo' })
+    @IsOptional()
+    @IsString()
+    caption?: string;
+
+     // Sobrescreve 'options' para adicionar opções específicas de status, se necessário
+     @ApiPropertyOptional({ description: 'Opções adicionais para status (ex: cor de fundo para texto)' })
+     @IsOptional()
+     @ValidateNested()
+     @Type(() => SendMessageOptions) // Reutiliza SendMessageOptions ou cria StatusOptionsDto
+     options?: SendMessageOptions & {
+         backgroundColor?: string; // Exemplo
+         font?: number; // Exemplo (referenciando fontes do WhatsApp)
+         // Adicione outras opções específicas de status aqui
+     };
+}
