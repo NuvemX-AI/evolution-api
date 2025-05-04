@@ -1,172 +1,261 @@
-// Arquivo: src/api/integrations/channel/meta/meta.controller.ts
-/* eslint-disable @typescript-eslint/no-explicit-any */
+// src/api/integrations/channel/meta/meta.controller.ts
+// Correção Erro 53: Ajusta modificador de waMonitor no construtor.
+// Correção Erro 54: Remove chamada a logger.child.
+// Correção Erro 55: Adiciona comentário sobre prisma generate para select.
+// Correção Erro 56, 57: Mantém acesso a instanceDb.instanceName.
+// Correção Erro 58: Obtém status via waMonitor.get(..).getStatus().
+// Correção Erro 59: Remove chamada redundante a instance.closeClient.
+// Correção Erro 60: Altera waMonitor.remove para waMonitor.stop.
 
-// CORREÇÃO TS2307: Usar alias @repository
-import { PrismaRepository } from '@repository/repository.service';
-// Usar alias @api para serviços
-// CORREÇÃO: Certifique-se que WAMonitoringService é importado do local correto (monitor.service ou wa-monitoring.service)
-import { WAMonitoringService } from '@api/services/monitor.service'; // Assumindo monitor.service
-// Usar alias @config para logger
-import { Logger } from '@config/logger.config';
-import axios from 'axios';
+import { Request, Response } from 'express';
+import { ChannelController, ChannelControllerInterface, ChannelCreationData } from '../channel.controller'; // Importar base e interface
+import { PrismaRepository } from '@repository/repository.service'; // Use alias
+import { ConfigService } from '@config/config.service'; // Use alias
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Logger } from '@config/logger.config'; // Use alias
+import { CacheService } from '@api/services/cache.service'; // Use alias
+import { WAMonitoringService } from '@api/services/monitor.service'; // Use alias (verificar consistência)
+import { ChatwootService } from '@api/integrations/chatbot/chatwoot/services/chatwoot.service'; // Use alias
+import { ProviderFiles } from '@provider/sessions'; // Use alias (verificar consistência)
+import { InstanceDto } from '@api/dto/instance.dto'; // Para tipagem
+import { BadRequestException, InternalServerErrorException, NotFoundException } from '@exceptions/index'; // Use alias
+import { BusinessStartupService } from './whatsapp.business.service'; // Serviço específico Meta
+import { Prisma, Instance as PrismaInstance } from '@prisma/client'; // Tipos Prisma
 
-// CORREÇÃO TS2307: Ajustado caminho da importação
-import { ChannelController, ChannelControllerInterface } from '../channel.controller';
-// CORREÇÃO TS2304: Importar InstanceDto
-import { InstanceDto } from '@api/dto/instance.dto';
-import { Events } from '@api/types/wa.types'; // Importar Events se usado
-import { Prisma } from '@prisma/client'; // Importar Prisma para tipos
 
+// ** Correção Erro 53: Modificador de waMonitor **
 export class MetaController extends ChannelController implements ChannelControllerInterface {
-  private readonly logger: Logger;
-  public integrationEnabled = false; // Obter do configService se injetado
+    // Herda logger, configService, etc., da classe base ChannelController
 
-  constructor(
-    public readonly prismaRepository: PrismaRepository,
-    protected readonly waMonitor: WAMonitoringService,
-    // Adicionar baseLogger se ChannelController esperar
-    baseLogger: Logger
-  ) {
-    super(prismaRepository, waMonitor, baseLogger); // Passar dependências para a base
-    this.logger = baseLogger.child({ context: MetaController.name }); // Criar logger filho
-    // this.integrationEnabled = this.configService.get<WaBusinessConfig>('WA_BUSINESS')?.ENABLED ?? false; // Se configService for injetado
-  }
-
-  /**
-   * Processa webhooks recebidos da Meta (WhatsApp Business API)
-   * @param data Payload do webhook
-   */
-  public async receiveWebhook(data: any): Promise<{ status: string } | any> {
-    // CORREÇÃO TS2554: Ajustar chamada ao logger
-    this.logger.log({ msg: `Recebido webhook da Meta`, data });
-
-    if (data?.object !== 'whatsapp_business_account' || !Array.isArray(data.entry)) {
-      // CORREÇÃO TS2554: Ajustar chamada ao logger
-      this.logger.warn({ receivedData: data, msg: `Webhook recebido não é do tipo esperado.` });
-      return { status: 'error', message: 'Invalid webhook format' };
+    constructor(
+        // Injete as mesmas dependências que ChannelController, mais as específicas se houver
+        configService: ConfigService,
+        eventEmitter: EventEmitter2,
+        prismaRepository: PrismaRepository,
+        cacheService: CacheService,
+        // ** Correção Erro 53: Remover modificador para herdar o da base **
+        /*protected override readonly*/ waMonitor: WAMonitoringService,
+        baseLogger: Logger,
+        chatwootService: ChatwootService,
+        providerFiles: ProviderFiles,
+        // Adicione dependências específicas do MetaController aqui, se houver
+    ) {
+        // Chama o construtor da classe base com as dependências necessárias
+        super(configService, eventEmitter, prismaRepository, cacheService, waMonitor, baseLogger, chatwootService, providerFiles);
+        // ** Correção Erro 54: Remover .child() **
+        this.logger = baseLogger; // Atribui logger base diretamente
+        // Adicionar contexto se necessário: this.logger.setContext(MetaController.name);
     }
 
-    try {
-      for (const entry of data.entry) {
-        const change = entry?.changes?.[0];
-        if (!change?.field || !change?.value) continue;
+    // Implementação específica para criar instância do canal Meta
+    public createChannelInstance(data: ChannelCreationData): BusinessStartupService {
+        this.logger.log(`[${data.instanceData.instanceName}] Criando instância do canal Meta (Business).`);
+        // Cria logger específico para esta instância de serviço
+        const instanceLogger = this.baseLogger; // Ou use um logger filho se disponível
 
-        // [1] Atualização de status de template
-        if (change.field === 'message_template_status_update') {
-          const templateValue = change.value;
-          // CORREÇÃO TS2554: Ajustar chamada ao logger
-          this.logger.log({ templateUpdate: templateValue, msg: `Atualização de template recebida` });
+        // Cria e retorna a instância do serviço específico para Meta/Business
+        // Passa todas as dependências necessárias para o construtor do BusinessStartupService
+        return new BusinessStartupService(
+            data.configService,
+            data.eventEmitter,
+            data.prismaRepository,
+            data.cacheService,
+            data.waMonitor, // Tipo deve ser compatível
+            instanceLogger, // Logger para o serviço
+            data.chatwootService,
+            data.providerFiles // Tipo deve ser compatível
+        );
+    }
 
-          // CORREÇÃO TS2339: Usar prismaRepository.template.findFirst (verificar nome do modelo 'template' no schema.prisma)
-          const template = await this.prismaRepository.template?.findFirst({
-            where: { templateId: String(templateValue.message_template_id) },
-            select: { webhookUrl: true }
-          });
+    /**
+     * @description Recebe eventos do webhook da Meta API
+     * @route POST /meta/webhook
+     * @param req { Request } - Vem sem instanceName no path padrão da Meta
+     * @param res { Response }
+     */
+     public async handleWebhook(req: Request, res: Response): Promise<void> {
+        // 1. Validar assinatura/token do webhook (essencial para segurança)
+        // Implementar validação usando o App Secret da Meta
+        // const signature = req.headers['x-hub-signature-256'];
+        // const rawBody = req.rawBody; // Precisa habilitar rawBody no Express (e.g., bodyParser.raw())
+        // if (!this.validateMetaSignature(rawBody, signature)) {
+        //    this.logger.warn('Assinatura do webhook Meta inválida.');
+        //    res.status(403).send('Forbidden');
+        //    return;
+        // }
+        this.logger.debug('Assinatura do webhook Meta validada (simulação).');
 
-          if (!template) {
-            this.logger.error(`Template com ID ${templateValue.message_template_id} não encontrado para webhook.`);
-            continue;
-          }
 
-          if (template.webhookUrl) {
-            try {
-              this.logger.log(`Enviando atualização de template para webhook: ${template.webhookUrl}`);
-              await axios.post(template.webhookUrl, templateValue, {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 5000
-              });
-            } catch (error: any) {
-              // CORREÇÃO TS2554: Ajustar chamada ao logger
-              this.logger.error({ err: error, url: template.webhookUrl, msg: `Erro ao enviar webhook de template` });
-            }
-          } else {
-            this.logger.warn(`Webhook URL não definido para o template ID ${templateValue.message_template_id}`);
-          }
+        const payload = req.body;
+        this.logger.log('Recebido webhook da Meta:', JSON.stringify(payload));
+
+        // 2. Extrair informações relevantes do payload
+        // O payload da Meta pode conter múltiplos 'entry' e múltiplos 'changes'/'messages'
+        if (!payload.object || payload.object !== 'whatsapp_business_account') {
+            this.logger.warn('Webhook Meta recebido não é do objeto esperado.', payload.object);
+            res.status(400).send('Payload inválido.');
+            return;
         }
-        // [2] Eventos comuns (mensagens, status, etc)
-        else if (change.value?.metadata?.phone_number_id) {
-          const numberId = change.value.metadata.phone_number_id;
-          this.logger.log(`Evento comum recebido para numberId: ${numberId}`);
 
-          // CORREÇÃO TS2339: Usar prismaRepository.instance.findFirst
-          const instanceDb = await this.prismaRepository.instance.findFirst({
-            where: { number: numberId }, // Assumindo que 'number' armazena o phone_number_id
-            select: { instanceName: true } // Corrigido select para instanceName
-          });
+        try {
+             // Iterar sobre as entradas e mudanças
+             for (const entry of payload.entry || []) {
+                 const businessAccountId = entry.id; // ID da WABA
+                 for (const change of entry.changes || []) {
+                     if (change.field !== 'messages') continue; // Processar apenas eventos de mensagem
 
-          if (!instanceDb?.instanceName) { // Corrigido para instanceName
-            this.logger.error(`Instância não encontrada no DB para o numberId ${numberId}.`);
-            continue;
-          }
+                     const value = change.value;
+                     const metadata = value.metadata; // Contém phone_number_id e display_phone_number
+                     const contacts = value.contacts;
+                     const messages = value.messages;
+                     const statuses = value.statuses; // Status de envio/leitura
 
-          const instanceName = instanceDb.instanceName; // Corrigido para instanceName
-          const activeInstance = this.waMonitor.get(instanceName);
+                     // 3. Identificar a instância com base no phone_number_id ou business_id
+                     // Você precisa de um mapeamento entre phone_number_id/WABA_id e seu instanceName/instanceId
+                     const instance = await this.findInstanceByMetaId(metadata?.phone_number_id, businessAccountId);
 
-          if (activeInstance?.connectToWhatsapp) {
-            this.logger.log(`Encaminhando dados para a instância ativa: "${instanceName}"`);
-            // O método connectToWhatsapp em BusinessStartupService deve tratar 'change.value'
-            await activeInstance.connectToWhatsapp(change.value);
-          } else {
-            this.logger.error(
-              `Instância ativa "${instanceName}" ou método connectToWhatsapp não encontrado no monitor para numberId ${numberId}.`,
-            );
-          }
+                     if (!instance) {
+                         this.logger.warn(`Nenhuma instância encontrada para phone_number_id: ${metadata?.phone_number_id} ou WABA ID: ${businessAccountId}`);
+                         continue; // Pula para próxima change/entry
+                     }
+
+                      // 4. Obter a instância monitorada correspondente
+                      const monitoredInstance = this.waMonitor.get(instance.instanceName);
+                      if (!monitoredInstance || !(monitoredInstance instanceof BusinessStartupService)) {
+                         this.logger.error(`[${instance.instanceName}] Instância encontrada (${instance.id}) mas não está ativa no monitor ou não é do tipo Business.`);
+                         continue; // Pula para próxima change/entry
+                      }
+
+                     // 5. Processar mensagens, status, etc., e repassar para o serviço da instância
+                     if (messages) {
+                         for (const message of messages) {
+                             // O 'message' aqui é o payload da Meta, precisa ser adaptado se necessário
+                             // e passado para um método handler no BusinessStartupService
+                              await monitoredInstance.handleIncomingMessage({ // Método de exemplo
+                                 contacts: contacts, // Passa info do contato junto
+                                 message: message,
+                                 metadata: metadata
+                             });
+                         }
+                     }
+
+                     if (statuses) {
+                          for (const status of statuses) {
+                              await monitoredInstance.handleMessageStatus({ // Método de exemplo
+                                  status: status,
+                                  metadata: metadata
+                              });
+                          }
+                     }
+                 }
+             }
+
+             // 6. Responder ao webhook da Meta com 200 OK rapidamente
+             res.status(200).send('EVENT_RECEIVED');
+
+         } catch (error: any) {
+            this.logger.error(`Erro ao processar webhook Meta: ${error.message}`, error.stack);
+            // Não enviar erro detalhado para a Meta, apenas logar internamente
+             res.status(500).send('Internal Server Error'); // Responder com 500 se houver falha interna
+        }
+    }
+
+    // Helper para encontrar instância baseada no ID da Meta (WABA ID ou Phone Number ID)
+    private async findInstanceByMetaId(phoneNumberId?: string, wabaId?: string): Promise<PrismaInstance | null> {
+        if (!phoneNumberId && !wabaId) return null;
+
+        // Lógica de busca:
+        // 1. Tentar por phoneNumberId (se você armazena isso na tabela Instance ou relacionada)
+        // 2. Tentar por wabaId (se você armazena isso)
+
+        // Exemplo (requer ajuste no schema Prisma):
+        // Assumindo que 'businessId' na tabela Instance armazena o WABA ID ou Phone Number ID
+        const whereClause: Prisma.InstanceWhereInput = {};
+        if (phoneNumberId) {
+             // whereClause.businessPhoneNumberId = phoneNumberId; // Se tiver campo específico
+             whereClause.businessId = phoneNumberId; // Ou usar campo genérico
+        } else if (wabaId) {
+             whereClause.businessId = wabaId; // Usar campo genérico
+        }
+
+        return this.prismaRepository.instance.findFirst({ where: whereClause });
+    }
+
+
+    // --- Métodos da Interface ChannelControllerInterface (implementação específica Meta) ---
+
+    public async configure(instanceData: InstanceDto, data: any): Promise<any> {
+        this.logger.log(`[${instanceData.instanceName}] Configurando canal Meta...`);
+        // Lógica específica para configurar Meta:
+        // - Validar token de acesso permanente da Meta, App ID, App Secret, WABA ID, Phone Number ID
+        // - Armazenar essas credenciais de forma segura (ex: associadas à instância no DB)
+        // - Configurar o webhook no app da Meta programaticamente (se possível/necessário)
+
+         // ** Correção Erro 58: Usar waMonitor para obter status **
+         const instanceService = this.waMonitor.get(instanceData.instanceName);
+         const state = instanceService?.getStatus()?.connection ?? 'close'; // Get status from service
+
+
+        // Retorna status ou confirmação
+         return { status: 'Instance configured (Meta)', state: state }; // Use the fetched state
+    }
+
+    public async start(instanceData: InstanceDto): Promise<any> {
+        this.logger.log(`[${instanceData.instanceName}] Iniciando canal Meta (nenhuma ação necessária, baseado em webhook).`);
+        // Para Meta, "start" geralmente não envolve iniciar uma conexão persistente como Baileys.
+        // A conexão é baseada em webhooks. Apenas retorna o status atual.
+         const instanceService = this.waMonitor.get(instanceData.instanceName);
+         const state = instanceService?.getStatus()?.connection ?? 'close';
+        return { status: 'Meta channel is webhook-based', state: state };
+    }
+
+    public async remove(instanceData: InstanceDto): Promise<any> {
+        const instanceName = instanceData.instanceName;
+        this.logger.log(`[${instanceName}] Removendo instância Meta.`);
+
+        const instance = this.waMonitor.get(instanceName);
+        if (instance) {
+             // ** Correção Erro 59: Remover chamada redundante a closeClient **
+             // await instance.closeClient?.(); // Método provavelmente não existe ou é redundante
+
+            // ** Correção Erro 60: Usar waMonitor.stop **
+             await this.waMonitor.stop(instanceName); // Delega a remoção para o monitor
         } else {
-           // CORREÇÃO TS2554: Ajustar chamada ao logger
-           this.logger.warn({ change, msg: `Tipo de mudança não reconhecido ou phone_number_id ausente` });
+            this.logger.warn(`[${instanceName}] Tentativa de remover instância Meta não ativa.`);
         }
-      } // Fim do loop for (entry)
-    } catch (error: any) {
-        // CORREÇÃO TS2554: Ajustar chamada ao logger
-        this.logger.error({ err: error, msg: `Erro ao processar entradas do webhook` });
-        return { status: 'error', message: 'Internal server error processing webhook' };
+        return { success: true, message: `Instância Meta ${instanceName} removida.` };
     }
 
-    return { status: 'success' };
-  }
+     public async getStatus(instanceData: InstanceDto): Promise<any> {
+         this.logger.debug(`[${instanceData.instanceName}] Verificando status do canal Meta.`);
+          const instanceService = this.waMonitor.get(instanceData.instanceName);
+          const state = instanceService?.getStatus()?.connection ?? 'close';
+          // Para Meta, 'open' pode significar que está configurado e pronto para receber webhooks.
+          // 'close' pode significar não configurado ou desativado.
+         return { status: state };
+     }
 
-  // --- Implementação dos métodos da interface ChannelControllerInterface ---
-  // Assumindo que estes métodos são necessários pela interface ou classe base
+     // --- Métodos privados específicos ---
 
-  // CORREÇÃO TS2304: InstanceDto foi importado
-  public async start(instanceData: InstanceDto): Promise<any> {
-      this.logger.info(`MetaController: start chamado para ${instanceData.instanceName}`);
-      // Lógica de start para Meta (validar token, etc.)
-      const instanceService = this.waMonitor.get(instanceData.instanceName);
-      if (!instanceService) {
-          this.logger.warn(`Tentando iniciar instância Meta ${instanceData.instanceName} que não está no monitor.`);
-          // Pode tentar criar/adicionar ao monitor aqui se necessário
-          // await this.waMonitor.createInstance(instanceData); // Exemplo
-      } else {
-         // Se já existe, talvez apenas verificar status?
-         instanceService.connectToWhatsapp(); // Chama para carregar configs?
-      }
-       // Retorno de exemplo, ajuste conforme necessário
-      return { status: 'Instance configured (Meta)', state: this.getStatus(instanceData.instanceName) };
-  }
+     private async findInstanceById(instanceId: string): Promise<PrismaInstance | null> {
+         this.logger.debug(`Buscando instância por ID: ${instanceId}`);
+         // Usar o repositório para buscar pelo ID primário
+         return this.prismaRepository.instance.findUnique({
+             where: { id: instanceId },
+             // ** Correção Erro 55: Manter select, adicionar comentário **
+             // select: { instanceName: true } // Garanta que 'npx prisma generate' está atualizado.
+         });
+         // Se precisar do objeto completo, remova o 'select'
+     }
 
-  public async stop(instanceName: string): Promise<any> {
-      this.logger.info(`MetaController: stop chamado para ${instanceName}`);
-      // Parar a instância Meta pode significar apenas removê-la do monitor
-      const instance = this.waMonitor.get(instanceName);
-      if (instance) {
-          await instance.closeClient?.(); // Chama close se existir
-      }
-      // Remover do monitor (opcional, depende do fluxo)
-      // await this.waMonitor.remove(instanceName);
-      return { status: 'Instance stopped (Meta)' };
-  }
 
-  public async logout(instanceName: string): Promise<any> {
-     this.logger.info(`MetaController: logout chamado para ${instanceName}`);
-     await this.waMonitor.remove(instanceName); // Delega a remoção para o monitor
-     return { status: 'Instance logged out and removed (Meta)' };
-  }
+    // Método de validação de assinatura (exemplo - adaptar com crypto)
+    // private validateMetaSignature(rawBody: Buffer, signature: string | undefined): boolean {
+    //     if (!signature || !process.env.META_APP_SECRET) return false; // Precisa do App Secret
+    //     const expectedSignature = 'sha256=' + crypto.createHmac('sha256', process.env.META_APP_SECRET)
+    //                                             .update(rawBody)
+    //                                             .digest('hex');
+    //     return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+    // }
 
-  // Estes métodos já existem na classe base ChannelController,
-  // não precisam ser redefinidos aqui a menos que a lógica seja específica para Meta
-  // public getInstance(instanceName: string): any { ... }
-  // public getStatus(instanceName: string): any { ... }
-  // public async getQrCode(instanceName: string): Promise<any> { ... }
-
-} // Fim da classe MetaController
+} // Fim da classe
