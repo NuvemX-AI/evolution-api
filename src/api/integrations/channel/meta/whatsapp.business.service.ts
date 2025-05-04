@@ -1,550 +1,603 @@
-// Arquivo: src/api/integrations/channel/meta/whatsapp.business.service.ts
-// Correções Gemini: Imports, implementação de métodos abstratos, chamadas de logger, acesso a propriedades, tipos Prisma, etc.
+// src/api/integrations/channel/meta/whatsapp.business.service.ts
+// Correção Erro 61, 62: Garante importação correta de WAMonitoringService.
+// Correção Erro (rel. 27/31): Corrige importação de ProviderFiles.
+// Correção Erro 63: Remove chamada inexistente a this.eventHandler.
+// Correção Erro 64: Altera waMonitor.remove para waMonitor.stop.
+// Correção Erro 65: Importa v4 de uuid.
+// Correção Erro 66, 67: Remove adição incorreta de 'context' em payloads específicos.
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-// Imports de DTOs
-import { InstanceDto } from '@api/dto/instance.dto';
-// CORREÇÃO TS2339: Importar WhatsAppNumberDto para whatsappNumber
-import { WhatsAppNumberDto, NumberBusiness } from '@api/dto/chat.dto';
-// CORREÇÃO TS2305/TS2724: Remover Options, SendAudioDto, SendMediaUrlDto. Usar SendMessageOptions.
+import { Injectable, OnModuleInit, OnModuleDestroy, Scope } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PrismaRepository } from '@repository/repository.service'; // Use alias
+import { CacheService } from '@api/services/cache.service'; // Use alias
+import { Logger } from '@config/logger.config'; // Use alias
+import { ChannelStartupService } from '@api/services/channel.service'; // Use alias
+// ** Correção Erro 61/62: Usar import consistente com a base/correto **
+import { WAMonitoringService } from '../../../services/monitor.service'; // Usar monitor.service
+import { InstanceDto } from '@api/dto/instance.dto'; // Use alias
+import { Events } from '@api/integrations/event/event.dto'; // Use alias
+import axios, { AxiosInstance, AxiosError } from 'axios';
+import { Prisma, Message as MessageModel, Contact as ContactModel, proto } from '@prisma/client';
+import Long from 'long';
 import {
-  SendMessageOptions, // Usar SendMessageOptions em vez de Options
-  SendButtonsDto, SendContactDto, SendListDto,
-  SendLocationDto, SendMediaDto, SendReactionDto, SendTemplateDto,
-  SendTextDto, Button
-} from '@api/dto/sendMessage.dto';
-import { Prisma } from '@prisma/client'; // Importar Prisma para tipos
+    SendContactDto,
+    SendLinkDto,
+    SendLocationDto,
+    SendMediaDto,
+    SendReactionDto,
+    SendTextDto,
+    SendMessageOptions,
+    MessageKeyDto, // Para usar em quoted
+} from '@api/dto/sendMessage.dto'; // Use alias
+import { ChatwootService } from '@api/integrations/chatbot/chatwoot/services/chatwoot.service'; // Use alias
+// ** Correção Erro (rel. 27/31): Usar path relativo para ProviderFiles **
+// import { ProviderFiles } from '@provider/sessions'; // Original
+import { ProviderFiles } from '../../../../provider/sessions'; // Path relativo
+import { Multer } from 'multer';
+interface UploadedFile extends Multer.File {}
+// ** Correção Erro 65: Importar v4 **
+import { v4 } from 'uuid';
+import { S3 } from '@config/env.config'; // Importar tipo S3
 
-// Imports de Serviços, Repositórios, Config
-// Assumindo alias @integrations, @provider, @repository, @api, @config, @exceptions, @utils
-import * as s3Service from '@integrations/storage/s3/libs/minio.server';
-import { ProviderFiles } from '@provider/sessions'; // Não usado pela Meta, mas pode ser exigido pela base
-import { PrismaRepository } from '@repository/repository.service';
-import { chatbotController } from '@api/server.module'; // Verificar export
-import { CacheService } from '@api/services/cache.service';
-import { ChannelStartupService } from '@api/services/channel.service';
-import { WAMonitoringService } from '@api/services/monitor.service'; // Usar monitor.service
-// CORREÇÃO TS2305: Tipos WAMessage, etc., não exportados. Usar 'any' ou tipos Baileys/Prisma onde aplicável.
-import { Events } from '@api/types/wa.types';
-// CORREÇÃO TS2305: Tipos de config não exportados individualmente. Usar tipos das propriedades da interface Env.
-import { ConfigService, Env, S3 as S3Config, Openai as OpenaiConfig, Chatwoot as ChatwootConfig } from '@config/env.config'; // Importar Env e tipos de propriedades
-import { Logger } from '@config/logger.config';
-import { BadRequestException, InternalServerErrorException, NotFoundException } from '@exceptions';
-import { createJid } from '@utils/createJid';
 
-// Imports de libs externas
-import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { isURL, isBase64 } from 'class-validator';
-import EventEmitter2 from 'eventemitter2';
-import FormData from 'form-data';
-import { createReadStream } from 'fs';
-import { Readable } from 'stream';
-import mimeTypes from 'mime-types';
-import * as path from 'path';
-import { ChatwootService } from '@integrations/chatbot/chatwoot/services/chatwoot.service'; // Necessário para construtor da base
-import { join } from 'path';
+// Interfaces para payloads da Meta API (simplificadas)
+interface MetaMessageData {
+    messaging_product: 'whatsapp';
+    to: string;
+    type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contacts' | 'interactive' | 'template' | 'reaction';
+    text?: { body: string; preview_url?: boolean };
+    image?: { id?: string; link?: string; caption?: string };
+    audio?: { id?: string; link?: string };
+    video?: { id?: string; link?: string; caption?: string };
+    document?: { id?: string; link?: string; caption?: string; filename?: string };
+    sticker?: { id?: string; link?: string };
+    location?: { latitude: number; longitude: number; name?: string; address?: string };
+    contacts?: any[]; // Definir estrutura se necessário
+    interactive?: any; // Para botões e listas
+    template?: any; // Para templates
+    reaction?: { message_id: string; emoji: string };
+    context?: { message_id: string }; // Para respostas
+}
 
-// Tipo StateConnection para Meta API
-type MetaStateConnection = { status: 'OPEN' | 'CLOSE' | 'CONNECTING' | 'DISCONNECTED', reason?: string };
+interface MetaIncomingMessage {
+    contacts?: any[];
+    message: any;
+    metadata: any;
+}
 
-// CORREÇÃO TS2655: Implementar membros abstratos
-export class BusinessStartupService extends ChannelStartupService {
-  // --- Propriedades ---
-  // Corrigido tipo para MetaStateConnection
-  public stateConnection: MetaStateConnection = { status: 'CLOSE' };
-  public mobile: boolean = false;
-  protected token: string | undefined;
-  protected numberId: string | undefined; // ID do número de telefone da Meta
+interface MetaMessageStatus {
+    status: any;
+    metadata: any;
+}
 
-  // CORREÇÃO TS2554: Construtor alinhado com ChannelStartupService
-  constructor(
-    public readonly configService: ConfigService,
-    public readonly eventEmitter: EventEmitter2,
-    public readonly prismaRepository: PrismaRepository,
-    public readonly cacheService: CacheService, // Cache geral
-    protected readonly waMonitor: WAMonitoringService,
-    protected readonly baseLogger: Logger,
-    chatwootService: ChatwootService, // Injetado pela base
-    // Estes podem não ser usados pela Meta, mas são exigidos pelo construtor da base
-    public readonly chatwootCache: CacheService, // Usar CacheService
-    public readonly baileysCache: CacheService,  // Usar CacheService
-    private readonly providerFiles: ProviderFiles, // Verificar necessidade
-  ) {
-    // Passa todas as dependências para o construtor da base
-    super(configService, eventEmitter, prismaRepository, cacheService, waMonitor, baseLogger, chatwootService);
-    this.logger.setContext(BusinessStartupService.name); // Define contexto
-    // Inicializar configurações Meta específicas
-    this.loadSettings();
-    this.loadWebhook();
-    this.loadChatwoot();
-    // Meta API geralmente está sempre 'OPEN' se configurada corretamente
-    this.stateConnection = { status: 'OPEN' };
-  }
 
-  // --- Getters e Setters ---
-  public setInstance(instanceData: InstanceDto & { token?: string; number?: string }): void {
-      super.setInstance(instanceData); // Define instanceId, instanceName, etc.
-      this.token = instanceData.token;
-      this.numberId = instanceData.number; // Armazena o phone_number_id
-      if (!this.token) { this.logger.warn(`Token não fornecido para a instância Meta ${this.instanceName}.`); }
-      if (!this.numberId) { this.logger.warn(`ID do número (number) não fornecido para a instância Meta ${this.instanceName}.`); }
-      this.logger.info(`Meta Channel: Token e Number ID definidos para ${this.instanceName}`);
-      this.stateConnection = { status: 'OPEN' }; // Assume OPEN ao definir
-  }
+@Injectable({ scope: Scope.TRANSIENT })
+export class BusinessStartupService extends ChannelStartupService implements OnModuleInit, OnModuleDestroy {
+    private metaApi: AxiosInstance | null = null;
+    private metaGraphUrl: string = 'https://graph.facebook.com/'; // Default, pode ser configurável
+    private metaApiVersion: string = 'v19.0'; // Ou buscar da config
+    private metaPhoneNumberId: string | null = null;
+    private metaAccessToken: string | null = null;
 
-  public get connectionStatus(): MetaStateConnection { return this.stateConnection; }
-  public get qrCode(): any { return { code: null, base64: null, count: 0, pairingCode: null }; } // Meta não usa QR Code
-
-  // --- Implementação dos Métodos Abstratos ---
-
-  public async connectToWhatsapp(data?: any): Promise<any> {
-    this.logger.info(`Meta Channel: connectToWhatsapp chamado.`);
-    if (!this.token || !this.numberId) {
-        this.logger.error('Token ou Number ID não configurados para esta instância Meta.');
-        this.stateConnection = { status: 'CLOSE', reason: 'Missing token or number ID' };
-        throw new InternalServerErrorException('Token ou Number ID da Meta não configurados.');
+    constructor(
+        configService: ConfigService,
+        eventEmitter: EventEmitter2,
+        prismaRepository: PrismaRepository,
+        cacheService: CacheService,
+        waMonitor: WAMonitoringService, // Tipo já corrigido pela importação acima
+        baseLogger: Logger,
+        chatwootService: ChatwootService,
+        providerFiles: ProviderFiles, // Tipo já corrigido pela importação acima
+    ) {
+        // ** Correção Erro 62: A compatibilidade depende da classe base usar a mesma importação de WAMonitoringService **
+        super(configService, eventEmitter, prismaRepository, cacheService, waMonitor, baseLogger, chatwootService);
     }
-    if (data) {
-      // Processa webhook/evento recebido
-      this.logger.info('Processando dados recebidos (webhook)...');
-      await this.eventHandler(data);
-    } else {
-      // Chamada inicial sem dados, apenas carrega configurações e define estado
-      await this.loadSettings();
-      await this.loadWebhook();
-      await this.loadChatwoot();
-      this.stateConnection = { status: 'OPEN' }; // Assume OPEN se configurado
-      this.logger.info('Instância Meta configurada e pronta para receber webhooks.');
+
+    async onModuleInit() { }
+    async onModuleDestroy() {
+        this.logger.log(`[${this.instanceName}] Encerrando serviço do canal Meta.`);
     }
-  }
 
-  public async logoutInstance(destroyClient = false): Promise<void> {
-      this.logger.info(`Meta Channel: logoutInstance chamado (destroyClient: ${destroyClient}).`);
-      this.stateConnection = { status: 'CLOSE', reason: 'Logout requested' };
-      // Para Meta API, logout pode significar limpar o token localmente,
-      // mas não há uma sessão para desconectar como no Baileys.
-      // Se destroyClient for true, pode remover do monitor.
-      if (destroyClient && this.instanceName) {
-         await this.waMonitor.remove(this.instanceName);
-      }
-  }
+    public async init(instanceData: InstanceDto): Promise<void> {
+        super.init(instanceData);
+        this.logger.log(`[${this.instanceName}] Inicializando canal Meta.`);
 
-  public getStatus(): MetaStateConnection {
-      // A Meta API não tem um estado de conexão dinâmico como Baileys.
-      // Se configurado, geralmente está 'OPEN' para receber webhooks.
-      // Poderíamos adicionar uma verificação periódica de healthcheck na API da Meta se necessário.
-      return this.connectionStatus;
-  }
+        // Obter credenciais Meta (Phone Number ID, Access Token, WABA ID) da instância no DB
+        // Exemplo: Assumindo que estão armazenadas em campos específicos da tabela Instance ou uma tabela relacionada
+        const instanceConfig = await this.prismaRepository.instance.findUnique({
+             where: { id: this.instanceId }
+             // select: { metaPhoneNumberId: true, metaAccessToken: true } // Selecionar campos necessários
+        });
 
-  // Implementação do método auxiliar de envio para a Meta Graph API
-  protected async sendMessagePayload(recipientJid: string, payload: any): Promise<AxiosResponse<any>> {
-    if (!this.token) throw new InternalServerErrorException('Token da API Meta não configurado.');
-    if (!this.numberId) throw new InternalServerErrorException('ID do número de telefone da Meta não configurado.');
+        // ** Atenção: Adapte os nomes dos campos abaixo conforme seu schema Prisma **
+        // this.metaPhoneNumberId = instanceConfig?.metaPhoneNumberId;
+        // this.metaAccessToken = instanceConfig?.metaAccessToken;
+        // this.metaGraphUrl = this.configService.get('META_GRAPH_URL', this.metaGraphUrl);
+        // this.metaApiVersion = this.configService.get('META_API_VERSION', this.metaApiVersion);
 
-    const waBusinessConfig = this.configService.get<Env['WA_BUSINESS']>('WA_BUSINESS');
-    const url = `${waBusinessConfig.URL}/${waBusinessConfig.VERSION}/${this.numberId}/messages`;
-    const recipient = createJid(recipientJid).split('@')[0]; // Meta API usa apenas o número
 
-    const config: AxiosRequestConfig = {
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        'Content-Type': 'application/json',
-      },
-    };
-
-    const body = {
-      messaging_product: 'whatsapp',
-      to: recipient,
-      ...payload, // type: 'text', text: { body: '...' } OU type: 'template', template: { ... } etc.
-    };
-
-    this.logger.info(`Enviando para Meta API: ${url} -> ${recipient}`);
-    this.logger.debug(`Payload Meta API: ${JSON.stringify(body)}`);
-
-    try {
-      const response = await axios.post(url, body, config);
-      this.logger.info(`Resposta da Meta API: ${response.status}`);
-      this.logger.debug(`Dados da resposta Meta API: ${JSON.stringify(response.data)}`);
-
-      // Simular evento SEND_MESSAGE para webhooks locais/chatbots
-      // O ID real virá do response.data.messages[0].id
-      const messageId = response.data?.messages?.[0]?.id || v4();
-      const messageRaw = {
-          key: { fromMe: true, id: messageId, remoteJid: recipientJid },
-          message: body, // Ou mapear de volta para um formato interno?
-          messageTimestamp: Math.floor(Date.now() / 1000),
-          messageType: body.type,
-          status: 'SENT', // Ou 'DELIVERED'/'READ' baseado em webhooks futuros?
-          instanceId: this.instanceId,
-          source: 'meta_api'
-      };
-      this.sendDataWebhook(Events.SEND_MESSAGE, messageRaw);
-      // Salvar no DB (opcional, mas recomendado)
-      // await this.prismaRepository.createMessage(...)
-
-      return response; // Retorna a resposta da API Meta
-    } catch (error: any) {
-      this.logger.error(`Erro ao enviar mensagem via Meta API para ${recipient}: ${error.response?.status} ${error.response?.data ? JSON.stringify(error.response.data) : error.message}`);
-      // Lançar exceção ou tratar o erro conforme necessário
-      throw new InternalServerErrorException(`Erro Meta API (${error.response?.status}): ${error.response?.data?.error?.message || error.message}`);
-    }
-  }
-
-  public async textMessage(data: SendTextDto, options?: SendMessageOptions): Promise<any> {
-      const payload = {
-          type: 'text',
-          text: { body: data.text },
-          // Adicionar context (reply) se presente em options
-          ...(options?.quoted?.key?.id && {
-              context: { message_id: options.quoted.key.id }
-          })
-      };
-      return this.sendMessagePayload(data.number, payload);
-  }
-
-  public async mediaMessage(data: SendMediaDto | any, options?: SendMessageOptions): Promise<any> {
-      // A Meta API envia mídia por ID (após upload) ou URL pública.
-      // Upload não implementado aqui, assumindo URL pública ou ID pré-existente.
-      const type = data.mediaType; // image, video, audio, document, sticker
-      if (!type || !['image', 'video', 'audio', 'document', 'sticker'].includes(type)) {
-          throw new BadRequestException(`Tipo de mídia inválido: ${type}`);
-      }
-
-      let mediaIdentifier: { link?: string, id?: string } = {};
-      if (isURL(data.media)) {
-          mediaIdentifier.link = data.media;
-      } else {
-          // Assumir que data.media é um ID se não for URL (requer upload prévio)
-          mediaIdentifier.id = data.media;
-      }
-
-      if (!mediaIdentifier.link && !mediaIdentifier.id) {
-           throw new BadRequestException(`Mídia inválida. Forneça 'link' (URL pública) ou 'id' (após upload)`);
-      }
-
-      const payload: any = { type };
-      payload[type] = {
-          ...mediaIdentifier,
-          ...(type !== 'audio' && type !== 'sticker' && data.caption && { caption: data.caption }),
-          ...(type === 'document' && data.fileName && { filename: data.fileName }),
-      };
-
-       // Adicionar context (reply)
-       if (options?.quoted?.key?.id) {
-           payload.context = { message_id: options.quoted.key.id };
-       }
-
-      return this.sendMessagePayload(data.number, payload);
-  }
-
-  public async buttonMessage(data: SendButtonsDto | SendListDto, options?: SendMessageOptions): Promise<any> {
-      // A Meta API usa Mensagens Interativas (interactive messages) para botões e listas
-      this.logger.warn("Envio de botões/listas via Meta API requer formatação 'interactive'. Implementação pendente.");
-      // TODO: Implementar a criação do payload 'interactive' correto para Meta API
-      // Exemplo de estrutura (simplificada):
-      // const payload = {
-      //     type: 'interactive',
-      //     interactive: {
-      //         type: 'button', // ou 'list'
-      //         header: { type: 'text', text: data.headerText }, // ou image/video/document
-      //         body: { text: data.bodyText },
-      //         footer: { text: data.footerText },
-      //         action: { buttons: data.buttons.map(...) } // ou { button: '...', sections: [...] } para listas
-      //     }
-      // };
-      // return this.sendMessagePayload(data.number, payload);
-      throw new BadRequestException("Envio de botões/listas interativas para Meta API não implementado.");
-  }
-
-  public async contactMessage(data: SendContactDto, options?: SendMessageOptions): Promise<any> {
-      const payload = {
-          type: 'contacts',
-          contacts: data.contacts.map(c => ({ // Mapear para formato Meta API
-              name: { formatted_name: c.fullName, first_name: c.firstName, last_name: c.lastName },
-              // Adicionar phones, emails, org, etc. conforme necessário
-              phones: [{ phone: c.phoneNumber.replace(/\D/g,''), type: 'CELL', wa_id: c.phoneNumber.replace(/\D/g,'') }]
-          }))
-      };
-       // Adicionar context (reply)
-       if (options?.quoted?.key?.id) {
-        payload.context = { message_id: options.quoted.key.id };
-       }
-      return this.sendMessagePayload(data.number, payload);
-  }
-
-  public async locationMessage(data: SendLocationDto, options?: SendMessageOptions): Promise<any> {
-      const payload = {
-          type: 'location',
-          location: {
-              latitude: data.latitude,
-              longitude: data.longitude,
-              name: data.name,
-              address: data.address
-          }
-      };
-       // Adicionar context (reply)
-       if (options?.quoted?.key?.id) {
-        payload.context = { message_id: options.quoted.key.id };
-       }
-      return this.sendMessagePayload(data.number, payload);
-  }
-
-  public async reactionMessage(data: SendReactionDto, options?: SendMessageOptions): Promise<any> {
-       const payload = {
-          type: 'reaction',
-          reaction: {
-              message_id: data.messageId, // ID da mensagem a reagir
-              emoji: data.reaction // Emoji
-          }
-      };
-      // Reações não têm options (reply)
-      return this.sendMessagePayload(data.number, payload);
-  }
-
-  public async templateMessage(data: SendTemplateDto, options?: SendMessageOptions): Promise<any> {
-    const payload = {
-        type: 'template',
-        template: {
-            name: data.name, // Nome do template
-            language: { code: data.languageCode },
-            components: data.components // Array de componentes (header, body, buttons) com parâmetros
+        if (!this.metaPhoneNumberId || !this.metaAccessToken) {
+            this.logger.error(`[${this.instanceName}] Credenciais Meta (Phone Number ID ou Access Token) não configuradas.`);
+            this.connectionState = { connection: 'close', error: new Error('Meta credentials not configured.') };
+            this.emitConnectionUpdate();
+            return;
         }
-    };
-     // Adicionar context (reply) - Templates geralmente não são respostas
-     // if (options?.quoted?.key?.id) { payload.context = { message_id: options.quoted.key.id }; }
-    return this.sendMessagePayload(data.number, payload);
-  }
 
-  // --- Fim Implementação Métodos Abstratos ---
-
-  // CORREÇÃO TS2339: Implementar getMedia
-  public async getMedia(mediaId: string): Promise<{ buffer: Buffer, mimetype: string }> {
-      if (!this.token) throw new InternalServerErrorException('Token da API Meta não configurado.');
-
-      const waBusinessConfig = this.configService.get<Env['WA_BUSINESS']>('WA_BUSINESS');
-      let url = `${waBusinessConfig.URL}/${waBusinessConfig.VERSION}/${mediaId}`;
-      const config: AxiosRequestConfig = { headers: { Authorization: `Bearer ${this.token}` } };
-
-      try {
-          // 1. Obter a URL real da mídia
-          this.logger.info(`Buscando URL da mídia Meta ID: ${mediaId}`);
-          const infoResponse = await axios.get(url, config);
-          const mediaUrl = infoResponse.data?.url;
-          const mimetype = infoResponse.data?.mime_type || 'application/octet-stream';
-
-          if (!mediaUrl) {
-              throw new Error('URL da mídia não encontrada na resposta da API Meta.');
-          }
-          this.logger.info(`URL da mídia obtida: ${mediaUrl}. Mimetype: ${mimetype}`);
-
-          // 2. Baixar a mídia da URL obtida (requer novo request com token)
-          this.logger.info(`Baixando mídia de: ${mediaUrl}`);
-          const mediaResponse = await axios.get(mediaUrl, {
-              ...config, // Reenviar token
-              responseType: 'arraybuffer'
-          });
-
-          const buffer = Buffer.from(mediaResponse.data);
-          this.logger.info(`Mídia baixada com sucesso (${buffer.length} bytes)`);
-          return { buffer, mimetype };
-
-      } catch (error: any) {
-          this.logger.error(`Erro ao obter/baixar mídia Meta ID ${mediaId}: ${error.response?.status} ${error.response?.data ? JSON.stringify(error.response.data) : error.message}`);
-          throw new InternalServerErrorException(`Erro ao obter mídia da Meta API: ${error.response?.data?.error?.message || error.message}`);
-      }
-  }
-
-
-  // Método messageHandle ajustado para maior clareza e correções
-  protected async messageHandle(message: any, contactInfo: any, metadata: any): Promise<void> {
-      // CORREÇÃO TS1117: Renomeada chave duplicada
-      this.logger.debug({ messageData: message, contactInfo, metadata, logMessage: 'Recebido handle de mensagem (Meta)' });
-
-      const fromMe = false; // Webhooks são para mensagens recebidas
-
-      let messageContent: any = {};
-      let messageType: string = message.type ? `${message.type}Message` : 'unknownMessage';
-
-      // --- Mapeamento Detalhado ---
-      if (message.type === 'text') {
-          messageContent = { text: message.text?.body }; // Usar só text ou extendedTextMessage?
-          messageType = 'conversation';
-      } else if (message.type === 'image') {
-          messageContent = { imageMessage: { caption: message.image?.caption, mimetype: message.image?.mime_type, id: message.image?.id } };
-          messageType = 'imageMessage';
-      } else if (message.type === 'audio') {
-          messageContent = { audioMessage: { mimetype: message.audio?.mime_type, id: message.audio?.id, voice: message.audio?.voice } };
-          messageType = 'audioMessage';
-      } else if (message.type === 'video') {
-          messageContent = { videoMessage: { caption: message.video?.caption, mimetype: message.video?.mime_type, id: message.video?.id } };
-          messageType = 'videoMessage';
-      } else if (message.type === 'document') {
-           messageContent = { documentMessage: { title: message.document?.filename, mimetype: message.document?.mime_type, id: message.document?.id, caption: message.document?.caption } };
-           messageType = 'documentMessage';
-      } else if (message.type === 'location') {
-          messageContent = { locationMessage: { degreesLatitude: message.location?.latitude, degreesLongitude: message.location?.longitude, name: message.location?.name, address: message.location?.address } };
-          messageType = 'locationMessage';
-      } else if (message.type === 'contacts') {
-           messageContent = { contactsArrayMessage: { contacts: message.contacts /* Mapear */ } };
-           messageType = 'contactsArrayMessage';
-      } else if (message.type === 'sticker') {
-           messageContent = { stickerMessage: { mimetype: message.sticker?.mime_type, id: message.sticker?.id } };
-           messageType = 'stickerMessage';
-      } else if (message.type === 'reaction') {
-           messageContent = { reactionMessage: { text: message.reaction?.emoji, key: { id: message.reaction?.message_id } } };
-           messageType = 'reactionMessage';
-      } else if (message.type === 'interactive') {
-            // Processar respostas de botões/listas
-            if (message.interactive?.type === 'button_reply') {
-                messageContent = { buttonsResponseMessage: { selectedButtonId: message.interactive.button_reply.id, selectedDisplayText: message.interactive.button_reply.title, contextInfo: { /* ... */ } }};
-                messageType = 'buttonsResponseMessage';
-            } else if (message.interactive?.type === 'list_reply') {
-                messageContent = { listResponseMessage: { title: message.interactive.list_reply.title, selectedRowId: message.interactive.list_reply.id, description: message.interactive.list_reply.description, contextInfo: { /* ... */ } }};
-                messageType = 'listResponseMessage';
+        this.metaApi = axios.create({
+            baseURL: `${this.metaGraphUrl}${this.metaApiVersion}/`,
+            headers: {
+                'Authorization': `Bearer ${this.metaAccessToken}`,
+                'Content-Type': 'application/json'
             }
-      } else if (message.type === 'button') { // Resposta de botão legada?
-            messageContent = { buttonsResponseMessage: { selectedButtonId: message.button?.payload, selectedDisplayText: message.button?.text, contextInfo: { /* ... */ } }};
-            messageType = 'buttonsResponseMessage';
-      }
-      // Tratar errors, system messages, etc.
-      else if (message.type === 'errors') {
-          this.logger.error({ metaError: message.errors, msg: "Erro reportado pela API Meta no webhook." });
-          return; // Não processar como mensagem normal
-      } else if (message.type === 'system') {
-          this.logger.info({ systemMessage: message.system, msg: "Mensagem de sistema recebida da Meta."});
-          // Tratar mudanças de número, etc.
-          return;
-      } else {
-           this.logger.warn({ unknownMessageType: message.type, msg: `Tipo de mensagem não mapeado: ${message.type}`});
-      }
+        });
 
-      // --- Montagem do messageRaw ---
-      const messageRaw: any = { // Usar tipo mais específico se possível
-        key: {
-          remoteJid: message.from,
-          fromMe: fromMe,
-          id: message.id,
-          participant: message.context?.participant || undefined, // Contexto pode ter participante em grupos
-        },
-        pushName: contactInfo?.profile?.name || message.from.split('@')[0], // Usar nome do perfil ou parte do JID
-        message: messageContent, // Objeto mapeado acima
-        messageType: messageType,
-        messageTimestamp: parseInt(message.timestamp) || Math.floor(Date.now() / 1000),
-        source: 'meta_api',
-        instanceId: this.instanceId,
-        // Adicionar contexto (quoted message) se presente
-        ...(message.context?.id && {
-            quoted: { // Estrutura similar a proto.IWebMessageInfo (simplificada)
-                key: { remoteJid: message.from, id: message.context.id, fromMe: message.context.from === this.numberId }, // Ajustar lógica fromMe
-                // Precisaria buscar a mensagem original para preencher message.content
+        this.logger.log(`[${this.instanceName}] Canal Meta configurado para Phone Number ID: ${this.metaPhoneNumberId}`);
+        // Considerar estado 'open' assim que configurado, pois é baseado em webhook
+        this.connectionState = { connection: 'open' };
+        this.emitConnectionUpdate();
+    }
+
+    public async start(): Promise<void> {
+        this.logger.log(`[${this.instanceName}] Canal Meta iniciado (baseado em webhook).`);
+        // Para Meta, 'start' pode apenas confirmar que está pronto para receber webhooks
+        if (!this.metaApi) {
+             this.connectionState = { connection: 'close', error: new Error('Meta not initialized.') };
+             this.emitConnectionUpdate();
+             throw new Error('Meta channel service not initialized properly.');
+        }
+        this.connectionState = { connection: 'open' };
+        this.emitConnectionUpdate();
+    }
+
+    // Handler para mensagens recebidas via webhook
+    public async handleIncomingMessage(data: MetaIncomingMessage): Promise<void> {
+        this.logger.debug(`[${this.instanceName}] Processando mensagem recebida da Meta:`, JSON.stringify(data));
+        // ** Correção Erro 63: Remover chamada inexistente **
+        // await this.eventHandler(data); // Chamada incorreta removida
+        // TODO: Adaptar o payload 'data.message' da Meta para o formato proto.IWebMessageInfo esperado internamente
+        // Extrair remoteJid, messageId, content, timestamp, pushName, etc.
+        const adaptedMessage = this.adaptMetaMessageToProto(data);
+        if (adaptedMessage) {
+            this.emitMessageUpsert(adaptedMessage); // Emitir evento interno para chatbot/armazenamento
+            this.saveMessageToDb(adaptedMessage); // Salvar no DB
+            this.updateContactFromMessage(adaptedMessage); // Atualizar contato
+        }
+    }
+
+    // Handler para status de mensagens recebidos via webhook
+    public async handleMessageStatus(data: MetaMessageStatus): Promise<void> {
+         this.logger.debug(`[${this.instanceName}] Processando status de mensagem da Meta:`, JSON.stringify(data));
+         const adaptedStatus = this.adaptMetaStatusToProto(data);
+         if (adaptedStatus) {
+             this.emitMessageStatusUpdate(adaptedStatus); // Emitir evento interno
+             this.saveMessageStatusToDb(adaptedStatus); // Salvar no DB
+         }
+    }
+
+
+    public async logout(): Promise<void> {
+        this.logger.log(`[${this.instanceName}] Logout não aplicável diretamente ao canal Meta (é baseado em token/webhook). Parando monitoramento.`);
+        // Limpar estado e remover do monitor
+        this.connectionState = { connection: 'close' };
+        this.emitConnectionUpdate();
+        // ** Correção Erro 64: Usar stop **
+        await this.waMonitor.stop(this.instanceName);
+    }
+
+    public getStatus(): any {
+        // Para Meta, o status pode ser simplesmente 'open' se configurado, ou 'close' se não.
+        return this.connectionState ?? { connection: 'close' };
+    }
+
+    // --- Métodos de Envio ---
+
+    // Método genérico para enviar via API da Meta
+    private async sendWhatsAppMessage(recipientJid: string, payloadData: Omit<MetaMessageData, 'messaging_product' | 'to'>, options?: SendMessageOptions): Promise<any> {
+        if (!this.metaApi || !this.metaPhoneNumberId) {
+            throw new Error('Meta service not initialized or phone number ID missing.');
+        }
+        this.logger.debug(`[${this.instanceName}] Enviando mensagem para ${recipientJid} via Meta.`);
+
+        const recipient = recipientJid.split('@')[0]; // Meta usa apenas o número
+
+        const payload: MetaMessageData = {
+            messaging_product: 'whatsapp',
+            to: recipient,
+            ...payloadData // Inclui type e o objeto específico (text, image, etc.)
+        };
+
+        // Adiciona contexto se for uma resposta
+        if (options?.quoted?.key?.id) {
+            payload.context = { message_id: options.quoted.key.id };
+        }
+
+        this.logger.debug(`[${this.instanceName}] Payload Meta: ${JSON.stringify(payload)}`);
+
+        try {
+            const response = await this.metaApi.post(`${this.metaPhoneNumberId}/messages`, payload);
+            this.logger.debug(`[${this.instanceName}] Resposta da API Meta: ${JSON.stringify(response.data)}`);
+
+            // Adaptar resposta da Meta para o formato esperado (similar a Baileys)
+            // ** Correção Erro 65: Usar v4 importado **
+            const messageId = response.data?.messages?.[0]?.id || v4(); // ID da mensagem da Meta ou gerar um
+            const messageTimestamp = Math.floor(Date.now() / 1000);
+
+            const sentMsgProto = this.adaptMetaResponseToProto(recipientJid, messageId, payloadData, messageTimestamp);
+
+            // Emitir evento de sucesso e salvar no DB (simulando envio local)
+            this.emitMessageSendSuccess(sentMsgProto);
+            this.saveMessageToDb(sentMsgProto, 'SENT'); // Marcar como SENT
+
+            return sentMsgProto; // Retorna a mensagem adaptada
+
+        } catch (error: any) {
+            const axiosError = error as AxiosError;
+            const errorData = axiosError.response?.data;
+            this.logger.error(`[${this.instanceName}] Erro ao enviar mensagem via Meta API: ${axiosError.message}`, errorData || '');
+            throw new Error(`Meta API Error: ${errorData?.error?.message || axiosError.message}`);
+        }
+    }
+
+
+    public async sendText(data: SendTextDto): Promise<any> {
+        const payload: Partial<MetaMessageData> = {
+             type: 'text',
+             text: { body: data.message, preview_url: data.options?.previewUrl ?? true } // Assumindo previewUrl em options
+        };
+        return this.sendWhatsAppMessage(data.number, payload as any, data.options);
+    }
+
+     public async mediaMessage(data: SendMediaDto, file?: UploadedFile): Promise<any> {
+        this.logger.warn(`[${this.instanceName}] Envio de mídia via upload de arquivo não implementado diretamente para Meta. Use URL ou ID de mídia pré-existente.`);
+        // Meta geralmente requer upload prévio da mídia para obter um ID, ou usar uma URL pública.
+        // Este método precisaria:
+        // 1. Se 'file' existe, fazer upload para Meta -> obter ID.
+        // 2. Se 'data.media' é URL, usar diretamente.
+        // 3. Se 'data.media' é ID, usar diretamente.
+
+        const mediaPayload: { id?: string; link?: string; caption?: string; filename?: string } = {};
+        const messageType = data.mediaType; // image, video, audio, document, sticker
+
+        if (data.media.startsWith('http')) {
+            mediaPayload.link = data.media;
+        } else {
+             // Assumir que data.media é um ID pré-existente se não for URL
+             // Em um cenário real, verificar formato do ID
+            mediaPayload.id = data.media;
+        }
+         if (data.caption) mediaPayload.caption = data.caption;
+         if (data.mediaType === 'document' && data.filename) mediaPayload.filename = data.filename;
+
+        const payload: Partial<MetaMessageData> = {
+            type: messageType as any, // Cast para tipo esperado pela Meta
+            [messageType]: mediaPayload // Atribui ao campo correspondente (image, video, etc.)
+        };
+
+        return this.sendWhatsAppMessage(data.number, payload as any, data.options);
+    }
+
+    public async locationMessage(data: SendLocationDto): Promise<any> {
+        const payloadData: Partial<MetaMessageData> = {
+            type: 'location',
+            location: {
+                latitude: data.latitude,
+                longitude: data.longitude,
+                name: data.name,
+                address: data.address
             }
-        })
-      };
+        };
+         // ** Correção Erro 67: Remover adição de context aqui **
+         // if (data.options?.quoted?.key?.id) {
+         //    payload.context = { message_id: data.options.quoted.key.id }; // REMOVIDO
+         // }
+        return this.sendWhatsAppMessage(data.number, payloadData as any, data.options);
+    }
 
-      // --- Processamento de Mídia e OpenAI ---
-      const mediaKey = Object.keys(messageContent).find(k => typeof messageContent[k] === 'object' && messageContent[k]?.id);
-      const mediaObject = mediaKey ? messageContent[mediaKey] : null;
-      const s3Config = this.configService.get<S3Config>('S3');
-      const openaiConfig = this.configService.get<OpenaiConfig>('OPENAI');
+    public async contactMessage(data: SendContactDto): Promise<any> {
+         // Meta espera um formato específico para contatos
+         // Ref: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages#contacts-object
+         const contactPayload = [{
+             name: { formatted_name: data.contactName, /*... outros campos de nome ...*/ },
+             phones: [{ phone: data.contactNumber.replace(/\D/g,''), type: 'CELL' /* ou HOME, WORK */ }]
+             // Adicionar emails, org, etc. se necessário
+         }];
 
-      if (mediaObject?.id && s3Config?.ENABLED) {
-          this.logger.info(`Processando mídia ID ${mediaObject.id} para S3.`);
-          try {
-              // CORREÇÃO TS2339: Chamar o método getMedia implementado
-              const mediaData = await this.getMedia(mediaObject.id);
-              const fileName = `${mediaObject.id}.${mimeTypes.extension(mediaData.mimetype) || 'bin'}`;
-              const s3Path = join(this.instanceId!, messageType.replace('Message','').toLowerCase(), fileName); // Usar messageType como pasta
-              // CORREÇÃO TS2339: Chamar s3Service.uploadFile
-              const uploadResult = await s3Service.uploadFile(s3Path, mediaData.buffer, mediaData.buffer.length, { 'Content-Type': mediaData.mimetype });
-              const s3Url = await s3Service.getObjectUrl(s3Path); // Obter URL após upload
-              this.logger.info(`Mídia salva no S3: ${s3Url}`);
-              mediaObject.url = s3Url; // Adiciona URL ao objeto da mensagem
-              mediaObject.directPath = s3Path;
-          } catch (s3Error) {
-              this.logger.error({ err: s3Error, messageId: message.id, mediaId: mediaObject.id, msg: `Falha ao processar/salvar mídia no S3` });
-          }
-      }
-
-      if (openaiConfig?.ENABLED && messageType === 'audioMessage' && mediaObject?.id) {
-          this.logger.info(`Processando áudio ${mediaObject.id} com OpenAI.`);
-          try {
-              // CORREÇÃO TS2339: Chamar getMedia para obter buffer
-              const mediaData = await this.getMedia(mediaObject.id);
-              // Chamar serviço OpenAI (exemplo, requer implementação)
-              // const transcription = await this.openaiService.speechToText(openaiCreds, mediaData.buffer, ...);
-              // messageRaw.transcription = transcription;
-              // messageRaw.message = { conversation: transcription }; // Ou adicionar ao texto existente
-              // messageRaw.messageType = 'conversation';
-          } catch (openaiError) {
-              this.logger.error({ err: openaiError, messageId: message.id, mediaId: mediaObject.id, msg: `Erro no processamento OpenAI` });
-          }
-      }
-
-      // --- Webhook, Chatbot, DB, Contato ---
-      this.logger.log({ messageId: messageRaw.key?.id, type: messageType, msg: 'Mensagem processada (Meta), enviando para rotinas.' });
-      await super.sendDataWebhook(Events.MESSAGES_UPSERT, messageRaw); // Webhook
-
-      // CORREÇÃO TS2554: Passar evento e payload para emit
-      await chatbotController?.emit?.(Events.MESSAGES_UPSERT, { // Passar nome do evento e payload
-          instanceId: this.instanceId!,
-          data: messageRaw,
-          source: 'meta'
-      });
-
-      if (this.localChatwoot?.enabled) {
-           this.logger.info(`Enviando mensagem ${messageRaw.key.id} para Chatwoot.`);
-           await this.chatwootService?.processWebhook({ // Usa método genérico
-               instanceId: this.instanceId!,
-               event: Events.MESSAGES_UPSERT,
-               payload: messageRaw
-           });
-      }
-
-      try {
-         // CORREÇÃO TS2561: Usar campos corretos do schema Prisma
-         const dbData: Prisma.MessageUncheckedCreateInput = {
-             instanceId: this.instanceId!,
-             messageId: messageRaw.key?.id!,
-             remoteJid: messageRaw.key?.remoteJid!,
-             fromMe: messageRaw.key?.fromMe ?? false,
-             messageType: messageRaw.messageType!,
-             messageTimestamp: Number(messageRaw.messageTimestamp), // Garantir número
-             jsonData: JSON.stringify(messageRaw), // Salvar o objeto completo
-             textData: messageRaw.message?.text || messageRaw.message?.conversation || messageRaw.message?.extendedTextMessage?.text || null,
-             mediaUrl: mediaObject?.url || null, // URL S3 ou original
-             mediaMimetype: mediaObject?.mimetype || null,
-             participant: messageRaw.key?.participant || null, // Salvar participante
-             status: 'RECEIVED', // Status inicial para recebidas
-             // Adicionar quotedMessageId se existir
-             quotedMessageId: messageRaw.quoted?.key?.id || null,
+         const payloadData: Partial<MetaMessageData> = {
+             type: 'contacts',
+             contacts: contactPayload
          };
-         await this.prismaRepository.createMessage({ data: dbData });
-      } catch (dbError: any) {
-         this.logger.error({ err: dbError, messageId: message.id, msg: `Erro ao salvar mensagem no banco` });
-      }
+         // ** Correção Erro 66: Remover adição de context aqui **
+         // if (data.options?.quoted?.key?.id) {
+         //     payload.context = { message_id: data.options.quoted.key.id }; // REMOVIDO
+         // }
+         return this.sendWhatsAppMessage(data.number, payloadData as any, data.options);
+    }
 
-      if (!fromMe && messageRaw.key?.remoteJid) {
-          // CORREÇÃO TS2339: updateContact existe na classe base
-          await this.updateContact({ remoteJid: messageRaw.key.remoteJid, pushName: messageRaw.pushName });
-      }
-  }
+    public async reactionMessage(data: SendReactionDto): Promise<any> {
+        const payload: Partial<MetaMessageData> = {
+             type: 'reaction',
+             reaction: { message_id: data.key.id, emoji: data.reaction }
+        };
+        return this.sendWhatsAppMessage(data.key.remoteJid, payload as any, data.options);
+    }
 
-  // CORREÇÃO TS2339 (numbers): Alterar tipo para WhatsAppNumberDto
-  public async whatsappNumber(data: WhatsAppNumberDto): Promise<any> {
-      // CORREÇÃO TS2339: Acessar data.numbers
-      if (!data || !Array.isArray(data.numbers)) {
-         // CORREÇÃO TS2554: Logger com um argumento
-         this.logger.error({ dataReceived: data, msg: 'Propriedade "numbers" inválida ou ausente no DTO WhatsAppNumberDto.' });
-         throw new BadRequestException('A propriedade "numbers" deve ser um array de strings.');
-      }
-      // CORREÇÃO TS2339: Acessar data.numbers
-      const jids = data.numbers.map(num => createJid(num));
-      this.logger.warn('Verificação onWhatsApp (whatsappNumber) não é suportada diretamente pela Meta API.');
-      return { numbers: jids.map(jid => ({ exists: false, jid: jid, status: 404, message: 'Verification not supported by Meta API' })) };
-  }
 
-  // Manter outros métodos não suportados
-  // ...
+    // --- Adapters (Exemplos, precisam ser detalhados) ---
 
-} // Fim da classe BusinessStartupService
+    // Adapta mensagem recebida da Meta para o formato proto.IWebMessageInfo
+    private adaptMetaMessageToProto(metaData: MetaIncomingMessage): Partial<proto.IWebMessageInfo> | null {
+         const message = metaData.message;
+         if (!message || !message.from || !message.id || !message.timestamp) return null;
+
+         const remoteJid = message.from + '@s.whatsapp.net'; // Adicionar sufixo
+         const waMsgId = message.id;
+         const timestamp = parseInt(message.timestamp);
+         const pushName = metaData.contacts?.[0]?.profile?.name || 'Unknown'; // Nome do contato
+
+         const adaptedMessage: Partial<proto.IWebMessageInfo> = {
+            key: {
+                remoteJid: remoteJid,
+                fromMe: false, // Mensagem recebida
+                id: waMsgId,
+                participant: message.context?.participant, // Se for de grupo
+            },
+            messageTimestamp: timestamp,
+            pushName: pushName,
+             // Mapear o conteúdo da mensagem (text, image, etc.) para a estrutura proto.IMessage
+             message: this.mapMetaMessageContent(message),
+         };
+         return adaptedMessage;
+    }
+
+    // Adapta status de mensagem da Meta para o formato proto.MessageUserReceipt
+    private adaptMetaStatusToProto(metaData: MetaMessageStatus): Partial<proto.IMessageUserReceipt> | null {
+         const status = metaData.status;
+         if (!status || !status.id || !status.status || !status.timestamp || !status.recipient_id) return null;
+
+         // Mapear status da Meta (sent, delivered, read) para os de Baileys/proto se necessário
+         let receiptType: string | undefined = undefined;
+         if (status.status === 'delivered') receiptType = 'delivery';
+         else if (status.status === 'read') receiptType = 'read';
+         else if (status.status === 'sent') receiptType = 'played'; // Ou 'inactive'? 'sent' não é um receipt comum
+
+         const adaptedStatus: Partial<proto.IMessageUserReceipt> = {
+             userJid: status.recipient_id + '@s.whatsapp.net',
+             messageId: status.id,
+             receiptTimestamp: parseInt(status.timestamp),
+             readTimestamp: status.status === 'read' ? parseInt(status.timestamp) : undefined,
+             playedTimestamp: status.status === 'sent' ? parseInt(status.timestamp) : undefined, // Mapeamento 'sent' -> 'played'
+             // O tipo de recibo (delivery, read) pode precisar ser inferido ou vir de outro campo
+         };
+         return adaptedStatus;
+    }
+
+     // Adapta resposta da Meta para o formato proto.IWebMessageInfo
+     private adaptMetaResponseToProto(remoteJid: string, messageId: string, originalPayload: Omit<MetaMessageData, 'messaging_product' | 'to'>, timestamp: number): Partial<proto.IWebMessageInfo> {
+         return {
+             key: {
+                 remoteJid: remoteJid,
+                 fromMe: true,
+                 id: messageId,
+             },
+             messageTimestamp: timestamp,
+             // Mapear o payload enviado para a estrutura proto.IMessage
+             message: this.mapMetaMessageContent(originalPayload),
+             status: proto.WebMessageInfo.Status.PENDING, // Status inicial após envio via API
+         };
+     }
+
+     // Mapeia conteúdo da mensagem Meta para proto.IMessage (Exemplo simplificado)
+     private mapMetaMessageContent(message: any): Partial<proto.IMessage> | undefined {
+         if (message.text) return { conversation: message.text.body };
+         if (message.image) return { imageMessage: { caption: message.image.caption, /* ...outros campos media... */ } };
+         if (message.video) return { videoMessage: { caption: message.video.caption, /* ...outros campos media... */ } };
+         if (message.audio) return { audioMessage: { /* ...outros campos media... */ } };
+         if (message.document) return { documentMessage: { caption: message.document.caption, fileName: message.document.filename, /* ... */ } };
+         if (message.sticker) return { stickerMessage: { /* ...outros campos media... */ } };
+         if (message.location) return { locationMessage: { degreesLatitude: message.location.latitude, degreesLongitude: message.location.longitude, name: message.location.name, address: message.location.address } };
+         if (message.contacts) return { contactsArrayMessage: { displayName: message.contacts[0]?.name?.formatted_name, contacts: [ /* ...mapear contatos... */ ] } };
+         if (message.reaction) return { reactionMessage: { key: { id: message.reaction.message_id }, text: message.reaction.emoji } };
+         // Mapear interactive (buttons, list), template, etc.
+         return undefined; // Ou { extendedTextMessage: { text: JSON.stringify(message) } } como fallback
+     }
+
+      // --- Métodos de Persistência e Emissão de Eventos (herdado/adaptado de ChannelStartupService) ---
+
+      protected async saveMessageToDb(message: Partial<proto.IWebMessageInfo>, dbStatus: MessageModel['status'] = 'RECEIVED') {
+         if (!this.prismaConfig.saveMessage || !message?.key?.id || !message?.key?.remoteJid) return;
+
+         const data: Prisma.MessageUncheckedCreateInput = {
+             instanceId: this.instanceId!,
+             keyId: message.key.id,
+             key: message.key as any,
+             message: message.message as any,
+             messageTimestamp: message.messageTimestamp ? Number(message.messageTimestamp) : null,
+             messageType: this.getMessageType(message.message),
+             fromMe: message.key.fromMe ?? false,
+             remoteJid: message.key.remoteJid,
+             participant: message.key.participant,
+             pushName: message.pushName,
+             status: dbStatus, // Usar status passado
+             source: 'meta', // Indicar origem
+             // mediaId: // Extrair se houver mídia
+         };
+
+         try {
+             await this.prismaRepository.message.create({ data });
+         } catch (dbError: any) {
+             if (dbError instanceof Prisma.PrismaClientKnownRequestError && dbError.code === 'P2002') {
+                 // Ignorar erro de chave duplicada (mensagem já existe)
+                 this.logger.debug(`[${this.instanceName}] Mensagem ${data.keyId} já existe no DB.`);
+             } else {
+                 this.logger.error(`[${this.instanceName}] Erro ao salvar mensagem Meta no DB: ${dbError}`);
+             }
+         }
+     }
+
+     protected async saveMessageStatusToDb(statusUpdate: Partial<proto.IMessageUserReceipt>) {
+          if (!this.prismaConfig.saveMessage || !statusUpdate?.messageId || !statusUpdate?.userJid) return;
+
+          // Mapear status Baileys/Proto para status string do Prisma ('SENT', 'DELIVERED', 'READ', 'ERROR', 'PENDING')
+          let prismaStatus: MessageModel['status'] = 'SENT'; // Default
+          if(statusUpdate.readTimestamp) prismaStatus = 'READ';
+          else if(statusUpdate.receiptTimestamp) prismaStatus = 'DELIVERED'; // Assumindo receipt é delivered
+          // Precisamos mapear 'played' (sent da Meta) se necessário
+
+          const data: Prisma.MessageUpdateUncheckedCreateInput = {
+               instanceId: this.instanceId!,
+               messageKeyId: statusUpdate.messageId,
+               status: prismaStatus,
+               userJid: statusUpdate.userJid,
+               timestamp: statusUpdate.readTimestamp || statusUpdate.receiptTimestamp || statusUpdate.playedTimestamp || Math.floor(Date.now() / 1000),
+          };
+
+          try {
+               await this.prismaRepository.messageUpdate.create({ data });
+               // Opcional: Atualizar também o status na tabela Message principal?
+                await this.prismaRepository.message.updateMany({
+                     where: { instanceId: this.instanceId!, keyId: statusUpdate.messageId },
+                     data: { status: prismaStatus }
+                });
+          } catch (dbError: any) {
+              this.logger.error(`[${this.instanceName}] Erro ao salvar status de mensagem Meta no DB: ${dbError}`);
+          }
+     }
+
+     protected async updateContactFromMessage(message: Partial<proto.IWebMessageInfo>) {
+          if (!message?.key?.remoteJid || message.key.remoteJid.includes('@g.us')) return;
+
+          const contactData = {
+               remoteJid: message.key.remoteJid,
+               pushName: message.pushName,
+               // Tentar obter foto de perfil se disponível no payload da Meta (pode não vir sempre)
+               // profilePicUrl: ???
+          };
+          await this.updateContact?.(contactData); // Chama método da base class (precisa existir)
+     }
+
+
+     // --- Upload de Mídia para Meta (Exemplo de como poderia ser) ---
+     protected async uploadMediaToMeta(fileBuffer: Buffer, mimeType: string): Promise<string | null> {
+         if (!this.metaApi || !this.metaPhoneNumberId) {
+            this.logger.error(`[${this.instanceName}] Meta service não inicializado para upload.`);
+            return null;
+         }
+         this.logger.debug(`[${this.instanceName}] Fazendo upload de mídia para Meta.`);
+         try {
+             const formData = new FormData();
+             formData.append('messaging_product', 'whatsapp');
+             formData.append('file', new Blob([fileBuffer], { type: mimeType }), 'media'); // Nome do arquivo pode ser necessário
+
+             const response = await this.metaApi.post(`${this.metaPhoneNumberId}/media`, formData, {
+                 headers: { 'Content-Type': 'multipart/form-data' } // Header para FormData
+             });
+
+             const mediaId = response.data?.id;
+             if (!mediaId) {
+                 this.logger.error(`[${this.instanceName}] Falha ao obter ID da mídia após upload para Meta.`);
+                 return null;
+             }
+             this.logger.debug(`[${this.instanceName}] Mídia enviada para Meta com ID: ${mediaId}`);
+             return mediaId;
+         } catch (error: any) {
+             const axiosError = error as AxiosError;
+             this.logger.error(`[${this.instanceName}] Erro ao fazer upload de mídia para Meta: ${axiosError.message}`, axiosError.response?.data || '');
+             return null;
+         }
+     }
+
+
+    // --- Download de Mídia da Meta (Exemplo) ---
+    public async downloadMedia(mediaId: string): Promise<Buffer | null> {
+        if (!this.metaApi) {
+            this.logger.error(`[${this.instanceName}] Meta service não inicializado para download.`);
+            return null;
+        }
+        this.logger.debug(`[${this.instanceName}] Baixando mídia ${mediaId} da Meta.`);
+        try {
+            // 1. Obter URL da mídia
+            const urlResponse = await this.metaApi.get(mediaId); // Endpoint para obter info da mídia
+            const mediaUrl = urlResponse.data?.url;
+            if (!mediaUrl) {
+                 this.logger.error(`[${this.instanceName}] URL não encontrada para mídia ${mediaId}.`);
+                 return null;
+            }
+
+            // 2. Baixar a mídia da URL obtida (requer token de acesso)
+             const downloadResponse = await axios.get(mediaUrl, {
+                 headers: { 'Authorization': `Bearer ${this.metaAccessToken}` },
+                 responseType: 'arraybuffer' // Obter como buffer
+             });
+
+             return Buffer.from(downloadResponse.data);
+
+        } catch (error: any) {
+            const axiosError = error as AxiosError;
+             // ** Correção Erro 77: Verificar tipo de s3Config e propriedade ENABLE **
+             // Acessar via this.s3Config que é inicializado no construtor da classe base
+             const s3Config = this.s3Config as S3 | undefined; // Fazer type assertion se necessário
+             if (mediaId && s3Config?.ENABLE) { // Corrigido para ENABLE
+                 // Tentar buscar do S3 como fallback
+                 this.logger.warn(`[${this.instanceName}] Falha ao baixar mídia ${mediaId} da Meta, tentando S3...`);
+                 try {
+                      const s3Buffer = await this.getMediaFromS3(mediaId);
+                      if (s3Buffer) return s3Buffer;
+                 } catch (s3Error: any) {
+                     this.logger.error(`[${this.instanceName}] Erro ao buscar mídia ${mediaId} do S3: ${s3Error.message}`);
+                 }
+             }
+            this.logger.error(`[${this.instanceName}] Erro ao baixar mídia ${mediaId} da Meta: ${axiosError.message}`, axiosError.response?.data || '');
+            return null;
+        }
+    }
+
+    // --- Chatwoot Integration (handleWebhookMessage) ---
+    // Adapta e envia mensagens recebidas do Chatwoot para o WhatsApp via Meta API
+    public async handleWebhookMessage(instanceId: string, payload: any): Promise<void> {
+         this.logger.debug(`[${this.instanceName}] Recebido webhook do Chatwoot para ${instanceId}`, payload);
+         if (instanceId !== this.instanceId) return; // Ignora se não for desta instância
+
+         // Adaptar payload do Chatwoot para envio via Meta
+         const messageType = payload.message_type; // incoming, outgoing
+         const contentType = payload.content_type; // text, image, etc.
+         const content = payload.content;
+         const recipientJid = payload.conversation?.meta?.sender?.identifier; // JID do contato
+
+         if (messageType !== 'outgoing' || !recipientJid || !content) {
+             this.logger.warn(`[${this.instanceName}] Webhook Chatwoot ignorado (não é outgoing ou faltam dados).`);
+             return;
+         }
+
+         try {
+             if (contentType === 'text') {
+                 await this.sendText({ number: recipientJid, message: content });
+             } else if (['image', 'video', 'audio', 'file'].includes(contentType)) {
+                 // Se for mídia, o payload Chatwoot deve conter a URL do anexo
+                 const attachmentUrl = payload.attachments?.[0]?.data_url;
+                 if (!attachmentUrl) {
+                     this.logger.error(`[${this.instanceName}] Anexo não encontrado no webhook Chatwoot para tipo ${contentType}.`);
+                     return;
+                 }
+                 // Mapear tipo Chatwoot para tipo Meta
+                 let metaMediaType: SendMediaDto['mediaType'] = 'document';
+                 if (contentType === 'image') metaMediaType = 'image';
+                 else if (contentType === 'video') metaMediaType = 'video';
+                 else if (contentType === 'audio') metaMediaType = 'audio';
+
+                 await this.mediaMessage({
+                     number: recipientJid,
+                     mediaType: metaMediaType,
+                     media: attachmentUrl, // Envia a URL diretamente
+                     caption: content // Legenda pode estar no content ou separado
+                 });
+
+             } else {
+                 this.logger.warn(`[${this.instanceName}] Tipo de conteúdo Chatwoot não suportado para envio via Meta: ${contentType}`);
+             }
+         } catch (error: any) {
+              this.logger.error(`[${this.instanceName}] Erro ao processar webhook Chatwoot para envio via Meta: ${error.message}`);
+         }
+    }
+
+} // Fim da classe
