@@ -5,6 +5,10 @@
 // Correção Erro 5: createInstance -> start
 // Correção Erro 6: remove -> stop
 // Correção Erro 7: Mantém where: { instanceName: instanceName }, adiciona comentário sobre prisma generate.
+// Correção Erro 8: Remove chamada incorreta a createInstance na função connect.
+// Correção Erros 9, 10, 11, 12, 13: Usa getStatus() ao invés de connectionState.
+// Correção Erro 14: Adiciona comentário sobre necessidade de definir sendPresence em ChannelStartupService.
+
 
 import { Request, Response } from 'express';
 import { PrismaRepository } from '@repository/repository.service'; // Ajustar path se necessário
@@ -54,7 +58,6 @@ export class InstanceController {
 
         try {
             // ** Correção Erro 5: Alterado de createInstance para start **
-            // const instanceService = await this.waMonitor.createInstance(instanceData); // Método não existe
             const instanceService = await this.waMonitor.start(instanceData); // Usa start para iniciar/criar
 
             if (!instanceService) {
@@ -68,7 +71,8 @@ export class InstanceController {
                     owner: instanceService.instance?.ownerJid || '', // Acessa via instanceService.instance
                     profileName: instanceService.instance?.profileName || '',
                     profilePictureUrl: instanceService.instance?.profilePicUrl || null,
-                    status: this.getStatusFromState(instanceService.connectionState?.connection), // Pega status da conexão
+                    // ** Correção Erro 9: Usa getStatus() **
+                    status: this.getStatusFromState(instanceService.getStatus()?.connection), // Pega status da conexão
                 },
                 hash: {
                     apikey: instanceService.instance?.token || '', // Pega token do BD
@@ -98,7 +102,6 @@ export class InstanceController {
 
         try {
             // ** Correção Erro 6: Alterado de remove para stop **
-            // await this.waMonitor.remove(instanceData.instanceName); // Método não existe
             const result = await this.waMonitor.stop(instanceName); // Usa stop para parar/remover
 
              if (result) { // stop retorna boolean ou void, verificar o retorno esperado
@@ -128,12 +131,10 @@ export class InstanceController {
 
         try {
             // Tenta buscar a instância no banco primeiro para obter dados
-            // CORREÇÃO: Prisma não deve ser acessado diretamente, usar repositório
             const instanceDb = await this.prismaRepository.instance.findUnique({
                  // ** Correção Erro 7: Manter instanceName, mas garantir que `npx prisma generate` foi executado **
                  // Se o erro persistir, pode ser necessário usar o ID único (ex: { id: instanceId })
-                where: { instanceName: instanceName }, // Tenta buscar por nome único
-                // where: { id: instanceId }, // Alternativa se instanceName não funcionar como unique input
+                where: { instanceName: instanceName }, // Tenta buscar por nome único. Garanta que 'npx prisma generate' está atualizado.
             });
 
              if (!instanceDb) {
@@ -141,16 +142,10 @@ export class InstanceController {
              }
 
              // Tenta iniciar a instância (pode já estar rodando, start deve lidar com isso)
-             // Convertendo instanceDb (PrismaInstance) para CreateInstanceDto ou similar se necessário
-             // A função start pode precisar de mais dados do que os presentes em instanceDb
-             // Simplificação: Reutilizar start passando os dados básicos
             const createDto: CreateInstanceDto = {
                 instanceName: instanceDb.instanceName,
                 token: instanceDb.token || undefined, // Passar token se existir
                 qrcode: true, // Solicitar QR code se não estiver conectado
-                // Mapear outros campos relevantes de instanceDb para CreateInstanceDto se necessário
-                // integration: instanceDb.integration as any, // Exemplo
-                // ownerJid: instanceDb.ownerJid || undefined, // Exemplo
             };
              const instanceService = await this.waMonitor.start(createDto); // Inicia/Reconecta
 
@@ -158,26 +153,25 @@ export class InstanceController {
                 throw new InternalServerErrorException(`Falha ao conectar a instância ${instanceName}.`);
             }
 
+             // ** Correção Erro 8: Linha removida daqui **
+             // return await this.createInstance(instanceDb as InstanceDto); // Chamada incorreta removida
+
             // Resposta similar ao 'create', mas talvez sem recriar hash/webhook
             const responsePayload: InstanceResponseDto = {
                  instance: {
                     instanceName: instanceName,
-                    // CORREÇÃO: Acessar propriedades via instanceService.instance
                     owner: instanceService.instance?.ownerJid || '',
                     profileName: instanceService.instance?.profileName || '',
                     profilePictureUrl: instanceService.instance?.profilePicUrl || null,
-                     // CORREÇÃO: Acessar connectionState no instanceService
-                     status: this.getStatusFromState(instanceService.connectionState?.connection),
+                     // ** Correção Erro 9: Usa getStatus() **
+                     status: this.getStatusFromState(instanceService.getStatus()?.connection),
                 },
-                 // CORREÇÃO: Token do banco de dados
                  hash: { apikey: instanceDb.token || '' },
-                // CORREÇÃO: Webhook e settings do instanceService
                  webhook: instanceService.localWebhook,
                 settings: instanceService.localSettings,
             };
 
             // Se o status for 'qrcode', adiciona o QR code na resposta
-            // CORREÇÃO: Acessar qrcode no instanceService
             if (responsePayload.instance.status === InstanceStatus.qrcode && instanceService.qrcode?.base64) {
                 responsePayload.qrcode = {
                     base64: instanceService.qrcode.base64,
@@ -211,12 +205,11 @@ export class InstanceController {
             if (!instanceService) {
                 throw new NotFoundException(`Instância ${instanceName} não encontrada ou não ativa.`);
             }
-            // CORREÇÃO: O método para reconectar/restart pode ser 'restart' ou 'reconnect'
             await instanceService.restart?.(); // Tenta chamar restart
 
              // Resposta pode ser simples ou retornar o status atualizado
-             // CORREÇÃO: Acessar connectionState no instanceService
-             const newState = instanceService.connectionState?.connection ?? 'connecting';
+             // ** Correção Erro 10: Usa getStatus() **
+             const newState = instanceService.getStatus()?.connection ?? 'connecting';
              res.status(200).json({
                  success: true,
                  message: `Reconexão solicitada para ${instanceName}.`,
@@ -246,15 +239,15 @@ export class InstanceController {
             }
             await instanceService.logout?.(); // Chama logout do service
 
-             // CORREÇÃO: Acessar connectionState no instanceService
-            const state = instanceService?.connectionState?.connection ?? 'close';
+             // ** Correção Erro 11: Usa getStatus() **
+            const state = instanceService?.getStatus()?.connection ?? 'close';
              res.status(200).json({
                  success: true,
                  message: `Logout solicitado para ${instanceName}.`,
                  status: this.getStatusFromState(state),
              });
         } catch (error: any) {
-            this.logger.error({ err: error, instance: instanceName, message: 'Erro ao fazer logout da instância' });
+             this.logger.error({ err: error, instance: instanceName, message: 'Erro ao fazer logout da instância' });
              const statusCode = error instanceof NotFoundException ? 404 :
                                 error instanceof BadRequestException ? 400 : 500;
              res.status(statusCode).json({ message: error.message || 'Erro interno do servidor' });
@@ -273,19 +266,17 @@ export class InstanceController {
         try {
             const instanceService = this.waMonitor.get(instanceName);
              if (!instanceService) {
-                 // Se não está no monitor, verifica no banco se existe
                  const instanceDb = await this.prismaRepository.instance.findUnique({ where: { instanceName } });
                  if (instanceDb) {
-                    // Existe no DB mas não está rodando
-                    res.status(200).json({ status: InstanceStatus.close }); // Ou 'created'/'disconnected'
+                    res.status(200).json({ status: InstanceStatus.close });
                     return;
                 } else {
                     throw new NotFoundException(`Instância ${instanceName} não encontrada.`);
                 }
             }
 
-            // CORREÇÃO: Acessar connectionState no instanceService
-            const state = instanceService.connectionState?.connection;
+            // ** Correção Erro 12: Usa getStatus() **
+            const state = instanceService.getStatus()?.connection;
             res.status(200).json({ status: this.getStatusFromState(state) });
         } catch (error: any) {
              this.logger.error({ err: error, instance: instanceName, message: 'Erro ao verificar status da conexão' });
@@ -308,7 +299,6 @@ export class InstanceController {
             res.status(200).json(instances);
         } catch (error: any) {
              this.logger.error({ err: error, message: 'Erro ao buscar instâncias' });
-             // Não usar error.status diretamente
              res.status(500).json({ message: error.message || 'Erro interno do servidor' });
         }
     }
@@ -330,10 +320,8 @@ export class InstanceController {
                 throw new NotFoundException(`Instância ${instanceName} não encontrada ou não ativa para atualização.`);
             }
 
-             // Delega a atualização para o service da instância
              await instanceService.updateInstanceConfig?.(updateData); // Método para atualizar config
 
-             // Responde com a configuração atualizada
              const responsePayload: Partial<InstanceResponseDto> = {
                  webhook: instanceService.localWebhook,
                  settings: instanceService.localSettings,
@@ -365,12 +353,13 @@ export class InstanceController {
                 throw new NotFoundException(`Instância ${instanceName} não encontrada ou não ativa.`);
             }
 
-            // CORREÇÃO: Acessar connectionState no instanceService
-             if (instanceService.connectionState?.connection !== 'open') {
-                throw new BadRequestException(`Instância ${instanceName} não está conectada (${instanceService.connectionState?.connection}).`);
+            // ** Correção Erro 13: Usa getStatus() **
+             if (instanceService.getStatus()?.connection !== 'open') {
+                throw new BadRequestException(`Instância ${instanceName} não está conectada (${instanceService.getStatus()?.connection}).`);
             }
 
-            // CORREÇÃO: O método pode se chamar sendPresence no instanceService
+            // ** Correção Erro 14: A chamada está correta, mas o método deve existir em ChannelStartupService **
+            // A correção real é garantir que ChannelStartupService (e suas implementações) definam 'sendPresence'.
             const result = await instanceService.sendPresence?.(presenceData);
             res.status(200).json(result);
 
@@ -392,10 +381,10 @@ export class InstanceController {
                 return InstanceStatus.connecting;
             case 'close':
                 return InstanceStatus.close;
-            case 'qr': // Baileys pode usar 'qr' ou ter lógica específica no service
+            case 'qr':
                  return InstanceStatus.qrcode;
             default:
-                return InstanceStatus.close; // Ou outro estado padrão
+                return InstanceStatus.close;
         }
     }
 }
