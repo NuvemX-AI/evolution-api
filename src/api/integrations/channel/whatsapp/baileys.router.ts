@@ -1,113 +1,54 @@
-import { RouterBroker } from '@api/abstract/abstract.router';
-import { InstanceDto } from '@api/dto/instance.dto';
-// CORREÇÃO: Verificar se HttpStatus está definido neste local ou precisa ajustar path/alias
-import { HttpStatus } from '@api/routes/index.router';
-// CORREÇÃO: Verificar se baileysController é exportado corretamente
-import { baileysController } from '@api/server.module';
-// CORREÇÃO: Usar alias @validate ou path relativo correto
-import { instanceSchema } from '@validate/instance.schema';
-import { RequestHandler, Router } from 'express'; // Importar Router do express
+// src/api/integrations/channel/whatsapp/baileys.router.ts
+// Correção Erro 74: Ajusta path do import HttpStatus.
+// Correção Erro 75: Ajusta path do import baileysController para relativo.
 
+import { Router } from 'express';
+import { ConfigService } from '@config/config.service'; // Use alias or relative path
+// ** Correção Erro 74: Corrigir path do import **
+// import { HttpStatus } from '@api/routes/index.router'; // Original
+import { HttpStatus } from '@api/constants/http-status'; // Corrigido
+import { authGuard } from '../../../guards/auth.guard'; // Ajustar path
+import { instanceGuard } from '../../../guards/instance.guard'; // Ajustar path
+// ** Correção Erro 75: Usar path relativo **
+// import { baileysController } from '@api/server.module'; // Original
+import { baileysController } from '../../../server.module'; // Path relativo
+import { RouterBroker } from '../../../abstract/abstract.router'; // Ajustar path
+
+// Exemplo de como BaileysRouter poderia ser estruturado
 export class BaileysRouter extends RouterBroker {
+    public router: Router;
+    private controller = baileysController; // Usa controller importado
 
-  // CORREÇÃO TS2339: Mover a declaração da propriedade 'router' para ANTES do construtor
-  public readonly router: Router = Router();
+    constructor(private configService: ConfigService) {
+        super('BaileysRouter'); // Nome do Router para logging/debug
+        this.router = Router();
+        this.initRoutes();
+    }
 
-  constructor(...guards: RequestHandler[]) {
-    super(); // Chamar construtor da classe base
+    protected initRoutes() {
+        const guards = [authGuard(this.configService), instanceGuard];
 
-    // Agora 'this.router' pode ser acessado aqui sem erro
-    this.router
-      .post(this.routerPath('onWhatsapp'), ...guards, async (req, res) => {
-        // A validação e execução permanecem as mesmas
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto, // Passa a classe DTO para validação
-          execute: (instance) => baileysController.onWhatsapp(instance, req.body),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('profilePictureUrl'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          execute: (instance) => baileysController.profilePictureUrl(instance, req.body),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('assertSessions'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          execute: (instance) => baileysController.assertSessions(instance, req.body),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('createParticipantNodes'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          // Nota: createParticipantNodes foi comentado no controller por não existir no service
-          // A rota pode precisar ser removida ou o método implementado no service/controller
-          execute: (instance) => baileysController.createParticipantNodes(instance, req.body),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('getUSyncDevices'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          execute: (instance) => baileysController.getUSyncDevices(instance, req.body),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('generateMessageTag'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          execute: (instance) => baileysController.generateMessageTag(instance),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('sendNode'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          execute: (instance) => baileysController.sendNode(instance, req.body),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('signalRepositoryDecryptMessage'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-           // Nota: signalRepositoryDecryptMessage foi comentado no controller por não existir no service
-           // A rota pode precisar ser removida ou o método implementado no service/controller
-          execute: (instance) => baileysController.signalRepositoryDecryptMessage(instance, req.body),
-        });
-        res.status(HttpStatus.OK).json(response);
-      })
-      .post(this.routerPath('getAuthState'), ...guards, async (req, res) => {
-        const response = await this.dataValidate<InstanceDto>({
-          request: req,
-          schema: instanceSchema,
-          ClassRef: InstanceDto,
-          execute: (instance) => baileysController.getAuthState(instance),
-        });
-        res.status(HttpStatus.OK).json(response);
-      });
-  }
+        // Exemplo de rota que usa o BaileysController
+        // POST /:instanceName/baileys/check-numbers
+        this.router.post(
+            this.routerPath('check-numbers'), // Path: /baileys/check-numbers (assumindo base /:instanceName/baileys)
+            ...guards,
+            async (req, res) => {
+                const response = await this.dataValidate({ // Valida e executa
+                    req,
+                    res,
+                    // DTOClass: CheckNumbersDto, // Criar DTO se necessário { jids: string[] }
+                    controllerAction: (instance, data) => this.controller.checkWhatsappNumbers(instance.instanceName, data),
+                    instanceRequired: true
+                });
+                // dataValidate lida com o envio da resposta
+            }
+        );
 
-  // A declaração foi movida para antes do construtor
-  // public readonly router: Router = Router();
+        // Adicione outras rotas específicas do Baileys aqui...
+    }
 }
 
-// Remover chave extra no final, se houver
+// Exemplo de instanciação (ajuste conforme sua estrutura principal)
+// const configService = new ConfigService(); // Ou injetado
+// export const baileysRouter = new BaileysRouter(configService).router;
